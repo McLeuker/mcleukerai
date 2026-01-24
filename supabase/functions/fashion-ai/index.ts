@@ -19,6 +19,24 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+// Credit costs per action type
+const CREDIT_COSTS = {
+  ai_research_query: 4,
+  market_analysis: 10,
+  trend_report: 18,
+  supplier_search: 8,
+  pdf_export: 3,
+  excel_export: 4,
+} as const;
+
+// Rate limits per plan (queries per hour)
+const RATE_LIMITS = {
+  free: { maxPerHour: 5, maxTrendReportsPerDay: 2 },
+  pro: { maxPerHour: 30, maxTrendReportsPerDay: 10 },
+  studio: { maxPerHour: 100, maxTrendReportsPerDay: 50 },
+  enterprise: { maxPerHour: null, maxTrendReportsPerDay: null }, // unlimited
+} as const;
+
 const FASHION_SYSTEM_PROMPT = `You are an expert fashion industry AI analyst, researcher, and operator. You work with fashion sourcing managers, marketers, brand teams, buyers, merchandisers, and consultants.
 
 Your role is to:
@@ -136,12 +154,34 @@ serve(async (req) => {
       });
     }
 
-    // Deduct credits before processing (10 credits per AI task)
-    const CREDITS_PER_TASK = 10;
+    // Determine action type based on prompt keywords
+    const lowerPrompt = trimmedPrompt.toLowerCase();
+    let actionType: keyof typeof CREDIT_COSTS = "ai_research_query";
+    
+    if (lowerPrompt.includes("market analysis") || lowerPrompt.includes("analyze the market")) {
+      actionType = "market_analysis";
+    } else if (lowerPrompt.includes("trend") || lowerPrompt.includes("forecast")) {
+      actionType = "trend_report";
+    } else if (lowerPrompt.includes("supplier") || lowerPrompt.includes("sourcing")) {
+      actionType = "supplier_search";
+    }
+    
+    const creditCost = CREDIT_COSTS[actionType];
+
+    // Get user's subscription plan for rate limiting
+    const { data: userData } = await supabase
+      .from("users")
+      .select("subscription_plan")
+      .eq("user_id", user.id)
+      .single();
+    
+    const userPlan = (userData?.subscription_plan || "free") as keyof typeof RATE_LIMITS;
+
+    // Deduct credits before processing
     const { data: deductResult, error: deductError } = await supabase.rpc("deduct_credits", {
       p_user_id: user.id,
-      p_amount: CREDITS_PER_TASK,
-      p_description: "AI research task"
+      p_amount: creditCost,
+      p_description: `${actionType.replace(/_/g, " ")} - AI task`
     });
 
     if (deductError || !deductResult?.success) {

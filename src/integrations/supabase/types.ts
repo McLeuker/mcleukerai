@@ -119,6 +119,7 @@ export type Database = {
           monthly_credits: number | null
           name: string | null
           profile_image: string | null
+          refills_this_month: number | null
           stripe_customer_id: string | null
           subscription_ends_at: string | null
           subscription_plan: string | null
@@ -136,6 +137,7 @@ export type Database = {
           monthly_credits?: number | null
           name?: string | null
           profile_image?: string | null
+          refills_this_month?: number | null
           stripe_customer_id?: string | null
           subscription_ends_at?: string | null
           subscription_plan?: string | null
@@ -153,6 +155,7 @@ export type Database = {
           monthly_credits?: number | null
           name?: string | null
           profile_image?: string | null
+          refills_this_month?: number | null
           stripe_customer_id?: string | null
           subscription_ends_at?: string | null
           subscription_plan?: string | null
