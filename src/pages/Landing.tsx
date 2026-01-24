@@ -3,13 +3,14 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, FileText, Table, Presentation, Sparkles, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { cn } from "@/lib/utils";
+import { Footer } from "@/components/layout/Footer";
+import mcleukerLogo from "@/assets/mcleuker-logo.png";
+
 const Landing = () => {
   const [prompt, setPrompt] = useState("");
   const navigate = useNavigate();
-  const {
-    user
-  } = useAuth();
+  const { user } = useAuth();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (prompt.trim()) {
@@ -28,45 +29,69 @@ const Landing = () => {
       }
     }
   };
-  const examplePrompts = ["Create a supplier shortlist for sustainable denim in Europe", "Analyze SS26 womenswear color trends from Milan and Paris", "Map clean beauty certifications across European markets", "Research AI adoption in fashion supply chain management"];
-  const useCases = [{
-    sector: "Fashion",
-    examples: ["Trend forecasting", "Supplier research", "Collection planning"]
-  }, {
-    sector: "Beauty",
-    examples: ["Ingredient analysis", "Market mapping", "Brand positioning"]
-  }, {
-    sector: "Sustainability",
-    examples: ["Certification audits", "Impact assessments", "Supply chain transparency"]
-  }, {
-    sector: "Fashion Tech",
-    examples: ["Technology scouting", "Innovation reports", "Competitive analysis"]
-  }];
-  return <div className="min-h-screen gradient-editorial">
+
+  const examplePrompts = [
+    "Create a supplier shortlist for sustainable denim in Europe",
+    "Analyze SS26 womenswear color trends from Milan and Paris",
+    "Map clean beauty certifications across European markets",
+    "Research AI adoption in fashion supply chain management"
+  ];
+
+  const useCases = [
+    {
+      sector: "Fashion",
+      examples: ["Trend forecasting", "Supplier research", "Collection planning"]
+    },
+    {
+      sector: "Beauty",
+      examples: ["Ingredient analysis", "Market mapping", "Brand positioning"]
+    },
+    {
+      sector: "Sustainability",
+      examples: ["Certification audits", "Impact assessments", "Supply chain transparency"]
+    },
+    {
+      sector: "Fashion Tech",
+      examples: ["Technology scouting", "Innovation reports", "Competitive analysis"]
+    }
+  ];
+
+  return (
+    <div className="min-h-screen gradient-editorial flex flex-col">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            
-            <span className="font-medium text-sm tracking-tight">McLeuker AI</span>
-          </div>
+          <Link to="/" className="flex items-center gap-2">
+            <img
+              src={mcleukerLogo}
+              alt="McLeuker AI"
+              className="h-8 w-auto"
+            />
+          </Link>
           <nav className="flex items-center gap-3">
-            <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
+            <Link
+              to="/pricing"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
+            >
               Pricing
             </Link>
-            {user ? <Button size="sm" asChild>
+            {user ? (
+              <Button size="sm" asChild>
                 <Link to="/dashboard">
                   Go to workspace
                   <ChevronRight className="h-3.5 w-3.5 ml-1" />
                 </Link>
-              </Button> : <>
+              </Button>
+            ) : (
+              <>
                 <Button variant="ghost" size="sm" asChild>
                   <Link to="/login">Sign in</Link>
                 </Button>
                 <Button size="sm" asChild>
                   <Link to="/signup">Get started</Link>
                 </Button>
-              </>}
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -126,7 +151,7 @@ const Landing = () => {
               Real deliverables, not conversation
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              Fashion AI executes complex research tasks end-to-end and generates
+              McLeuker AI executes complex research tasks end-to-end and generates
               professional outputs ready for your workflow.
             </p>
           </div>
@@ -199,21 +224,9 @@ const Landing = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground">
-            © 2024 Fashion AI. Professional intelligence for the fashion industry.
-          </p>
-          <div className="flex items-center gap-6">
-            <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground">
-              Pricing
-            </Link>
-            <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground">
-              Sign in
-            </Link>
-          </div>
-        </div>
-      </footer>
-    </div>;
+      <Footer />
+    </div>
+  );
 };
+
 export default Landing;

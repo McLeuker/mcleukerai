@@ -77,6 +77,42 @@ export type Database = {
         }
         Relationships: []
       }
+      users: {
+        Row: {
+          auth_provider: string
+          created_at: string
+          credit_balance: number
+          email: string
+          last_login_at: string
+          name: string | null
+          profile_image: string | null
+          subscription_status: string
+          user_id: string
+        }
+        Insert: {
+          auth_provider?: string
+          created_at?: string
+          credit_balance?: number
+          email: string
+          last_login_at?: string
+          name?: string | null
+          profile_image?: string | null
+          subscription_status?: string
+          user_id: string
+        }
+        Update: {
+          auth_provider?: string
+          created_at?: string
+          credit_balance?: number
+          email?: string
+          last_login_at?: string
+          name?: string | null
+          profile_image?: string | null
+          subscription_status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
