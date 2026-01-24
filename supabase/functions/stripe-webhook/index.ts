@@ -7,24 +7,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
-// Map Stripe price IDs to plan credits
+// NEW PRICING: Map Stripe price IDs to plan credits
 const PRICE_TO_CREDITS: Record<string, number> = {
-  // Monthly plans
-  "price_1St7yJB0LQyHc0cS88qHoT3y": 300,   // Starter monthly
-  "price_1St7yoB0LQyHc0cSI0bZvhFz": 1200,  // Professional monthly
-  "price_1St7zBB0LQyHc0cSfgZO131o": 3000,  // Studio monthly
-  // Yearly plans
-  "price_1St7yeB0LQyHc0cSeo1wf7wx": 300,   // Starter yearly
-  "price_1St7z1B0LQyHc0cS20F8A5PM": 1200,  // Professional yearly
-  "price_1St7zMB0LQyHc0cSTBMBNej5": 3000,  // Studio yearly
+  // Pro plans (€39/mo, 700 credits)
+  "price_1St8PXB0LQyHc0cSUfR0Sz7u": 700,   // Pro monthly
+  "price_1St8PnB0LQyHc0cSxyKT7KkJ": 700,   // Pro yearly
+  // Studio plans (€89/mo, 1800 credits)
+  "price_1St8QuB0LQyHc0cSHex3exfz": 1800,  // Studio monthly
+  "price_1St8R4B0LQyHc0cS3NOO4aXq": 1800,  // Studio yearly
 };
 
-// Credit pack amounts
-const CREDIT_PACK_AMOUNTS: Record<string, number> = {
-  "price_1St7zXB0LQyHc0cSNogSEPG3": 500,
-  "price_1St7zhB0LQyHc0cS4RCWBxIm": 1500,
-  "price_1St7zrB0LQyHc0cSFoAhNy4c": 5000,
-};
+// Credit refill (€39 for 1000 credits)
+const CREDIT_REFILL_PRICE = "price_1St8RQB0LQyHc0cSaXgacgo8";
+const CREDIT_REFILL_AMOUNT = 1000;
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -96,22 +91,42 @@ serve(async (req) => {
             p_description: "Monthly subscription credits",
           });
 
+          // Reset refills counter for new subscription
+          await supabase
+            .from("users")
+            .update({ refills_this_month: 0 })
+            .eq("user_id", userId);
+
         } else if (session.mode === "payment") {
-          // Handle one-time credit purchase
-          const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
-          const priceId = lineItems.data[0]?.price?.id;
-          const credits = priceId ? CREDIT_PACK_AMOUNTS[priceId] : 0;
+          // Handle credit refill purchase
+          const metadata = session.metadata;
+          
+          if (metadata?.type === "credit_refill") {
+            const credits = parseInt(metadata.credits || "0", 10);
+            
+            logStep("Processing credit refill", { credits });
 
-          logStep("Processing credit purchase", { priceId, credits });
+            if (credits > 0) {
+              // Add purchased credits to extra_credits
+              await supabase.rpc("add_credits", {
+                p_user_id: userId,
+                p_amount: credits,
+                p_type: "purchase",
+                p_description: `Credit refill - ${credits} credits`,
+              });
 
-          if (credits > 0) {
-            // Add purchased credits
-            await supabase.rpc("add_credits", {
-              p_user_id: userId,
-              p_amount: credits,
-              p_type: "purchase",
-              p_description: `Purchased ${credits} credits`,
-            });
+              // Increment refills counter
+              const { data: userData } = await supabase
+                .from("users")
+                .select("refills_this_month")
+                .eq("user_id", userId)
+                .single();
+
+              await supabase
+                .from("users")
+                .update({ refills_this_month: (userData?.refills_this_month || 0) + 1 })
+                .eq("user_id", userId);
+            }
           }
         }
         break;
@@ -145,12 +160,18 @@ serve(async (req) => {
             p_type: "subscription_reset",
             p_description: "Monthly subscription credits renewal",
           });
+
+          // Reset refills counter on renewal
+          await supabase
+            .from("users")
+            .update({ refills_this_month: 0 })
+            .eq("user_id", userId);
         }
         break;
       }
 
       case "customer.subscription.deleted": {
-        // Handle subscription cancellation
+        // Handle subscription cancellation - revert to free plan
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
         const customer = await stripe.customers.retrieve(customerId);
@@ -167,14 +188,16 @@ serve(async (req) => {
 
         logStep("Processing subscription cancellation", { customerId });
 
+        // Revert to free tier (40 credits/month)
         await supabase
           .from("users")
           .update({
             subscription_plan: "free",
             billing_cycle: null,
             subscription_status: "free",
-            monthly_credits: 0,
+            monthly_credits: 40, // Free tier credits
             subscription_ends_at: null,
+            refills_this_month: 0,
           })
           .eq("user_id", users[0].user_id);
         break;

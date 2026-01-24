@@ -7,16 +7,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Map Stripe price IDs to plan names and credits
+// Map Stripe price IDs to plan names and credits (NEW PRICING)
 const PRICE_TO_PLAN: Record<string, { plan: string; credits: number; billingCycle: string }> = {
-  // Monthly plans
-  "price_1St7yJB0LQyHc0cS88qHoT3y": { plan: "starter", credits: 300, billingCycle: "monthly" },
-  "price_1St7yoB0LQyHc0cSI0bZvhFz": { plan: "professional", credits: 1200, billingCycle: "monthly" },
-  "price_1St7zBB0LQyHc0cSfgZO131o": { plan: "studio", credits: 3000, billingCycle: "monthly" },
-  // Yearly plans
-  "price_1St7yeB0LQyHc0cSeo1wf7wx": { plan: "starter", credits: 300, billingCycle: "yearly" },
-  "price_1St7z1B0LQyHc0cS20F8A5PM": { plan: "professional", credits: 1200, billingCycle: "yearly" },
-  "price_1St7zMB0LQyHc0cSTBMBNej5": { plan: "studio", credits: 3000, billingCycle: "yearly" },
+  // Pro plans
+  "price_1St8PXB0LQyHc0cSUfR0Sz7u": { plan: "pro", credits: 700, billingCycle: "monthly" },
+  "price_1St8PnB0LQyHc0cSxyKT7KkJ": { plan: "pro", credits: 700, billingCycle: "yearly" },
+  // Studio plans
+  "price_1St8QuB0LQyHc0cSHex3exfz": { plan: "studio", credits: 1800, billingCycle: "monthly" },
+  "price_1St8R4B0LQyHc0cS3NOO4aXq": { plan: "studio", credits: 1800, billingCycle: "yearly" },
+};
+
+// Free plan config
+const FREE_PLAN = {
+  plan: "free",
+  credits: 40,
+  billingCycle: null,
 };
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
@@ -59,21 +64,36 @@ serve(async (req) => {
     if (customers.data.length === 0) {
       logStep("No Stripe customer found, returning free tier");
       
-      // Get current user data from database
-      const { data: userData } = await supabaseClient
+      // Ensure user exists in DB with free plan defaults
+      const { data: existingUser } = await supabaseClient
         .from("users")
-        .select("monthly_credits, extra_credits, credit_balance, subscription_plan")
+        .select("monthly_credits, extra_credits, credit_balance, subscription_plan, refills_this_month")
         .eq("user_id", user.id)
         .maybeSingle();
+
+      // If user doesn't have monthly credits set, initialize them
+      if (!existingUser || existingUser.monthly_credits === null || existingUser.monthly_credits === 0) {
+        await supabaseClient
+          .from("users")
+          .update({
+            monthly_credits: FREE_PLAN.credits,
+            subscription_plan: "free",
+            subscription_status: "free",
+          })
+          .eq("user_id", user.id);
+      }
+
+      const userData = existingUser || { monthly_credits: FREE_PLAN.credits, extra_credits: 0, credit_balance: FREE_PLAN.credits };
 
       return new Response(JSON.stringify({
         subscribed: false,
         plan: "free",
         billingCycle: null,
         subscriptionEnd: null,
-        monthlyCredits: userData?.monthly_credits || 0,
-        extraCredits: userData?.extra_credits || 0,
-        creditBalance: userData?.credit_balance || 0,
+        monthlyCredits: userData.monthly_credits || FREE_PLAN.credits,
+        extraCredits: userData.extra_credits || 0,
+        creditBalance: userData.credit_balance || FREE_PLAN.credits,
+        refillsThisMonth: existingUser?.refills_this_month || 0,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -95,7 +115,7 @@ serve(async (req) => {
       plan: "free",
       billingCycle: null as string | null,
       subscriptionEnd: null as string | null,
-      monthlyCredits: 0,
+      monthlyCredits: FREE_PLAN.credits,
     };
 
     if (subscriptions.data.length > 0) {
@@ -105,10 +125,10 @@ serve(async (req) => {
       
       subscriptionData = {
         subscribed: true,
-        plan: planInfo?.plan || "unknown",
+        plan: planInfo?.plan || "pro", // Default to pro if unknown
         billingCycle: planInfo?.billingCycle || null,
         subscriptionEnd: new Date(subscription.current_period_end * 1000).toISOString(),
-        monthlyCredits: planInfo?.credits || 0,
+        monthlyCredits: planInfo?.credits || 700,
       };
       
       logStep("Active subscription found", { 
@@ -129,7 +149,7 @@ serve(async (req) => {
         })
         .eq("user_id", user.id);
     } else {
-      logStep("No active subscription found");
+      logStep("No active subscription found, reverting to free tier");
       
       // Update user to free tier
       await supabaseClient
@@ -140,6 +160,7 @@ serve(async (req) => {
           subscription_status: "free",
           stripe_customer_id: customerId,
           subscription_ends_at: null,
+          monthly_credits: FREE_PLAN.credits,
         })
         .eq("user_id", user.id);
     }
@@ -147,15 +168,16 @@ serve(async (req) => {
     // Get updated user data
     const { data: finalUserData } = await supabaseClient
       .from("users")
-      .select("monthly_credits, extra_credits, credit_balance")
+      .select("monthly_credits, extra_credits, credit_balance, refills_this_month")
       .eq("user_id", user.id)
       .maybeSingle();
 
     return new Response(JSON.stringify({
       ...subscriptionData,
-      monthlyCredits: finalUserData?.monthly_credits || 0,
+      monthlyCredits: finalUserData?.monthly_credits || subscriptionData.monthlyCredits,
       extraCredits: finalUserData?.extra_credits || 0,
       creditBalance: finalUserData?.credit_balance || 0,
+      refillsThisMonth: finalUserData?.refills_this_month || 0,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

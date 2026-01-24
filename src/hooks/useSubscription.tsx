@@ -2,15 +2,17 @@ import { useState, useEffect, useCallback, createContext, useContext, ReactNode 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
+import { SUBSCRIPTION_PLANS } from "@/config/pricing";
 
 export interface SubscriptionState {
   subscribed: boolean;
-  plan: "free" | "starter" | "professional" | "studio";
+  plan: "free" | "pro" | "studio" | "enterprise";
   billingCycle: "monthly" | "yearly" | null;
   subscriptionEnd: string | null;
   monthlyCredits: number;
   extraCredits: number;
   creditBalance: number;
+  refillsThisMonth: number;
   loading: boolean;
 }
 
@@ -19,6 +21,8 @@ interface SubscriptionContextType extends SubscriptionState {
   createCheckout: (plan: string, billingCycle: string) => Promise<void>;
   purchaseCredits: (packId: string) => Promise<void>;
   openCustomerPortal: () => Promise<void>;
+  canRefill: () => boolean;
+  getPlanConfig: () => typeof SUBSCRIPTION_PLANS[keyof typeof SUBSCRIPTION_PLANS];
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -32,9 +36,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     plan: "free",
     billingCycle: null,
     subscriptionEnd: null,
-    monthlyCredits: 0,
+    monthlyCredits: 40, // Free plan default
     extraCredits: 0,
-    creditBalance: 0,
+    creditBalance: 40,
+    refillsThisMonth: 0,
     loading: true,
   });
 
@@ -61,9 +66,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         plan: data.plan || "free",
         billingCycle: data.billingCycle || null,
         subscriptionEnd: data.subscriptionEnd || null,
-        monthlyCredits: data.monthlyCredits || 0,
+        monthlyCredits: data.monthlyCredits || 40,
         extraCredits: data.extraCredits || 0,
-        creditBalance: data.creditBalance || 0,
+        creditBalance: data.creditBalance || data.monthlyCredits || 40,
+        refillsThisMonth: data.refillsThisMonth || 0,
         loading: false,
       });
     } catch (error) {
@@ -82,9 +88,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         plan: "free",
         billingCycle: null,
         subscriptionEnd: null,
-        monthlyCredits: 0,
+        monthlyCredits: 40,
         extraCredits: 0,
-        creditBalance: 0,
+        creditBalance: 40,
+        refillsThisMonth: 0,
         loading: false,
       });
     }
@@ -110,7 +117,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         title: "Subscription activated!",
         description: "Welcome to your new plan. Your credits have been added.",
       });
-      // Clean URL
       window.history.replaceState({}, document.title, window.location.pathname);
       refreshSubscription();
     } else if (creditsSuccess === "success" && creditsAmount) {
@@ -160,6 +166,16 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       toast({
         title: "Please sign in",
         description: "You need to be signed in to purchase credits.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if user can refill
+    if (!canRefill()) {
+      toast({
+        title: "Refill limit reached",
+        description: "You've reached your monthly refill limit.",
         variant: "destructive",
       });
       return;
@@ -218,6 +234,20 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const canRefill = () => {
+    if (!state.subscribed || state.plan === "free") return false;
+    
+    const planConfig = SUBSCRIPTION_PLANS[state.plan as keyof typeof SUBSCRIPTION_PLANS];
+    if (!planConfig || !('maxRefillsPerMonth' in planConfig)) return false;
+    
+    const maxRefills = planConfig.maxRefillsPerMonth as number;
+    return state.refillsThisMonth < maxRefills;
+  };
+
+  const getPlanConfig = () => {
+    return SUBSCRIPTION_PLANS[state.plan as keyof typeof SUBSCRIPTION_PLANS] || SUBSCRIPTION_PLANS.free;
+  };
+
   return (
     <SubscriptionContext.Provider
       value={{
@@ -226,6 +256,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         createCheckout,
         purchaseCredits,
         openCustomerPortal,
+        canRefill,
+        getPlanConfig,
       }}
     >
       {children}
