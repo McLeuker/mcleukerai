@@ -109,9 +109,9 @@ You specialize in:
 - Brand positioning and competitive analysis
 - Collection planning and merchandising`;
 
-// OpenAI API Configuration
-const OPENAI_CONFIG = {
-  model: "gpt-3.5-turbo",
+// Lovable AI Gateway Configuration (replaces OpenAI)
+const AI_CONFIG = {
+  model: "google/gemini-3-flash-preview",
   temperature: 0.7,
   max_tokens: 1000,
 };
@@ -201,11 +201,11 @@ serve(async (req) => {
       });
     }
 
-    // Get OpenAI API Key
-    const OPENAI_API_KEY = Deno.env.get("OpenAI_GPT_Key");
-    if (!OPENAI_API_KEY) {
-      console.error("OpenAI_GPT_Key is not configured");
-      return new Response(JSON.stringify({ error: "AI service not configured. Please add OpenAI API key." }), {
+    // Get Lovable AI API Key (auto-provisioned)
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      console.error("LOVABLE_API_KEY is not configured");
+      return new Response(JSON.stringify({ error: "AI service not configured." }), {
         status: 503,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -297,28 +297,28 @@ serve(async (req) => {
       steps: [{ step: "understanding", status: "running", message: "Analyzing your request..." }]
     }).eq("id", taskId);
 
-    // Make streaming request to OpenAI
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    // Make streaming request to Lovable AI Gateway
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: OPENAI_CONFIG.model,
+        model: AI_CONFIG.model,
         messages: [
           { role: "system", content: FASHION_SYSTEM_PROMPT },
           { role: "user", content: trimmedPrompt },
         ],
-        temperature: OPENAI_CONFIG.temperature,
-        max_tokens: OPENAI_CONFIG.max_tokens,
+        temperature: AI_CONFIG.temperature,
+        max_tokens: AI_CONFIG.max_tokens,
         stream: true,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("OpenAI API error:", response.status, errorText);
+      console.error("Lovable AI Gateway error:", response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "AI service rate limit exceeded. Please try again in a moment." }), {
@@ -327,13 +327,13 @@ serve(async (req) => {
         });
       }
       if (response.status === 401) {
-        return new Response(JSON.stringify({ error: "AI service authentication failed. Please check API key configuration." }), {
+        return new Response(JSON.stringify({ error: "AI service authentication failed." }), {
           status: 503,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402 || response.status === 403) {
-        return new Response(JSON.stringify({ error: "AI service quota exceeded. Please check your OpenAI account." }), {
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits to your workspace." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
