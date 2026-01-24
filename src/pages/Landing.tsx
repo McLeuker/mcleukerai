@@ -4,72 +4,69 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, FileText, Table, Presentation, Sparkles, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-
 const Landing = () => {
   const [prompt, setPrompt] = useState("");
   const navigate = useNavigate();
-  const { user } = useAuth();
-
+  const {
+    user
+  } = useAuth();
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (prompt.trim()) {
       if (user) {
-        navigate("/dashboard", { state: { initialPrompt: prompt } });
+        navigate("/dashboard", {
+          state: {
+            initialPrompt: prompt
+          }
+        });
       } else {
-        navigate("/login", { state: { redirectPrompt: prompt } });
+        navigate("/login", {
+          state: {
+            redirectPrompt: prompt
+          }
+        });
       }
     }
   };
-
-  const examplePrompts = [
-    "Create a supplier shortlist for sustainable denim in Europe",
-    "Analyze SS26 womenswear color trends from Milan and Paris",
-    "Map clean beauty certifications across European markets",
-    "Research AI adoption in fashion supply chain management",
-  ];
-
-  const useCases = [
-    { sector: "Fashion", examples: ["Trend forecasting", "Supplier research", "Collection planning"] },
-    { sector: "Beauty", examples: ["Ingredient analysis", "Market mapping", "Brand positioning"] },
-    { sector: "Sustainability", examples: ["Certification audits", "Impact assessments", "Supply chain transparency"] },
-    { sector: "Fashion Tech", examples: ["Technology scouting", "Innovation reports", "Competitive analysis"] },
-  ];
-
-  return (
-    <div className="min-h-screen gradient-editorial">
+  const examplePrompts = ["Create a supplier shortlist for sustainable denim in Europe", "Analyze SS26 womenswear color trends from Milan and Paris", "Map clean beauty certifications across European markets", "Research AI adoption in fashion supply chain management"];
+  const useCases = [{
+    sector: "Fashion",
+    examples: ["Trend forecasting", "Supplier research", "Collection planning"]
+  }, {
+    sector: "Beauty",
+    examples: ["Ingredient analysis", "Market mapping", "Brand positioning"]
+  }, {
+    sector: "Sustainability",
+    examples: ["Certification audits", "Impact assessments", "Supply chain transparency"]
+  }, {
+    sector: "Fashion Tech",
+    examples: ["Technology scouting", "Innovation reports", "Competitive analysis"]
+  }];
+  return <div className="min-h-screen gradient-editorial">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-foreground rounded flex items-center justify-center">
-              <span className="text-background font-semibold text-xs">F</span>
-            </div>
-            <span className="font-medium text-sm tracking-tight">Fashion AI</span>
+            
+            <span className="font-medium text-sm tracking-tight">McLeuker AI</span>
           </div>
           <nav className="flex items-center gap-3">
-            <Link
-              to="/pricing"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
-            >
+            <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
               Pricing
             </Link>
-            {user ? (
-              <Button size="sm" asChild>
+            {user ? <Button size="sm" asChild>
                 <Link to="/dashboard">
                   Go to workspace
                   <ChevronRight className="h-3.5 w-3.5 ml-1" />
                 </Link>
-              </Button>
-            ) : (
-              <>
+              </Button> : <>
                 <Button variant="ghost" size="sm" asChild>
                   <Link to="/login">Sign in</Link>
                 </Button>
                 <Button size="sm" asChild>
                   <Link to="/signup">Get started</Link>
                 </Button>
-              </>
-            )}
+              </>}
           </nav>
         </div>
       </header>
@@ -99,23 +96,13 @@ const Landing = () => {
           {/* Main Input */}
           <form onSubmit={handleSubmit} className="mb-6 animate-fade-in-up">
             <div className="relative max-w-2xl mx-auto">
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe your research task..."
-                className="w-full h-28 px-5 py-4 rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none shadow-elevated text-base"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit(e);
-                  }
-                }}
-              />
-              <Button
-                type="submit"
-                disabled={!prompt.trim()}
-                className="absolute bottom-4 right-4 gap-2"
-              >
+              <textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe your research task..." className="w-full h-28 px-5 py-4 rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none shadow-elevated text-base" onKeyDown={e => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }} />
+              <Button type="submit" disabled={!prompt.trim()} className="absolute bottom-4 right-4 gap-2">
                 Run task <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
@@ -125,15 +112,9 @@ const Landing = () => {
           <div className="max-w-2xl mx-auto animate-fade-in-up">
             <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wider">Try an example</p>
             <div className="flex flex-wrap justify-center gap-2">
-              {examplePrompts.map((example, i) => (
-                <button
-                  key={i}
-                  onClick={() => setPrompt(example)}
-                  className="px-3 py-1.5 text-xs text-muted-foreground bg-card hover:bg-secondary rounded-md border border-border transition-colors"
-                >
+              {examplePrompts.map((example, i) => <button key={i} onClick={() => setPrompt(example)} className="px-3 py-1.5 text-xs text-muted-foreground bg-card hover:bg-secondary rounded-md border border-border transition-colors">
                   {example}
-                </button>
-              ))}
+                </button>)}
             </div>
           </div>
         </div>
@@ -151,37 +132,25 @@ const Landing = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-5">
-            {[
-              {
-                icon: FileText,
-                title: "PDF Reports",
-                description:
-                  "Comprehensive analyses, trend reports, and executive summaries with citations.",
-              },
-              {
-                icon: Table,
-                title: "Excel Exports",
-                description:
-                  "Structured data sheets, supplier lists, and cost analyses in spreadsheet format.",
-              },
-              {
-                icon: Presentation,
-                title: "Slide Decks",
-                description:
-                  "Professional presentations for internal reviews and client meetings.",
-              },
-            ].map((feature, i) => (
-              <div
-                key={i}
-                className="p-6 rounded-lg bg-card border border-border shadow-premium group hover:shadow-elevated transition-shadow"
-              >
+            {[{
+            icon: FileText,
+            title: "PDF Reports",
+            description: "Comprehensive analyses, trend reports, and executive summaries with citations."
+          }, {
+            icon: Table,
+            title: "Excel Exports",
+            description: "Structured data sheets, supplier lists, and cost analyses in spreadsheet format."
+          }, {
+            icon: Presentation,
+            title: "Slide Decks",
+            description: "Professional presentations for internal reviews and client meetings."
+          }].map((feature, i) => <div key={i} className="p-6 rounded-lg bg-card border border-border shadow-premium group hover:shadow-elevated transition-shadow">
                 <div className="w-10 h-10 rounded-md bg-secondary flex items-center justify-center mb-4 group-hover:bg-accent transition-colors">
                   <feature.icon className="w-5 h-5 text-foreground" />
                 </div>
                 <h3 className="text-base font-medium text-foreground mb-2">{feature.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
-              </div>
-            ))}
+              </div>)}
           </div>
         </div>
 
@@ -194,26 +163,16 @@ const Landing = () => {
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            {useCases.map((category, i) => (
-              <div
-                key={i}
-                className="p-5 rounded-lg bg-card border border-border"
-              >
+            {useCases.map((category, i) => <div key={i} className="p-5 rounded-lg bg-card border border-border">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
                   {category.sector}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {category.examples.map((example, j) => (
-                    <span
-                      key={j}
-                      className="px-3 py-1.5 bg-secondary text-sm text-foreground rounded-md"
-                    >
+                  {category.examples.map((example, j) => <span key={j} className="px-3 py-1.5 bg-secondary text-sm text-foreground rounded-md">
                       {example}
-                    </span>
-                  ))}
+                    </span>)}
                 </div>
-              </div>
-            ))}
+              </div>)}
           </div>
         </div>
 
@@ -255,8 +214,6 @@ const Landing = () => {
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Landing;
