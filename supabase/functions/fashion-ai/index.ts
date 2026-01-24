@@ -58,9 +58,56 @@ serve(async (req) => {
     }
 
     const { prompt, taskId } = await req.json();
-    if (!prompt || !taskId) {
-      return new Response(JSON.stringify({ error: "Missing prompt or taskId" }), {
+    
+    // Validate prompt
+    if (!prompt || typeof prompt !== 'string') {
+      return new Response(JSON.stringify({ error: "Invalid prompt" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    // Validate prompt length (max 5000 characters)
+    const trimmedPrompt = prompt.trim();
+    if (trimmedPrompt.length === 0) {
+      return new Response(JSON.stringify({ error: "Prompt cannot be empty" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (trimmedPrompt.length > 5000) {
+      return new Response(JSON.stringify({ error: "Prompt too long (max 5000 characters)" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    // Validate taskId is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!taskId || typeof taskId !== 'string' || !uuidRegex.test(taskId)) {
+      return new Response(JSON.stringify({ error: "Invalid taskId format" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    // Verify task exists and belongs to the authenticated user
+    const { data: task, error: taskError } = await supabase
+      .from("tasks")
+      .select("user_id")
+      .eq("id", taskId)
+      .maybeSingle();
+    
+    if (taskError || !task) {
+      return new Response(JSON.stringify({ error: "Task not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    if (task.user_id !== user.id) {
+      return new Response(JSON.stringify({ error: "Unauthorized access to task" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
