@@ -153,61 +153,111 @@ export function useTasks() {
     // Start AI processing
     try {
       const session = await supabase.auth.getSession();
+      if (!session.data.session?.access_token) {
+        throw new Error("Please log in to continue");
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fashion-ai`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.data.session?.access_token}`,
+            Authorization: `Bearer ${session.data.session.access_token}`,
           },
           body: JSON.stringify({ prompt, taskId: data.id }),
         }
       );
 
+      // Handle non-OK responses
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "AI processing failed");
+        let errorMessage = "AI processing failed";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // Response might not be JSON, use status text
+          errorMessage = `Request failed: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Check content type to ensure we have a stream
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("text/event-stream")) {
+        // Might be a JSON error response
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Unexpected response format");
+        } catch (e) {
+          if (e instanceof Error && e.message !== "Unexpected response format") {
+            throw new Error("Failed to process AI response");
+          }
+          throw e;
+        }
       }
 
       // Stream the response
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let content = "";
+      let hasReceivedContent = false;
 
       if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split("\n");
 
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6).trim();
-              if (data === "[DONE]") continue;
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.content) {
-                  content += parsed.content;
-                  setStreamingContent(content);
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const eventData = line.slice(6).trim();
+                if (eventData === "[DONE]") continue;
+                try {
+                  const parsed = JSON.parse(eventData);
+                  if (parsed.content) {
+                    hasReceivedContent = true;
+                    content += parsed.content;
+                    setStreamingContent(content);
+                  }
+                  // Check for error in stream
+                  if (parsed.error) {
+                    throw new Error(parsed.error);
+                  }
+                } catch (parseError) {
+                  // Only skip if it's a JSON parse error, not a thrown error
+                  if (parseError instanceof SyntaxError) {
+                    // Skip malformed JSON
+                    continue;
+                  }
+                  throw parseError;
                 }
-              } catch {
-                // Skip malformed JSON
               }
             }
           }
+        } finally {
+          reader.releaseLock();
         }
+      }
+
+      // Check if we received any content
+      if (!hasReceivedContent && !content) {
+        console.warn("No content received from AI stream");
       }
 
       // Refresh to get final state
       await fetchTasks();
     } catch (error) {
       console.error("AI processing error:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : "AI processing failed";
+      
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "AI processing failed",
+        title: "Task Failed",
+        description: errorMessage,
         variant: "destructive",
       });
 
