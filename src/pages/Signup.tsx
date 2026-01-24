@@ -17,14 +17,31 @@ const Signup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const validatePassword = (pwd: string): string | null => {
+    if (pwd.length < 8) {
+      return "Password must be at least 8 characters.";
+    }
+    if (!/[A-Z]/.test(pwd)) {
+      return "Password must contain at least one uppercase letter.";
+    }
+    if (!/[a-z]/.test(pwd)) {
+      return "Password must contain at least one lowercase letter.";
+    }
+    if (!/[0-9]/.test(pwd)) {
+      return "Password must contain at least one number.";
+    }
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    if (password.length < 6) {
+    const passwordError = validatePassword(password);
+    if (passwordError) {
       toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters.",
+        title: "Password requirements not met",
+        description: passwordError,
         variant: "destructive",
       });
       setLoading(false);
@@ -165,10 +182,12 @@ const Signup = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                minLength={6}
+                minLength={8}
                 className="h-10"
               />
-              <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
+              <p className="text-xs text-muted-foreground">
+                Minimum 8 characters with uppercase, lowercase, and number
+              </p>
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
