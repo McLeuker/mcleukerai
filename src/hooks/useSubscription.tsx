@@ -44,15 +44,24 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   });
 
   const refreshSubscription = useCallback(async () => {
-    if (!session?.access_token) {
+    if (!user) {
       setState(prev => ({ ...prev, loading: false }));
       return;
     }
 
     try {
+      // Get fresh session to avoid expired token errors
+      const { data: sessionData } = await supabase.auth.getSession();
+      const freshToken = sessionData?.session?.access_token;
+      
+      if (!freshToken) {
+        setState(prev => ({ ...prev, loading: false }));
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("check-subscription", {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${freshToken}`,
         },
       });
 
@@ -76,7 +85,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       console.error("Error fetching subscription:", error);
       setState(prev => ({ ...prev, loading: false }));
     }
-  }, [session?.access_token]);
+  }, [user]);
 
   // Fetch subscription on mount and when user changes
   useEffect(() => {
