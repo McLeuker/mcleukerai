@@ -14,7 +14,7 @@ const Terms = () => {
               Terms of Service
             </h1>
             <p className="text-muted-foreground mb-12">
-              Last updated: January 24, 2025
+              Last updated: January 24, 2026
             </p>
 
             <div className="prose prose-neutral dark:prose-invert max-w-none">
@@ -139,8 +139,8 @@ const Terms = () => {
                   For questions about these Terms, please contact us at:
                 </p>
                 <p className="text-foreground mt-2">
-                  <a href="mailto:legal@mcleukerai.com" className="hover:underline">
-                    legal@mcleukerai.com
+                  <a href="mailto:contact@mcleuker.com" className="hover:underline">
+                    contact@mcleuker.com
                   </a>
                 </p>
               </section>
