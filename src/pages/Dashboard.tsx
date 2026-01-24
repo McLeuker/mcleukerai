@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasks, Task } from "@/hooks/useTasks";
 import { useSector } from "@/contexts/SectorContext";
@@ -12,8 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 
 const Dashboard = () => {
-  const { user, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const location = useLocation();
   const { tasks, currentTask, loading, streamingContent, createTask, selectTask } = useTasks();
   const { getSectorConfig } = useSector();
@@ -22,21 +21,14 @@ const Dashboard = () => {
   const initialPrompt = location.state?.initialPrompt;
   const sectorConfig = getSectorConfig();
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/login");
-    }
-  }, [user, authLoading, navigate]);
-
   // Handle initial prompt from landing page
   useEffect(() => {
-    if (initialPrompt && user && !authLoading) {
+    if (initialPrompt && user) {
       createTask(initialPrompt);
       // Clear the state to prevent re-triggering
       window.history.replaceState({}, document.title);
     }
-  }, [initialPrompt, user, authLoading]);
+  }, [initialPrompt, user]);
 
   const handleNewTask = async (prompt: string) => {
     await createTask(prompt);
@@ -45,18 +37,6 @@ const Dashboard = () => {
   const handleSelectTask = (task: Task) => {
     selectTask(task);
   };
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground text-sm">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-background flex">
