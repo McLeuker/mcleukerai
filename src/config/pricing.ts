@@ -2,19 +2,21 @@
 export const SUBSCRIPTION_PLANS = {
   free: {
     name: "Free",
-    description: "Get started with basic AI research",
+    description: "Discovery access with AI research",
     monthlyPrice: 0,
     yearlyPrice: 0,
     monthlyCredits: 40,
     features: [
       "40 AI credits per month",
-      "AI research only",
+      "AI research only (short queries)",
       "No exports",
-      "Rate limited",
+      "Max 5 queries per day",
     ],
     limitations: {
       noExports: true,
       rateLimit: true,
+      maxQueriesPerDay: 5,
+      maxQueriesPerMinute: 1,
     },
   },
   pro: {
@@ -34,6 +36,9 @@ export const SUBSCRIPTION_PLANS = {
       "Priority support",
     ],
     maxRefillsPerMonth: 1,
+    fairUseLimits: {
+      maxHeavyQueriesPerDay: 20, // Market Analysis / Trend Report
+    },
   },
   studio: {
     name: "Studio",
@@ -50,6 +55,7 @@ export const SUBSCRIPTION_PLANS = {
       "Dedicated support",
     ],
     maxRefillsPerMonth: 2,
+    heavyUsageThreshold: 1500, // Beyond this, heavy actions cost 2x
   },
   enterprise: {
     name: "Enterprise",
@@ -81,13 +87,24 @@ export const STRIPE_PRICES = {
   },
 } as const;
 
-// Credit refill pack (paid plans only)
-export const CREDIT_REFILL = {
-  credits: 1000,
-  price: 39,
-  priceId: "price_1St8RQB0LQyHc0cSaXgacgo8",
-  perCredit: 0.039,
+// Credit refill packs (paid plans only) - different prices per plan
+export const CREDIT_REFILLS = {
+  pro: {
+    credits: 1000,
+    price: 39,
+    priceId: "price_1St8RQB0LQyHc0cSaXgacgo8",
+    perCredit: 0.039,
+  },
+  studio: {
+    credits: 1000,
+    price: 45,
+    priceId: "price_1StBNSB0LQyHc0cSV2RmFxaD", // Studio refill price ID (to be created)
+    perCredit: 0.045,
+  },
 } as const;
+
+// Default refill for backward compatibility
+export const CREDIT_REFILL = CREDIT_REFILLS.pro;
 
 // Credit consumption per action
 export const CREDIT_COSTS = {
@@ -105,29 +122,38 @@ export const CREDIT_USAGE = Object.values(CREDIT_COSTS).map(c => ({
   credits: c.credits,
 }));
 
-// Fair-use limits
+// Fair-use limits per plan
 export const FAIR_USE_LIMITS = {
   free: {
-    maxHeavyQueriesPerHour: 5,
-    maxTrendReportsPerDay: 2,
-    maxTotalQueriesPerDay: 20,
+    maxQueriesPerDay: 5,
+    maxQueriesPerMinute: 1,
+    maxHeavyQueriesPerDay: 0, // No heavy queries for free
+    allowedActions: ["ai_research_query"], // Only basic research
   },
   pro: {
-    maxHeavyQueriesPerHour: 30,
-    maxTrendReportsPerDay: 10,
-    maxTotalQueriesPerDay: 100,
+    maxQueriesPerDay: 100,
+    maxQueriesPerMinute: null, // No per-minute limit
+    maxHeavyQueriesPerDay: 20, // Market Analysis / Trend Report
+    allowedActions: null, // All actions allowed
   },
   studio: {
-    maxHeavyQueriesPerHour: 100,
-    maxTrendReportsPerDay: 50,
-    maxTotalQueriesPerDay: 500,
+    maxQueriesPerDay: 500,
+    maxQueriesPerMinute: null,
+    maxHeavyQueriesPerDay: null, // No daily limit, but 2x cost beyond threshold
+    allowedActions: null,
+    heavyUsageThreshold: 1500, // Credits used this month before 2x kicks in
+    heavyActionMultiplier: 2, // Cost multiplier beyond threshold
   },
   enterprise: {
-    maxHeavyQueriesPerHour: null, // unlimited
-    maxTrendReportsPerDay: null,
-    maxTotalQueriesPerDay: null,
+    maxQueriesPerDay: null, // unlimited
+    maxQueriesPerMinute: null,
+    maxHeavyQueriesPerDay: null,
+    allowedActions: null,
   },
 } as const;
+
+// Heavy actions that count toward daily limits
+export const HEAVY_ACTIONS = ["market_analysis", "trend_report"] as const;
 
 export type PlanId = keyof typeof SUBSCRIPTION_PLANS;
 export type ActionType = keyof typeof CREDIT_COSTS;
