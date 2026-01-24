@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ChevronRight, Leaf, Sparkles, Play } from "lucide-react";
+import { ArrowRight, ChevronRight, Leaf, Sparkles, Search, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Footer } from "@/components/layout/Footer";
 import mcleukerLogo from "@/assets/mcleuker-logo.png";
 import heroImage from "@/assets/hero-luxury.jpg";
@@ -12,8 +13,21 @@ import sustainableImage from "@/assets/sustainable-materials.jpg";
 const Landing = () => {
   const [prompt, setPrompt] = useState("");
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const searchInputRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { creditBalance } = useSubscription();
+
+  // Get user display name
+  const getUserName = () => {
+    if (!user) return "Guest";
+    if (user.user_metadata?.full_name) return user.user_metadata.full_name;
+    if (user.user_metadata?.name) return user.user_metadata.name;
+    if (user.email) return user.email.split("@")[0];
+    return "Guest";
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -26,11 +40,15 @@ const Landing = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (prompt.trim()) {
-      if (user) {
-        navigate("/dashboard", { state: { initialPrompt: prompt } });
-      } else {
-        navigate("/login", { state: { redirectPrompt: prompt } });
-      }
+      setIsProcessing(true);
+      // Simulate brief processing animation
+      setTimeout(() => {
+        if (user) {
+          navigate("/dashboard", { state: { initialPrompt: prompt } });
+        } else {
+          navigate("/login", { state: { redirectPrompt: prompt } });
+        }
+      }, 600);
     }
   };
 
@@ -92,7 +110,7 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sticky Navigation */}
+      {/* Sticky Navigation - Adapts to dark hero */}
       <header 
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
           isScrolled 
@@ -105,28 +123,66 @@ const Landing = () => {
             <img
               src={mcleukerLogo}
               alt="McLeuker AI"
-              className="h-8 lg:h-10 w-auto"
+              className={`h-8 lg:h-10 w-auto transition-all duration-300 ${
+                isScrolled ? "" : "brightness-0 invert"
+              }`}
             />
           </Link>
           
           <nav className="hidden lg:flex items-center gap-10">
-            <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors link-underline">
+            <Link 
+              to="/about" 
+              className={`text-sm transition-colors link-underline ${
+                isScrolled 
+                  ? "text-muted-foreground hover:text-foreground" 
+                  : "text-[hsl(0,0%,70%)] hover:text-white"
+              }`}
+            >
               About
             </Link>
-            <Link to="/services" className="text-sm text-muted-foreground hover:text-foreground transition-colors link-underline">
+            <Link 
+              to="/services" 
+              className={`text-sm transition-colors link-underline ${
+                isScrolled 
+                  ? "text-muted-foreground hover:text-foreground" 
+                  : "text-[hsl(0,0%,70%)] hover:text-white"
+              }`}
+            >
               Solutions
             </Link>
-            <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors link-underline">
+            <Link 
+              to="/pricing" 
+              className={`text-sm transition-colors link-underline ${
+                isScrolled 
+                  ? "text-muted-foreground hover:text-foreground" 
+                  : "text-[hsl(0,0%,70%)] hover:text-white"
+              }`}
+            >
               Pricing
             </Link>
-            <Link to="/contact" className="text-sm text-muted-foreground hover:text-foreground transition-colors link-underline">
+            <Link 
+              to="/contact" 
+              className={`text-sm transition-colors link-underline ${
+                isScrolled 
+                  ? "text-muted-foreground hover:text-foreground" 
+                  : "text-[hsl(0,0%,70%)] hover:text-white"
+              }`}
+            >
               Contact
             </Link>
           </nav>
 
           <nav className="flex items-center gap-4">
             {user ? (
-              <Button size="sm" className="px-6" asChild>
+              <Button 
+                size="sm" 
+                className={`px-6 transition-all duration-300 ${
+                  isScrolled 
+                    ? "" 
+                    : "bg-[hsl(40,40%,58%)] hover:bg-[hsl(40,45%,50%)] text-[hsl(0,0%,5%)]"
+                }`} 
+                asChild
+              >
                 <Link to="/dashboard">
                   Enter Workspace
                   <ChevronRight className="h-4 w-4 ml-1" />
@@ -134,10 +190,25 @@ const Landing = () => {
               </Button>
             ) : (
               <>
-                <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className={`hidden sm:inline-flex ${
+                    isScrolled ? "" : "text-[hsl(0,0%,80%)] hover:text-white hover:bg-white/10"
+                  }`} 
+                  asChild
+                >
                   <Link to="/login">Sign In</Link>
                 </Button>
-                <Button size="sm" className="px-6" asChild>
+                <Button 
+                  size="sm" 
+                  className={`px-6 transition-all duration-300 ${
+                    isScrolled 
+                      ? "" 
+                      : "bg-[hsl(40,40%,58%)] hover:bg-[hsl(40,45%,50%)] text-[hsl(0,0%,5%)]"
+                  }`}
+                  asChild
+                >
                   <Link to="/signup">Get Started</Link>
                 </Button>
               </>
@@ -146,61 +217,148 @@ const Landing = () => {
         </div>
       </header>
 
-      {/* Hero Section - Full Screen */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background Image */}
-        <div className="absolute inset-0">
-          <img 
-            src={heroImage} 
-            alt="Luxury fashion materials" 
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background"></div>
-        </div>
+      {/* Hero Section - Full Screen Dark Theme */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-hero-dark">
+        {/* Subtle gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(0,0%,0%)] via-[hsl(0,0%,4%)] to-[hsl(0,0%,6%)]" />
+        
+        {/* Subtle noise texture */}
+        <div 
+          className="absolute inset-0 opacity-[0.015]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+          }}
+        />
 
         {/* Hero Content */}
-        <div className="relative z-10 container mx-auto px-6 lg:px-12 pt-24 pb-32">
+        <div className="relative z-10 container mx-auto px-6 lg:px-12 pt-24 pb-16 lg:pb-24">
           <div className="max-w-4xl mx-auto text-center">
+            
+            {/* Personalized Greeting */}
+            <h2 className="font-montserrat text-2xl md:text-3xl lg:text-4xl font-bold text-[hsl(0,0%,90%)] mb-4 tracking-tight animate-fade-in">
+              Where is my mind — <span className="text-[hsl(40,40%,70%)]">{getUserName()}</span>
+            </h2>
+
             {/* Tagline */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 mb-10 animate-fade-in">
-              <Sparkles className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground tracking-wide">
-                AI & Sustainability for Fashion
-              </span>
-            </div>
-
-            {/* Main Headline */}
-            <h1 className="font-luxury text-5xl md:text-6xl lg:text-7xl xl:text-8xl text-foreground mb-8 leading-[1.05] animate-fade-in-slow">
-              The Future of<br />Fashion Intelligence
-            </h1>
-
-            {/* Subheadline */}
-            <p className="text-lg md:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed animate-fade-in">
-              From a single prompt to finished reports, sourcing sheets, and presentation decks. 
-              AI-powered research for fashion professionals who demand excellence.
+            <p className="text-[hsl(0,0%,55%)] text-base md:text-lg mb-10 lg:mb-14 max-w-xl mx-auto font-lato animate-fade-in">
+              AI-powered fashion intelligence at your fingertips
             </p>
 
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up">
-              <Button size="lg" className="px-8 py-6 text-base" asChild>
-                <Link to="/signup">
-                  Discover McLeuker AI
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" className="px-8 py-6 text-base bg-background/50 backdrop-blur-sm" asChild>
-                <Link to="/contact">
-                  Request a Demo
-                </Link>
-              </Button>
+            {/* AI Search Bar */}
+            <form onSubmit={handleSubmit} className="max-w-3xl mx-auto mb-10 lg:mb-14 animate-fade-in-slow">
+              <div 
+                className={`relative rounded-2xl transition-all duration-500 ${
+                  isFocused 
+                    ? "glow-hero-gold" 
+                    : "animate-subtle-pulse"
+                }`}
+              >
+                {/* Search Input Container */}
+                <div className="relative bg-[hsl(0,0%,8%)] rounded-2xl border border-[hsl(0,0%,15%)] overflow-hidden">
+                  <div className="flex items-start">
+                    {/* Search Icon */}
+                    <div className="flex-shrink-0 pl-5 pt-5">
+                      {isProcessing ? (
+                        <Loader2 className="w-5 h-5 text-[hsl(40,40%,58%)] animate-spin" />
+                      ) : (
+                        <Search className="w-5 h-5 text-[hsl(0,0%,45%)]" />
+                      )}
+                    </div>
+                    
+                    {/* Textarea */}
+                    <textarea
+                      ref={searchInputRef}
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      onFocus={() => setIsFocused(true)}
+                      onBlur={() => setIsFocused(false)}
+                      placeholder="What would you like to research?"
+                      className="flex-1 w-full min-h-[100px] md:min-h-[120px] px-4 py-5 bg-transparent text-[hsl(0,0%,92%)] placeholder:text-[hsl(0,0%,40%)] focus:outline-none resize-none text-base md:text-lg font-lato leading-relaxed"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSubmit(e);
+                        }
+                      }}
+                      disabled={isProcessing}
+                    />
+                  </div>
+                  
+                  {/* Bottom Bar */}
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-[hsl(0,0%,12%)]">
+                    {/* Credits Display (if logged in) */}
+                    <div className="flex items-center gap-2">
+                      {user && (
+                        <span className="text-xs text-[hsl(0,0%,45%)] font-medium">
+                          {creditBalance} credits available
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Submit Button */}
+                    <Button
+                      type="submit"
+                      disabled={!prompt.trim() || isProcessing}
+                      size="sm"
+                      className="bg-[hsl(40,40%,58%)] hover:bg-[hsl(40,45%,50%)] text-[hsl(0,0%,5%)] font-medium px-5 py-2 rounded-lg transition-all duration-300 disabled:opacity-40"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Processing
+                        </>
+                      ) : (
+                        <>
+                          Run
+                          <ArrowRight className="w-4 h-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </form>
+
+            {/* Quick Suggestion Prompts */}
+            <div className="max-w-3xl mx-auto animate-fade-in">
+              <div className="flex flex-wrap justify-center gap-2 md:gap-3">
+                {suggestionPrompts.map((suggestion, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setPrompt(suggestion.prompt);
+                      searchInputRef.current?.focus();
+                    }}
+                    className="group px-4 py-2 rounded-full bg-[hsl(0,0%,10%)] border border-[hsl(0,0%,18%)] hover:border-[hsl(40,40%,40%)] hover:bg-[hsl(0,0%,12%)] transition-all duration-300 text-left"
+                  >
+                    <span className="text-sm text-[hsl(0,0%,65%)] group-hover:text-[hsl(40,40%,70%)] font-medium transition-colors">
+                      {suggestion.title}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Recent Tasks Quick Access (if logged in) */}
+            {user && (
+              <div className="mt-8 animate-fade-in">
+                <Link 
+                  to="/dashboard"
+                  className="inline-flex items-center gap-2 text-sm text-[hsl(0,0%,45%)] hover:text-[hsl(40,40%,65%)] transition-colors"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  View recent tasks
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Scroll Indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <div className="w-6 h-10 rounded-full border-2 border-muted-foreground/30 flex items-start justify-center p-2">
-            <div className="w-1 h-2 bg-muted-foreground/50 rounded-full"></div>
+          <div className="w-6 h-10 rounded-full border-2 border-[hsl(0,0%,25%)] flex items-start justify-center p-2">
+            <div className="w-1 h-2 bg-[hsl(0,0%,40%)] rounded-full"></div>
           </div>
         </div>
       </section>
@@ -411,67 +569,41 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Interactive Demo Section */}
-      <section className="py-24 lg:py-32 bg-foreground text-background">
+      {/* Second CTA Section - Simplified */}
+      <section className="py-24 lg:py-32 bg-[hsl(0,0%,4%)] text-white">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-4xl mx-auto text-center">
-            <p className="text-sm text-background/60 uppercase tracking-[0.2em] mb-4">
-              Experience the Platform
+            <p className="text-sm text-[hsl(0,0%,50%)] uppercase tracking-[0.2em] mb-4">
+              Ready to Transform Your Research?
             </p>
-            <h2 className="font-luxury text-4xl md:text-5xl text-background mb-8">
-              Try McLeuker AI
+            <h2 className="font-montserrat text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-8">
+              Start Your AI Journey Today
             </h2>
-            <p className="text-background/70 text-lg mb-10 max-w-2xl mx-auto">
-              Describe your research task and let our AI deliver professional-grade intelligence.
+            <p className="text-[hsl(0,0%,60%)] text-lg mb-10 max-w-2xl mx-auto font-lato">
+              Join fashion professionals who are already saving hours on research with AI-powered intelligence.
             </p>
 
-            {/* Interactive Input */}
-            <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-12">
-              <div className="relative">
-                <textarea 
-                  value={prompt} 
-                  onChange={e => setPrompt(e.target.value)} 
-                  placeholder="e.g., Analyze SS26 womenswear color trends from Milan and Paris..." 
-                  className="w-full h-32 px-6 py-5 rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none text-base"
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSubmit(e);
-                    }
-                  }} 
-                />
-                <Button 
-                  type="submit" 
-                  disabled={!prompt.trim()} 
-                  className="absolute bottom-4 right-4"
-                >
-                  Run Task
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </form>
-
-            {/* Suggestion Prompts */}
-            <div className="max-w-3xl mx-auto">
-              <p className="text-sm text-background/50 uppercase tracking-[0.15em] mb-6">
-                Try one of these examples
-              </p>
-              <div className="grid sm:grid-cols-2 gap-3">
-                {suggestionPrompts.map((suggestion, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setPrompt(suggestion.prompt)}
-                    className="group p-4 rounded-lg bg-background/10 border border-background/20 hover:bg-background/20 hover:border-background/30 transition-all text-left"
-                  >
-                    <p className="text-sm font-medium text-background mb-1">
-                      {suggestion.title}
-                    </p>
-                    <p className="text-sm text-background/60 line-clamp-2">
-                      {suggestion.prompt}
-                    </p>
-                  </button>
-                ))}
-              </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Button 
+                size="lg" 
+                className="px-10 py-6 text-base bg-[hsl(40,40%,58%)] hover:bg-[hsl(40,45%,50%)] text-[hsl(0,0%,5%)]" 
+                asChild
+              >
+                <Link to="/signup">
+                  Start Free Trial
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Link>
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="px-10 py-6 text-base border-[hsl(0,0%,25%)] text-white hover:bg-[hsl(0,0%,10%)]" 
+                asChild
+              >
+                <Link to="/contact">
+                  Request Demo
+                </Link>
+              </Button>
             </div>
           </div>
         </div>
