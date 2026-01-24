@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Task, TaskStep, TaskFile } from "@/hooks/useTasks";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import DOMPurify from "dompurify";
 
 interface TaskExecutionProps {
   task: Task;
@@ -54,7 +56,19 @@ const fileIcons = {
 };
 
 export function TaskExecution({ task, streamingContent, isLoading }: TaskExecutionProps) {
-  const content = streamingContent || task.result?.content || "";
+  const rawContent = streamingContent || task.result?.content || "";
+  
+  // Sanitize AI-generated content to prevent XSS attacks
+  const content = useMemo(() => {
+    if (!rawContent) return "";
+    // DOMPurify sanitizes any potentially malicious HTML/scripts
+    // This provides defense-in-depth alongside ReactMarkdown's built-in escaping
+    return DOMPurify.sanitize(rawContent, {
+      ALLOWED_TAGS: [], // Strip all HTML tags - we only want plain markdown
+      ALLOWED_ATTR: [], // Strip all attributes
+    });
+  }, [rawContent]);
+  
   const steps = task.steps.length > 0 ? task.steps : getDefaultSteps(task.status);
 
   return (
