@@ -372,7 +372,10 @@ serve(async (req) => {
       });
     }
 
-    const { prompt, taskId } = await req.json();
+    const { prompt, taskId, conversationId } = await req.json();
+    
+    // Support both legacy taskId and new conversationId modes
+    const isLegacyMode = !!taskId;
     
     // Validate prompt
     if (!prompt || typeof prompt !== 'string') {
@@ -396,34 +399,36 @@ serve(async (req) => {
       });
     }
     
-    // Validate taskId
+    // Validate taskId only in legacy mode
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!taskId || typeof taskId !== 'string' || !uuidRegex.test(taskId)) {
-      return new Response(JSON.stringify({ error: "Invalid taskId format" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    
-    // Verify task ownership
-    const { data: task, error: taskError } = await supabase
-      .from("tasks")
-      .select("user_id")
-      .eq("id", taskId)
-      .maybeSingle();
-    
-    if (taskError || !task) {
-      return new Response(JSON.stringify({ error: "Task not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    
-    if (task.user_id !== user.id) {
-      return new Response(JSON.stringify({ error: "Unauthorized access to task" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (isLegacyMode) {
+      if (!taskId || typeof taskId !== 'string' || !uuidRegex.test(taskId)) {
+        return new Response(JSON.stringify({ error: "Invalid taskId format" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      // Verify task ownership
+      const { data: task, error: taskError } = await supabase
+        .from("tasks")
+        .select("user_id")
+        .eq("id", taskId)
+        .maybeSingle();
+      
+      if (taskError || !task) {
+        return new Response(JSON.stringify({ error: "Task not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      if (task.user_id !== user.id) {
+        return new Response(JSON.stringify({ error: "Unauthorized access to task" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Get Hugging Face API Key
