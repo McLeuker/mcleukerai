@@ -1,67 +1,89 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useTasks, Task } from "@/hooks/useTasks";
+import { useConversations } from "@/hooks/useConversations";
 import { useSector } from "@/contexts/SectorContext";
-import { TaskSidebar } from "@/components/dashboard/TaskSidebar";
-import { MobileTaskSidebar } from "@/components/dashboard/MobileTaskSidebar";
-import { TaskInput } from "@/components/dashboard/TaskInput";
-import { TaskExecution } from "@/components/dashboard/TaskExecution";
-import { EmptyState } from "@/components/dashboard/EmptyState";
+import { ChatSidebar } from "@/components/dashboard/ChatSidebar";
+import { MobileChatSidebar } from "@/components/dashboard/MobileChatSidebar";
+import { ChatView } from "@/components/dashboard/ChatView";
+import { ChatInput } from "@/components/dashboard/ChatInput";
 import { DomainSelector } from "@/components/dashboard/DomainSelector";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { CreditDisplay } from "@/components/dashboard/CreditDisplay";
 import { TopNavigation } from "@/components/layout/TopNavigation";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FileDown, FileSpreadsheet } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { exportToPDF, exportToExcel, exportFavoritesToPDF, exportFavoritesToExcel } from "@/utils/chatExport";
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const location = useLocation();
-  const { tasks, currentTask, loading, streamingContent, createTask, selectTask } = useTasks();
+  const {
+    conversations,
+    currentConversation,
+    messages,
+    loading,
+    streamingContent,
+    sendMessage,
+    createNewConversation,
+    selectConversation,
+    toggleFavorite,
+    deleteMessage,
+    deleteConversation,
+  } = useConversations();
   const { getSectorConfig } = useSector();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const initialPrompt = location.state?.initialPrompt;
   const sectorConfig = getSectorConfig();
 
-  // Handle initial prompt from landing page
-  useEffect(() => {
-    if (initialPrompt && user) {
-      createTask(initialPrompt);
-      // Clear the state to prevent re-triggering
-      window.history.replaceState({}, document.title);
-    }
-  }, [initialPrompt, user]);
-
-  const handleNewTask = async (prompt: string) => {
-    await createTask(prompt);
+  const handleSendMessage = async (message: string) => {
+    await sendMessage(message);
   };
 
-  const handleSelectTask = (task: Task) => {
-    selectTask(task);
+  const handleExportPDF = () => {
+    exportToPDF(currentConversation, messages);
   };
 
-  const handleClearTask = () => {
-    selectTask(null as any);
+  const handleExportExcel = () => {
+    exportToExcel(currentConversation, messages);
   };
+
+  const handleExportFavoritesPDF = () => {
+    exportFavoritesToPDF(currentConversation, messages);
+  };
+
+  const handleExportFavoritesExcel = () => {
+    exportFavoritesToExcel(currentConversation, messages);
+  };
+
+  const hasFavorites = messages.some((m) => m.is_favorite);
 
   return (
     <div className="min-h-screen bg-background flex w-full">
       {/* Desktop Sidebar */}
-      <TaskSidebar
-        tasks={tasks}
-        currentTask={currentTask}
+      <ChatSidebar
+        conversations={conversations}
+        currentConversation={currentConversation}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
-        onSelectTask={handleSelectTask}
-        onNewTask={handleClearTask}
+        onSelectConversation={selectConversation}
+        onNewConversation={createNewConversation}
+        onDeleteConversation={deleteConversation}
       />
 
       {/* Main Content */}
-      <div className={cn(
-        "flex-1 flex flex-col min-h-screen transition-all duration-300",
-        sidebarOpen ? "lg:ml-72" : "lg:ml-14"
-      )}>
+      <div
+        className={cn(
+          "flex-1 flex flex-col min-h-screen transition-all duration-300",
+          sidebarOpen ? "lg:ml-72" : "lg:ml-14"
+        )}
+      >
         {/* Top Navigation */}
         <TopNavigation showSectorTabs={false} showCredits={true} />
 
@@ -71,11 +93,12 @@ const Dashboard = () => {
         {/* Mobile Header */}
         <div className="lg:hidden border-b border-border bg-background/95 backdrop-blur-sm sticky top-14 z-30">
           <div className="flex items-center justify-between gap-3 px-4 py-3">
-            <MobileTaskSidebar
-              tasks={tasks}
-              currentTask={currentTask}
-              onSelectTask={handleSelectTask}
-              onNewTask={handleClearTask}
+            <MobileChatSidebar
+              conversations={conversations}
+              currentConversation={currentConversation}
+              onSelectConversation={selectConversation}
+              onNewConversation={createNewConversation}
+              onDeleteConversation={deleteConversation}
             />
             <div className="flex-1">
               <DomainSelector variant="dropdown" />
@@ -88,32 +111,65 @@ const Dashboard = () => {
         <div className="hidden lg:block border-b border-border bg-background/50 backdrop-blur-sm">
           <div className="flex items-center justify-between gap-4 px-6 py-3">
             <DomainSelector variant="pills" className="flex-1" />
-            <CreditDisplay variant="compact" />
+            <div className="flex items-center gap-3">
+              {/* Export Button */}
+              {messages.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <FileDown className="h-4 w-4" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={handleExportPDF}>
+                      <FileDown className="h-4 w-4 mr-2" />
+                      Export as PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportExcel}>
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      Export as CSV
+                    </DropdownMenuItem>
+                    {hasFavorites && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleExportFavoritesPDF}>
+                          <FileDown className="h-4 w-4 mr-2" />
+                          Export Favorites (PDF)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleExportFavoritesExcel}>
+                          <FileSpreadsheet className="h-4 w-4 mr-2" />
+                          Export Favorites (CSV)
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <CreditDisplay variant="compact" />
+            </div>
           </div>
         </div>
 
-        {/* Content Area */}
-        <main className="flex-1 flex flex-col">
-          {currentTask ? (
-            <TaskExecution
-              task={currentTask}
-              streamingContent={streamingContent}
-              isLoading={loading}
-            />
-          ) : (
-            <div className="flex-1 flex flex-col justify-center px-4 py-8">
-              <EmptyState onSelectPrompt={(prompt) => handleNewTask(prompt)} />
-            </div>
-          )}
+        {/* Chat Area */}
+        <main className="flex-1 flex flex-col min-h-0">
+          <ChatView
+            messages={messages}
+            streamingContent={streamingContent}
+            isLoading={loading}
+            onToggleFavorite={toggleFavorite}
+            onDeleteMessage={deleteMessage}
+            onNewChat={createNewConversation}
+          />
 
           {/* Input Area */}
           <div className="border-t border-border bg-background/95 backdrop-blur-sm p-4 lg:p-6 sticky bottom-0">
             <div className="max-w-3xl mx-auto space-y-4">
-              {!currentTask && (
-                <QuickActions onAction={handleNewTask} isLoading={loading} />
+              {messages.length === 0 && !loading && (
+                <QuickActions onAction={handleSendMessage} isLoading={loading} />
               )}
-              <TaskInput
-                onSubmit={handleNewTask}
+              <ChatInput
+                onSubmit={handleSendMessage}
                 isLoading={loading}
                 placeholder={sectorConfig.placeholder}
               />
