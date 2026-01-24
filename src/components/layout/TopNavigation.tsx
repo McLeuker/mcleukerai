@@ -12,7 +12,14 @@ import { useSector, SECTORS, Sector } from "@/contexts/SectorContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { cn } from "@/lib/utils";
-import { Coins, User, CreditCard, LogOut } from "lucide-react";
+import { 
+  Coins, 
+  User, 
+  CreditCard, 
+  LogOut, 
+  Settings, 
+  HelpCircle 
+} from "lucide-react";
 import mcleukerLogo from "@/assets/mcleuker-logo.png";
 
 interface TopNavigationProps {
@@ -24,7 +31,7 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
   const location = useLocation();
   const { currentSector, setSector } = useSector();
   const { user, signOut } = useAuth();
-  const { creditBalance, plan, monthlyCredits, extraCredits } = useSubscription();
+  const { creditBalance, plan } = useSubscription();
 
   const isAuthPage = ["/login", "/signup"].includes(location.pathname);
   const isDashboard = location.pathname === "/dashboard";
@@ -74,7 +81,7 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
               {/* Credits */}
               {showCredits && (
                 <Link
-                  to="/pricing"
+                  to="/billing"
                   className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-secondary hover:bg-accent transition-colors"
                 >
                   <Coins className="h-3.5 w-3.5 text-muted-foreground" />
@@ -94,38 +101,58 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <div className="px-2 py-1.5">
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-3 py-2 border-b border-border">
                     <p className="text-sm font-medium truncate">{user.email}</p>
                     <p className="text-xs text-muted-foreground capitalize">{plan} plan</p>
                     <div className="text-xs text-muted-foreground mt-1">
-                      <span className="font-medium text-foreground">{monthlyCredits}</span> monthly
-                      {extraCredits > 0 && (
-                        <> + <span className="font-medium text-foreground">{extraCredits}</span> extra</>
-                      )}
+                      <span className="font-medium text-foreground">{creditBalance}</span> credits available
                     </div>
                   </div>
+                  
+                  <div className="py-1">
+                    <DropdownMenuItem asChild>
+                      <Link to="/profile" className="cursor-pointer">
+                        <User className="h-4 w-4 mr-2" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/billing" className="cursor-pointer">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Billing & Credits
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/preferences" className="cursor-pointer">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Workspace Preferences
+                      </Link>
+                    </DropdownMenuItem>
+                  </div>
+                  
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile" className="cursor-pointer">
-                      <User className="h-4 w-4 mr-2" />
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/pricing" className="cursor-pointer">
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Billing & Credits
-                    </Link>
-                  </DropdownMenuItem>
+                  
+                  <div className="py-1">
+                    <DropdownMenuItem asChild>
+                      <Link to="/contact" className="cursor-pointer">
+                        <HelpCircle className="h-4 w-4 mr-2" />
+                        Support / Help
+                      </Link>
+                    </DropdownMenuItem>
+                  </div>
+                  
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => signOut()}
-                    className="text-destructive cursor-pointer"
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sign out
-                  </DropdownMenuItem>
+                  
+                  <div className="py-1">
+                    <DropdownMenuItem
+                      onClick={() => signOut()}
+                      className="text-destructive cursor-pointer focus:text-destructive"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign out
+                    </DropdownMenuItem>
+                  </div>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
