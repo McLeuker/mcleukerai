@@ -7,19 +7,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Plan configuration with Stripe price IDs
+// NEW Plan configuration with Stripe price IDs
 const SUBSCRIPTION_PLANS = {
-  starter: {
-    monthly: { priceId: "price_1St7yJB0LQyHc0cS88qHoT3y", credits: 300 },
-    yearly: { priceId: "price_1St7yeB0LQyHc0cSeo1wf7wx", credits: 300 },
-  },
-  professional: {
-    monthly: { priceId: "price_1St7yoB0LQyHc0cSI0bZvhFz", credits: 1200 },
-    yearly: { priceId: "price_1St7z1B0LQyHc0cS20F8A5PM", credits: 1200 },
+  pro: {
+    monthly: { priceId: "price_1St8PXB0LQyHc0cSUfR0Sz7u", credits: 700 },
+    yearly: { priceId: "price_1St8PnB0LQyHc0cSxyKT7KkJ", credits: 700 },
   },
   studio: {
-    monthly: { priceId: "price_1St7zBB0LQyHc0cSfgZO131o", credits: 3000 },
-    yearly: { priceId: "price_1St7zMB0LQyHc0cSTBMBNej5", credits: 3000 },
+    monthly: { priceId: "price_1St8QuB0LQyHc0cSHex3exfz", credits: 1800 },
+    yearly: { priceId: "price_1St8R4B0LQyHc0cS3NOO4aXq", credits: 1800 },
   },
 };
 
@@ -52,9 +48,9 @@ serve(async (req) => {
 
     const { plan, billingCycle } = await req.json();
     
-    // Validate plan and billing cycle
-    if (!plan || !["starter", "professional", "studio"].includes(plan)) {
-      throw new Error("Invalid plan selected");
+    // Validate plan and billing cycle (only pro and studio are purchasable)
+    if (!plan || !["pro", "studio"].includes(plan)) {
+      throw new Error("Invalid plan selected. Choose Pro or Studio.");
     }
     if (!billingCycle || !["monthly", "yearly"].includes(billingCycle)) {
       throw new Error("Invalid billing cycle");
