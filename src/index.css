@@ -334,4 +334,38 @@
   .parallax-slow {
     will-change: transform;
   }
+
+  /* Touch-friendly targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Mobile-first smooth scrolling */
+  .scroll-smooth-touch {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* Luxury glass effect */
+  .glass-luxury {
+    background: hsl(var(--background) / 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Gold accent glow */
+  .glow-gold {
+    box-shadow: 0 0 20px -5px hsl(var(--gold) / 0.3);
+  }
+
+  /* Premium card hover */
+  .card-premium {
+    @apply transition-all duration-300;
+  }
+
+  .card-premium:hover {
+    @apply shadow-premium;
+    transform: translateY(-2px);
+  }
 }
