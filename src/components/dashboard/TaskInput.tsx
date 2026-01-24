@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowUp, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface TaskInputProps {
   onSubmit: (prompt: string) => void;
   isLoading: boolean;
   placeholder?: string;
+  className?: string;
 }
 
-export function TaskInput({ onSubmit, isLoading, placeholder }: TaskInputProps) {
+export function TaskInput({ onSubmit, isLoading, placeholder, className }: TaskInputProps) {
   const [prompt, setPrompt] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,14 +23,25 @@ export function TaskInput({ onSubmit, isLoading, placeholder }: TaskInputProps) 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-3xl mx-auto w-full">
-      <div className="relative">
+    <form onSubmit={handleSubmit} className={cn("w-full", className)}>
+      <div className={cn(
+        "relative rounded-xl border bg-card transition-all duration-300",
+        isFocused 
+          ? "border-foreground/20 shadow-premium" 
+          : "border-border shadow-sm",
+      )}>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           placeholder={placeholder || "Describe your fashion research task..."}
           disabled={isLoading}
-          className="w-full px-4 py-3.5 pr-14 rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none text-sm min-h-[56px] max-h-36 shadow-premium"
+          className={cn(
+            "w-full px-4 py-3.5 pr-14 bg-transparent text-foreground",
+            "placeholder:text-muted-foreground/60 focus:outline-none",
+            "resize-none text-sm min-h-[56px] max-h-36 rounded-xl"
+          )}
           rows={1}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -45,7 +59,10 @@ export function TaskInput({ onSubmit, isLoading, placeholder }: TaskInputProps) 
           type="submit"
           size="icon"
           disabled={!prompt.trim() || isLoading}
-          className="absolute right-2 bottom-2.5 h-9 w-9"
+          className={cn(
+            "absolute right-2 bottom-2.5 h-9 w-9 rounded-lg transition-all duration-200",
+            prompt.trim() && !isLoading && "shadow-sm"
+          )}
         >
           {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -54,9 +71,11 @@ export function TaskInput({ onSubmit, isLoading, placeholder }: TaskInputProps) 
           )}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground mt-2 text-center">
-        Press Enter to run task • Shift+Enter for new line
-      </p>
+      <div className="flex items-center justify-between mt-2 px-1">
+        <p className="text-[10px] text-muted-foreground">
+          Press Enter to run • Shift+Enter for new line
+        </p>
+      </div>
     </form>
   );
 }

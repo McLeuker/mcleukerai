@@ -4,12 +4,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTasks, Task } from "@/hooks/useTasks";
 import { useSector } from "@/contexts/SectorContext";
 import { TaskSidebar } from "@/components/dashboard/TaskSidebar";
+import { MobileTaskSidebar } from "@/components/dashboard/MobileTaskSidebar";
 import { TaskInput } from "@/components/dashboard/TaskInput";
 import { TaskExecution } from "@/components/dashboard/TaskExecution";
 import { EmptyState } from "@/components/dashboard/EmptyState";
+import { DomainSelector } from "@/components/dashboard/DomainSelector";
+import { QuickActions } from "@/components/dashboard/QuickActions";
+import { CreditDisplay } from "@/components/dashboard/CreditDisplay";
 import { TopNavigation } from "@/components/layout/TopNavigation";
-import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -38,34 +41,55 @@ const Dashboard = () => {
     selectTask(task);
   };
 
+  const handleClearTask = () => {
+    selectTask(null as any);
+  };
+
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-background flex w-full">
+      {/* Desktop Sidebar */}
       <TaskSidebar
         tasks={tasks}
         currentTask={currentTask}
         isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
         onSelectTask={handleSelectTask}
-        onNewTask={() => selectTask(null as any)}
+        onNewTask={handleClearTask}
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className={cn(
+        "flex-1 flex flex-col min-h-screen transition-all duration-300",
+        sidebarOpen ? "lg:ml-72" : "lg:ml-14"
+      )}>
         {/* Top Navigation */}
-        <TopNavigation showSectorTabs={true} showCredits={true} />
+        <TopNavigation showSectorTabs={false} showCredits={true} />
 
-        {/* Header with sidebar toggle */}
-        <div className="h-14 lg:h-[72px]" /> {/* Spacer for fixed nav */}
+        {/* Header Spacer */}
+        <div className="h-14 lg:h-[72px]" />
 
-        <div className="flex items-center px-4 py-2 lg:hidden border-b border-border">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
+        {/* Mobile Header */}
+        <div className="lg:hidden border-b border-border bg-background/95 backdrop-blur-sm sticky top-14 z-30">
+          <div className="flex items-center justify-between gap-3 px-4 py-3">
+            <MobileTaskSidebar
+              tasks={tasks}
+              currentTask={currentTask}
+              onSelectTask={handleSelectTask}
+              onNewTask={handleClearTask}
+            />
+            <div className="flex-1">
+              <DomainSelector variant="dropdown" />
+            </div>
+            <CreditDisplay variant="compact" />
+          </div>
+        </div>
+
+        {/* Desktop Domain Bar */}
+        <div className="hidden lg:block border-b border-border bg-background/50 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-4 px-6 py-3">
+            <DomainSelector variant="pills" className="flex-1" />
+            <CreditDisplay variant="compact" />
+          </div>
         </div>
 
         {/* Content Area */}
@@ -77,16 +101,23 @@ const Dashboard = () => {
               isLoading={loading}
             />
           ) : (
-            <EmptyState onSelectPrompt={(prompt) => handleNewTask(prompt)} />
+            <div className="flex-1 flex flex-col justify-center px-4 py-8">
+              <EmptyState onSelectPrompt={(prompt) => handleNewTask(prompt)} />
+            </div>
           )}
 
           {/* Input Area */}
-          <div className="border-t border-border bg-background p-4">
-            <TaskInput
-              onSubmit={handleNewTask}
-              isLoading={loading}
-              placeholder={sectorConfig.placeholder}
-            />
+          <div className="border-t border-border bg-background/95 backdrop-blur-sm p-4 lg:p-6 sticky bottom-0">
+            <div className="max-w-3xl mx-auto space-y-4">
+              {!currentTask && (
+                <QuickActions onAction={handleNewTask} isLoading={loading} />
+              )}
+              <TaskInput
+                onSubmit={handleNewTask}
+                isLoading={loading}
+                placeholder={sectorConfig.placeholder}
+              />
+            </div>
           </div>
         </main>
       </div>

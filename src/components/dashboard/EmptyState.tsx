@@ -1,5 +1,6 @@
-import { Sparkles, FileText, TrendingUp, Globe, Leaf, Cpu } from "lucide-react";
+import { Sparkles, FileText, TrendingUp, Globe, Leaf, Cpu, ChevronRight } from "lucide-react";
 import { useSector } from "@/contexts/SectorContext";
+import { cn } from "@/lib/utils";
 
 interface EmptyStateProps {
   onSelectPrompt: (prompt: string) => void;
@@ -150,43 +151,63 @@ export function EmptyState({ onSelectPrompt }: EmptyStateProps) {
   const suggestions = sectorSuggestions[currentSector] || sectorSuggestions.all;
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-      <div className="text-center max-w-xl">
-        {/* Icon */}
-        <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mx-auto mb-6">
-          <Sparkles className="h-5 w-5 text-foreground" />
+    <div className="flex flex-col items-center justify-center px-4 animate-fade-in">
+      <div className="text-center max-w-2xl">
+        {/* Icon with luxury treatment */}
+        <div className="relative w-16 h-16 mx-auto mb-8">
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-gold/20 to-transparent" />
+          <div className="absolute inset-1 rounded-full bg-card border border-border flex items-center justify-center shadow-premium">
+            <Sparkles className="h-6 w-6 text-gold" />
+          </div>
         </div>
 
-        {/* Heading */}
-        <h2 className="font-editorial text-3xl text-foreground mb-2">
+        {/* Heading with editorial typography */}
+        <h2 className="font-editorial text-3xl sm:text-4xl text-foreground mb-3 tracking-tight">
           What would you like to research?
         </h2>
-        <p className="text-muted-foreground mb-2">
-          Describe your task in natural language. Fashion AI will research,
+        <p className="text-muted-foreground mb-2 text-sm sm:text-base max-w-md mx-auto">
+          Describe your task in natural language. McLeuker AI will research,
           analyze, and generate professional deliverables.
         </p>
-        <p className="text-xs text-muted-foreground mb-8">
-          Current context: <span className="font-medium text-foreground">{sectorConfig.label}</span>
-        </p>
+        <div className="flex items-center justify-center gap-2 mb-10">
+          <span className="px-3 py-1 rounded-full bg-accent text-xs font-medium text-foreground border border-border">
+            {sectorConfig.label}
+          </span>
+        </div>
 
-        {/* Suggestions */}
-        <div className="grid gap-3 text-left">
+        {/* Luxury Suggestion Cards */}
+        <div className="grid gap-3 text-left max-w-xl mx-auto">
           {suggestions.map((suggestion, index) => (
             <button
               key={index}
               onClick={() => onSelectPrompt(suggestion.prompt)}
-              className="p-4 rounded-lg bg-card border border-border hover:bg-accent hover:border-accent transition-colors group text-left"
+              className={cn(
+                "group p-4 rounded-xl transition-all duration-300",
+                "bg-card border border-border",
+                "hover:border-foreground/15 hover:shadow-premium",
+                "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              )}
             >
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-md bg-secondary flex items-center justify-center shrink-0 group-hover:bg-background transition-colors">
-                  <suggestion.icon className="h-4 w-4 text-foreground" />
+              <div className="flex items-start gap-4">
+                <div className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                  "bg-secondary group-hover:bg-accent transition-colors duration-300"
+                )}>
+                  <suggestion.icon className="h-5 w-5 text-foreground" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground mb-0.5">
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium text-foreground mb-1">
                     {suggestion.title}
                   </p>
-                  <p className="text-sm text-muted-foreground">{suggestion.prompt}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                    {suggestion.prompt}
+                  </p>
                 </div>
+                <ChevronRight className={cn(
+                  "h-5 w-5 text-muted-foreground shrink-0 mt-2.5",
+                  "group-hover:text-foreground group-hover:translate-x-0.5",
+                  "transition-all duration-200"
+                )} />
               </div>
             </button>
           ))}

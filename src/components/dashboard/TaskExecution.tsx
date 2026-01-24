@@ -73,18 +73,18 @@ export function TaskExecution({ task, streamingContent, isLoading }: TaskExecuti
 
   return (
     <ScrollArea className="flex-1">
-      <div className="max-w-3xl mx-auto py-8 px-4">
-        {/* Task Prompt */}
-        <div className="mb-8">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2 font-medium">
+      <div className="max-w-3xl mx-auto py-6 sm:py-8 px-4">
+        {/* Task Prompt - Luxury Card Style */}
+        <div className="mb-6 p-4 sm:p-5 rounded-xl bg-card border border-border shadow-premium">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2 font-medium">
             Your request
           </p>
-          <p className="text-lg text-foreground leading-relaxed">{task.prompt}</p>
+          <p className="text-base sm:text-lg text-foreground leading-relaxed">{task.prompt}</p>
         </div>
 
-        {/* Execution Pipeline */}
-        <div className="mb-8">
-          <div className="flex items-center gap-0">
+        {/* Execution Pipeline - Mobile Responsive */}
+        <div className="mb-6 overflow-x-auto">
+          <div className="flex items-center gap-0 min-w-max px-1 py-2">
             {Object.entries(stepConfig).map(([key, config], index) => {
               const step = steps.find((s) => s.step === key);
               const status = step?.status || "pending";
@@ -95,9 +95,9 @@ export function TaskExecution({ task, streamingContent, isLoading }: TaskExecuti
                 <div key={key} className="flex items-center">
                   <div
                     className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-md transition-all",
-                      status === "completed" && "bg-secondary",
-                      status === "running" && "bg-accent",
+                      "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-lg transition-all duration-300",
+                      status === "completed" && "bg-success/10 border border-success/20",
+                      status === "running" && "bg-accent border border-foreground/10",
                       status === "pending" && "opacity-40"
                     )}
                   >
@@ -108,15 +108,15 @@ export function TaskExecution({ task, streamingContent, isLoading }: TaskExecuti
                     ) : (
                       <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                     )}
-                    <span className="text-xs font-medium hidden md:inline">
+                    <span className="text-[10px] sm:text-xs font-medium whitespace-nowrap">
                       {config.label}
                     </span>
                   </div>
                   {!isLast && (
                     <div
                       className={cn(
-                        "w-6 h-px mx-1",
-                        status === "completed" ? "bg-border" : "bg-border/50"
+                        "w-4 sm:w-6 h-px mx-0.5 sm:mx-1 transition-colors",
+                        status === "completed" ? "bg-success/40" : "bg-border/50"
                       )}
                     />
                   )}
