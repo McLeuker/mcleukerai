@@ -53,22 +53,12 @@ const Landing = () => {
   };
 
   const suggestionPrompts = [
-    {
-      title: "Trend Forecasting",
-      prompt: "Analyze SS26 womenswear trends from Milan and Paris Fashion Week"
-    },
-    {
-      title: "Supplier Research",
-      prompt: "Find sustainable denim suppliers in Europe with MOQ under 500 units"
-    },
-    {
-      title: "Market Intelligence",
-      prompt: "Compare luxury handbag pricing across US, EU, and Asian markets"
-    },
-    {
-      title: "Sustainability Audit",
-      prompt: "Map sustainability certifications for European fashion brands"
-    }
+    "Analyze emerging streetwear trends for Spring/Summer 2026",
+    "Find sustainable denim suppliers in Europe with MOQ under 500 units",
+    "Compare luxury handbag pricing across US, EU, and Asian markets",
+    "Evaluate top sustainable materials for upcoming collections",
+    "Audit supplier sustainability certifications in fashion supply chain",
+    "Forecast color and fabric trends for the next fashion season"
   ];
 
   const services = [
@@ -279,7 +269,7 @@ const Landing = () => {
                       type="submit"
                       disabled={!prompt.trim() || isProcessing}
                       size="sm"
-                      className="bg-[#BFA56A] hover:bg-[#A89055] text-[#000000] font-semibold px-6 py-2 rounded-lg transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="bg-[#FFFFFF] hover:bg-[hsl(0,0%,90%)] text-[#000000] font-semibold px-6 py-2 rounded-lg transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {isProcessing ? (
                         <>
@@ -287,10 +277,7 @@ const Landing = () => {
                           Processing
                         </>
                       ) : (
-                        <>
-                          Run
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                        </>
+                        "Run"
                       )}
                     </Button>
                   </div>
@@ -298,19 +285,19 @@ const Landing = () => {
               </div>
             </form>
 
-            {/* Suggested Topics - Gold Pills */}
-            <div className="max-w-3xl mx-auto mb-10 animate-fade-in">
-              <div className="flex flex-wrap justify-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {/* Suggested Topics - Black Pills with White Text */}
+            <div className="max-w-4xl mx-auto mb-10 animate-fade-in">
+              <div className="flex flex-wrap justify-center gap-3 px-4 overflow-x-auto pb-2 scrollbar-hide md:overflow-visible">
                 {suggestionPrompts.map((suggestion, i) => (
                   <button
                     key={i}
                     onClick={() => {
-                      setPrompt(suggestion.prompt);
+                      setPrompt(suggestion);
                       searchInputRef.current?.focus();
                     }}
-                    className="px-5 py-2.5 rounded-full bg-[#BFA56A] hover:bg-[#A89055] text-[#FFFFFF] font-medium text-sm transition-all duration-300 hover:shadow-[0_0_15px_rgba(191,165,106,0.4)] whitespace-nowrap"
+                    className="px-4 py-2.5 rounded-full bg-[#000000] hover:bg-[#1A1A1A] text-[#FFFFFF] border border-[hsl(0,0%,25%)] hover:border-[hsl(0,0%,35%)] font-medium text-sm transition-all duration-300 whitespace-nowrap"
                   >
-                    {suggestion.title}
+                    {suggestion}
                   </button>
                 ))}
               </div>
