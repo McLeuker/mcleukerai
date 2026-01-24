@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Footer } from "@/components/layout/Footer";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
-import { SUBSCRIPTION_PLANS, CREDIT_REFILL, CREDIT_USAGE } from "@/config/pricing";
+import { SUBSCRIPTION_PLANS, CREDIT_REFILLS, CREDIT_USAGE } from "@/config/pricing";
 import { Check, Zap, Crown, Building2, ArrowLeft, Loader2, Gift, AlertCircle } from "lucide-react";
 import mcleukerLogo from "@/assets/mcleuker-logo.png";
 
@@ -222,7 +222,7 @@ const Pricing = () => {
           </div>
 
           {/* Credit Refill Section */}
-          <div className="max-w-2xl mx-auto mb-16">
+          <div className="max-w-3xl mx-auto mb-16">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-serif font-light mb-2">Need More Credits?</h2>
               <p className="text-muted-foreground">
@@ -230,40 +230,71 @@ const Pricing = () => {
               </p>
             </div>
 
-            <Card className={!canRefill ? 'opacity-60' : ''}>
-              <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-6">
-                <div>
-                  <div className="text-2xl font-bold">{CREDIT_REFILL.credits.toLocaleString()} Credits</div>
-                  <p className="text-sm text-muted-foreground">
-                    €{CREDIT_REFILL.perCredit.toFixed(3)} per credit • Never expires
-                  </p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-2xl font-bold">€{CREDIT_REFILL.price}</div>
-                  <Button
-                    onClick={handleRefill}
-                    disabled={loadingRefill || !canRefill}
-                  >
-                    {loadingRefill ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      "Purchase"
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-              {!canRefill && (
-                <div className="px-6 pb-4">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>Credit refills are only available for Pro and Studio subscribers</span>
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Pro Refill */}
+              <Card className={currentPlan !== "pro" ? 'opacity-60' : ''}>
+                <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
+                  <div className="text-center">
+                    <Badge variant="outline" className="mb-2">Pro Plan</Badge>
+                    <div className="text-2xl font-bold">{CREDIT_REFILLS.pro.credits.toLocaleString()} Credits</div>
+                    <p className="text-sm text-muted-foreground">
+                      €{CREDIT_REFILLS.pro.perCredit.toFixed(3)} per credit • Max 1/month
+                    </p>
                   </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-2xl font-bold">€{CREDIT_REFILLS.pro.price}</div>
+                    <Button
+                      onClick={handleRefill}
+                      disabled={loadingRefill || currentPlan !== "pro"}
+                      size="sm"
+                    >
+                      {loadingRefill ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Studio Refill */}
+              <Card className={currentPlan !== "studio" ? 'opacity-60' : ''}>
+                <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
+                  <div className="text-center">
+                    <Badge variant="outline" className="mb-2">Studio Plan</Badge>
+                    <div className="text-2xl font-bold">{CREDIT_REFILLS.studio.credits.toLocaleString()} Credits</div>
+                    <p className="text-sm text-muted-foreground">
+                      €{CREDIT_REFILLS.studio.perCredit.toFixed(3)} per credit • Max 2/month
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-2xl font-bold">€{CREDIT_REFILLS.studio.price}</div>
+                    <Button
+                      onClick={handleRefill}
+                      disabled={loadingRefill || currentPlan !== "studio"}
+                      size="sm"
+                    >
+                      {loadingRefill ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {!canRefill && currentPlan !== "free" && (
+              <div className="mt-4 text-center">
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>You've reached your monthly refill limit</span>
                 </div>
-              )}
-            </Card>
+              </div>
+            )}
+
+            {currentPlan === "free" && (
+              <div className="mt-4 text-center">
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Credit refills are only available for Pro and Studio subscribers</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Credit Usage Table */}

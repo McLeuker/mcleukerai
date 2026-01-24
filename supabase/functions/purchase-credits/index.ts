@@ -7,11 +7,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Single credit refill pack (€39 for 1000 credits)
-const CREDIT_REFILL = {
-  credits: 1000,
-  priceId: "price_1St8RQB0LQyHc0cSaXgacgo8",
-  price: 39,
+// Credit refill packs per plan (different prices)
+const CREDIT_REFILLS = {
+  pro: {
+    credits: 1000,
+    priceId: "price_1St8RQB0LQyHc0cSaXgacgo8",
+    price: 39,
+  },
+  studio: {
+    credits: 1000,
+    priceId: "price_1St8hdB0LQyHc0cSBbGILcsV",
+    price: 45,
+  },
 };
 
 // Max refills per month per plan
@@ -98,6 +105,10 @@ serve(async (req) => {
       logStep("Existing customer found", { customerId });
     }
 
+    // Get the appropriate refill pack for the user's plan
+    const refillPack = CREDIT_REFILLS[plan as keyof typeof CREDIT_REFILLS] || CREDIT_REFILLS.pro;
+    logStep("Using refill pack", { plan, refillPack });
+
     // Create checkout session for credit refill
     const origin = req.headers.get("origin") || "https://mcleukerai.lovable.app";
     const session = await stripe.checkout.sessions.create({
@@ -105,21 +116,22 @@ serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: [
         {
-          price: CREDIT_REFILL.priceId,
+          price: refillPack.priceId,
           quantity: 1,
         },
       ],
       mode: "payment",
-      success_url: `${origin}/pricing?credits=success&amount=${CREDIT_REFILL.credits}`,
+      success_url: `${origin}/pricing?credits=success&amount=${refillPack.credits}`,
       cancel_url: `${origin}/pricing?credits=canceled`,
       metadata: {
         user_id: user.id,
-        credits: CREDIT_REFILL.credits.toString(),
+        credits: refillPack.credits.toString(),
         type: "credit_refill",
+        plan: plan,
       },
     });
 
-    logStep("Checkout session created", { sessionId: session.id, credits: CREDIT_REFILL.credits });
+    logStep("Checkout session created", { sessionId: session.id, credits: refillPack.credits });
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

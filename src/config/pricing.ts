@@ -98,7 +98,7 @@ export const CREDIT_REFILLS = {
   studio: {
     credits: 1000,
     price: 45,
-    priceId: "price_1StBNSB0LQyHc0cSV2RmFxaD", // Studio refill price ID (to be created)
+    priceId: "price_1St8hdB0LQyHc0cSBbGILcsV",
     perCredit: 0.045,
   },
 } as const;
