@@ -24,7 +24,7 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
   const location = useLocation();
   const { currentSector, setSector } = useSector();
   const { user, signOut } = useAuth();
-  const { creditBalance } = useSubscription();
+  const { creditBalance, plan, monthlyCredits, extraCredits } = useSubscription();
 
   const isAuthPage = ["/login", "/signup"].includes(location.pathname);
   const isDashboard = location.pathname === "/dashboard";
@@ -94,10 +94,16 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-52">
                   <div className="px-2 py-1.5">
                     <p className="text-sm font-medium truncate">{user.email}</p>
-                    <p className="text-xs text-muted-foreground">Professional plan</p>
+                    <p className="text-xs text-muted-foreground capitalize">{plan} plan</p>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      <span className="font-medium text-foreground">{monthlyCredits}</span> monthly
+                      {extraCredits > 0 && (
+                        <> + <span className="font-medium text-foreground">{extraCredits}</span> extra</>
+                      )}
+                    </div>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
