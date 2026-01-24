@@ -70,12 +70,34 @@ Your role is to:
 3. Structure insights into actionable intelligence
 4. Generate professional deliverables (reports, analyses, recommendations)
 
-When responding:
+When responding, format your output professionally for the luxury fashion industry:
+- Use clear headers and sections with markdown formatting
+- Present data in tables where appropriate (supplier lists, comparisons, etc.)
+- Use bullet points for key insights and recommendations
+- Include summary sections for quick reference
 - Be professional, concise, and data-driven
 - Focus on actionable insights
-- Structure information clearly with headers and bullet points
-- Include specific recommendations when applicable
 - Reference industry standards and best practices
+
+For Supplier Research queries:
+- Structure results in a table format with columns: Supplier Name, Location, Specialization, MOQ, Certifications, Contact
+- Include sustainability certifications when relevant (GOTS, OEKO-TEX, GRS, etc.)
+- Provide sourcing recommendations
+
+For Trend Analysis queries:
+- Organize by trend category (colors, materials, silhouettes, etc.)
+- Include seasonal relevance and market adoption rates
+- Provide actionable recommendations for brand positioning
+
+For Market Intelligence queries:
+- Include competitive landscape analysis
+- Provide market size and growth projections
+- Highlight key opportunities and risks
+
+For Sustainability Audit queries:
+- Focus on certifications, compliance, and impact metrics
+- Provide clear action items for improvement
+- Reference industry standards (Higg Index, ZDHC, etc.)
 
 You specialize in:
 - Supplier research and sourcing strategies
@@ -84,6 +106,13 @@ You specialize in:
 - Cost analysis and negotiation strategies
 - Brand positioning and competitive analysis
 - Collection planning and merchandising`;
+
+// OpenAI API Configuration
+const OPENAI_CONFIG = {
+  model: "gpt-3.5-turbo",
+  temperature: 0.7,
+  max_tokens: 1000,
+};
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -170,10 +199,11 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
-      return new Response(JSON.stringify({ error: "Service temporarily unavailable" }), {
+    // Get OpenAI API Key
+    const OPENAI_API_KEY = Deno.env.get("OpenAI_GPT_Key");
+    if (!OPENAI_API_KEY) {
+      console.error("OpenAI_GPT_Key is not configured");
+      return new Response(JSON.stringify({ error: "AI service not configured. Please add OpenAI API key." }), {
         status: 503,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -183,12 +213,14 @@ serve(async (req) => {
     const lowerPrompt = trimmedPrompt.toLowerCase();
     let actionType: keyof typeof CREDIT_COSTS = "ai_research_query";
     
-    if (lowerPrompt.includes("market analysis") || lowerPrompt.includes("analyze the market")) {
+    if (lowerPrompt.includes("market analysis") || lowerPrompt.includes("analyze the market") || lowerPrompt.includes("market intel")) {
       actionType = "market_analysis";
     } else if (lowerPrompt.includes("trend") || lowerPrompt.includes("forecast")) {
       actionType = "trend_report";
-    } else if (lowerPrompt.includes("supplier") || lowerPrompt.includes("sourcing")) {
+    } else if (lowerPrompt.includes("supplier") || lowerPrompt.includes("sourcing") || lowerPrompt.includes("find") && (lowerPrompt.includes("manufacturer") || lowerPrompt.includes("factory"))) {
       actionType = "supplier_search";
+    } else if (lowerPrompt.includes("sustainability") || lowerPrompt.includes("audit") || lowerPrompt.includes("certification")) {
+      actionType = "market_analysis"; // Use market_analysis cost for sustainability audits
     }
     
     const creditCost = CREDIT_COSTS[actionType];
@@ -263,39 +295,61 @@ serve(async (req) => {
       steps: [{ step: "understanding", status: "running", message: "Analyzing your request..." }]
     }).eq("id", taskId);
 
-    // Make streaming request to AI
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Make streaming request to OpenAI
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: OPENAI_CONFIG.model,
         messages: [
           { role: "system", content: FASHION_SYSTEM_PROMPT },
-          { role: "user", content: prompt },
+          { role: "user", content: trimmedPrompt },
         ],
+        temperature: OPENAI_CONFIG.temperature,
+        max_tokens: OPENAI_CONFIG.max_tokens,
         stream: true,
       }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenAI API error:", response.status, errorText);
+      
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
+        return new Response(JSON.stringify({ error: "AI service rate limit exceeded. Please try again in a moment." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Usage limit reached. Please add credits." }), {
+      if (response.status === 401) {
+        return new Response(JSON.stringify({ error: "AI service authentication failed. Please check API key configuration." }), {
+          status: 503,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402 || response.status === 403) {
+        return new Response(JSON.stringify({ error: "AI service quota exceeded. Please check your OpenAI account." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("AI gateway error");
+      
+      // Update task to failed status
+      await supabase.from("tasks").update({
+        status: "failed",
+        steps: [
+          { step: "understanding", status: "completed", message: "Request analyzed" },
+          { step: "researching", status: "failed", message: "AI service error. Please try again." }
+        ]
+      }).eq("id", taskId);
+      
+      return new Response(JSON.stringify({ error: "AI service temporarily unavailable. Please try again." }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Update to researching status
@@ -342,50 +396,86 @@ serve(async (req) => {
           }).eq("id", taskId);
         }, 4000);
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
 
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6).trim();
-              if (data === "[DONE]") continue;
-              try {
-                const parsed = JSON.parse(data);
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) {
-                  fullContent += content;
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6).trim();
+                if (data === "[DONE]") continue;
+                try {
+                  const parsed = JSON.parse(data);
+                  const content = parsed.choices?.[0]?.delta?.content;
+                  if (content) {
+                    fullContent += content;
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+                  }
+                } catch {
+                  // Skip malformed JSON
                 }
-              } catch {
-                // Skip malformed JSON
               }
             }
           }
+
+          // Determine file types based on action
+          const files = [];
+          if (actionType === "supplier_search") {
+            files.push(
+              { name: "Supplier Report.pdf", type: "pdf", description: "Detailed supplier analysis and recommendations" },
+              { name: "Supplier Database.xlsx", type: "excel", description: "Structured supplier data export" }
+            );
+          } else if (actionType === "trend_report") {
+            files.push(
+              { name: "Trend Analysis.pdf", type: "pdf", description: "Comprehensive trend report with forecasts" },
+              { name: "Trend Data.xlsx", type: "excel", description: "Trend data and adoption metrics" }
+            );
+          } else if (actionType === "market_analysis") {
+            files.push(
+              { name: "Market Report.pdf", type: "pdf", description: "Market analysis and competitive insights" },
+              { name: "Market Data.xlsx", type: "excel", description: "Market data and projections" }
+            );
+          } else {
+            files.push(
+              { name: "Research Report.pdf", type: "pdf", description: "Detailed analysis and recommendations" },
+              { name: "Data Export.xlsx", type: "excel", description: "Structured data and findings" }
+            );
+          }
+
+          // Update task to completed with full result
+          await supabase.from("tasks").update({
+            status: "completed",
+            result: { content: fullContent },
+            steps: [
+              { step: "understanding", status: "completed", message: "Request analyzed" },
+              { step: "researching", status: "completed", message: "Research complete" },
+              { step: "structuring", status: "completed", message: "Insights structured" },
+              { step: "generating", status: "completed", message: "Deliverables ready" }
+            ],
+            files: files
+          }).eq("id", taskId);
+
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        } catch (streamError) {
+          console.error("Stream processing error:", streamError);
+          
+          // Update task to failed
+          await supabase.from("tasks").update({
+            status: "failed",
+            steps: [
+              { step: "understanding", status: "completed", message: "Request analyzed" },
+              { step: "researching", status: "failed", message: "Processing error. Please try again." }
+            ]
+          }).eq("id", taskId);
+          
+          controller.error(streamError);
         }
-
-        // Update task to completed with full result
-        await supabase.from("tasks").update({
-          status: "completed",
-          result: { content: fullContent },
-          steps: [
-            { step: "understanding", status: "completed", message: "Request analyzed" },
-            { step: "researching", status: "completed", message: "Research complete" },
-            { step: "structuring", status: "completed", message: "Insights structured" },
-            { step: "generating", status: "completed", message: "Deliverables ready" }
-          ],
-          files: [
-            { name: "Fashion Report.pdf", type: "pdf", description: "Detailed analysis and recommendations" },
-            { name: "Data Export.xlsx", type: "excel", description: "Structured data and findings" }
-          ]
-        }).eq("id", taskId);
-
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
       },
     });
 
