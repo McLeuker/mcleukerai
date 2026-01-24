@@ -124,6 +124,7 @@ export type Database = {
           subscription_ends_at: string | null
           subscription_plan: string | null
           subscription_status: string
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -142,6 +143,7 @@ export type Database = {
           subscription_ends_at?: string | null
           subscription_plan?: string | null
           subscription_status?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -160,6 +162,7 @@ export type Database = {
           subscription_ends_at?: string | null
           subscription_plan?: string | null
           subscription_status?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
