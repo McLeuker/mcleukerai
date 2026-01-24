@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSector, SECTORS, Sector } from "@/contexts/SectorContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { cn } from "@/lib/utils";
 import { Coins, User, CreditCard, LogOut } from "lucide-react";
 import mcleukerLogo from "@/assets/mcleuker-logo.png";
@@ -23,12 +24,10 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
   const location = useLocation();
   const { currentSector, setSector } = useSector();
   const { user, signOut } = useAuth();
+  const { creditBalance } = useSubscription();
 
   const isAuthPage = ["/login", "/signup"].includes(location.pathname);
   const isDashboard = location.pathname === "/dashboard";
-
-  // Mock credits - in production this would come from user profile/billing
-  const credits = 86;
 
   const getInitials = (email: string) => {
     return email.slice(0, 2).toUpperCase();
@@ -79,7 +78,7 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
                   className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-secondary hover:bg-accent transition-colors"
                 >
                   <Coins className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium">{credits} credits</span>
+                  <span className="text-xs font-medium">{creditBalance} credits</span>
                 </Link>
               )}
 
