@@ -34,6 +34,25 @@ const Landing = () => {
     }
   };
 
+  const suggestionPrompts = [
+    {
+      title: "Trend Forecasting",
+      prompt: "Analyze SS26 womenswear trends from Milan and Paris Fashion Week"
+    },
+    {
+      title: "Supplier Research",
+      prompt: "Find sustainable denim suppliers in Europe with MOQ under 500 units"
+    },
+    {
+      title: "Market Intelligence",
+      prompt: "Compare luxury handbag pricing across US, EU, and Asian markets"
+    },
+    {
+      title: "Sustainability Audit",
+      prompt: "Map sustainability certifications for European fashion brands"
+    }
+  ];
+
   const services = [
     {
       title: "Trend Forecasting",
@@ -407,7 +426,7 @@ const Landing = () => {
             </p>
 
             {/* Interactive Input */}
-            <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
+            <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-12">
               <div className="relative">
                 <textarea 
                   value={prompt} 
@@ -431,6 +450,29 @@ const Landing = () => {
                 </Button>
               </div>
             </form>
+
+            {/* Suggestion Prompts */}
+            <div className="max-w-3xl mx-auto">
+              <p className="text-sm text-background/50 uppercase tracking-[0.15em] mb-6">
+                Try one of these examples
+              </p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {suggestionPrompts.map((suggestion, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPrompt(suggestion.prompt)}
+                    className="group p-4 rounded-lg bg-background/10 border border-background/20 hover:bg-background/20 hover:border-background/30 transition-all text-left"
+                  >
+                    <p className="text-sm font-medium text-background mb-1">
+                      {suggestion.title}
+                    </p>
+                    <p className="text-sm text-background/60 line-clamp-2">
+                      {suggestion.prompt}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
