@@ -188,7 +188,8 @@ async function callHuggingFace(
   
   try {
     const response = await fetch(
-      `https://api-inference.huggingface.co/models/${modelId}`,
+      // HF deprecated api-inference.*; router.* is the supported endpoint
+      `https://router.huggingface.co/hf-inference/models/${modelId}`,
       {
         method: "POST",
         headers: {
@@ -254,6 +255,50 @@ async function callHuggingFace(
   }
 }
 
+async function callLovableAI(
+  apiKey: string,
+  prompt: string,
+  systemPrompt: string
+): Promise<{ success: boolean; content?: string; error?: string; modelUsed?: string }> {
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 1500,
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const t = await response.text();
+      console.error("Lovable AI Gateway error:", response.status, t);
+      if (response.status === 429) return { success: false, error: "AI rate limit exceeded. Please try again shortly." };
+      if (response.status === 402) return { success: false, error: "AI credits exhausted. Please add credits to your workspace." };
+      if (response.status === 401) return { success: false, error: "AI authentication failed." };
+      return { success: false, error: "AI service temporarily unavailable." };
+    }
+
+    const data = await response.json();
+    const content = (data?.choices?.[0]?.message?.content as string | undefined)?.trim();
+    if (!content) return { success: false, error: "AI returned an empty response." };
+
+    return { success: true, content, modelUsed: "Lovable AI (Gemini 3 Flash)" };
+  } catch (e) {
+    console.error("Lovable AI call error:", e);
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
 // Try models with fallback
 async function executeWithFallback(
   apiKey: string,
@@ -281,6 +326,17 @@ async function executeWithFallback(
     }
     
     console.log(`Model ${model.displayName} failed, trying next...`);
+  }
+
+  // Final fallback: Lovable AI Gateway
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (LOVABLE_API_KEY) {
+    console.log("All Hugging Face models failed; falling back to Lovable AI (Gemini 3 Flash)");
+    const fallback = await callLovableAI(LOVABLE_API_KEY, prompt, systemPrompt);
+    if (fallback.success && fallback.content) {
+      return { success: true, content: fallback.content, modelUsed: fallback.modelUsed };
+    }
+    return { success: false, error: fallback.error || "All AI providers failed." };
   }
 
   return { success: false, error: "All AI models failed. Please try again later." };
