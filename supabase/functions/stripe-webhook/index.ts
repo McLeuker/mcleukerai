@@ -17,9 +17,11 @@ const PRICE_TO_CREDITS: Record<string, number> = {
   "price_1St8R4B0LQyHc0cS3NOO4aXq": 1800,  // Studio yearly
 };
 
-// Credit refill (€39 for 1000 credits)
-const CREDIT_REFILL_PRICE = "price_1St8RQB0LQyHc0cSaXgacgo8";
-const CREDIT_REFILL_AMOUNT = 1000;
+// Credit refill prices per plan
+const CREDIT_REFILL_PRICES: Record<string, number> = {
+  "price_1St8RQB0LQyHc0cSaXgacgo8": 1000, // Pro refill (€39)
+  "price_1St8hdB0LQyHc0cSBbGILcsV": 1000, // Studio refill (€45)
+};
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';

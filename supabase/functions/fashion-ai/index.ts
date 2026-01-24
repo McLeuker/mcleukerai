@@ -29,12 +29,37 @@ const CREDIT_COSTS = {
   excel_export: 4,
 } as const;
 
-// Rate limits per plan (queries per hour)
+// Heavy actions that can trigger 2x cost for Studio beyond threshold
+const HEAVY_ACTIONS = ["market_analysis", "trend_report"];
+
+// Rate limits per plan
 const RATE_LIMITS = {
-  free: { maxPerHour: 5, maxTrendReportsPerDay: 2 },
-  pro: { maxPerHour: 30, maxTrendReportsPerDay: 10 },
-  studio: { maxPerHour: 100, maxTrendReportsPerDay: 50 },
-  enterprise: { maxPerHour: null, maxTrendReportsPerDay: null }, // unlimited
+  free: { 
+    maxQueriesPerDay: 5, 
+    maxQueriesPerMinute: 1,
+    maxHeavyQueriesPerDay: 0, // No heavy queries for free
+    allowedActions: ["ai_research_query"],
+  },
+  pro: { 
+    maxQueriesPerDay: 100, 
+    maxQueriesPerMinute: null,
+    maxHeavyQueriesPerDay: 20, 
+    allowedActions: null, // All actions
+  },
+  studio: { 
+    maxQueriesPerDay: 500, 
+    maxQueriesPerMinute: null,
+    maxHeavyQueriesPerDay: null,
+    allowedActions: null,
+    heavyUsageThreshold: 1500, // Credits used before 2x kicks in
+    heavyActionMultiplier: 2,
+  },
+  enterprise: { 
+    maxQueriesPerDay: null, // unlimited
+    maxQueriesPerMinute: null,
+    maxHeavyQueriesPerDay: null, 
+    allowedActions: null,
+  },
 } as const;
 
 const FASHION_SYSTEM_PROMPT = `You are an expert fashion industry AI analyst, researcher, and operator. You work with fashion sourcing managers, marketers, brand teams, buyers, merchandisers, and consultants.
@@ -168,20 +193,50 @@ serve(async (req) => {
     
     const creditCost = CREDIT_COSTS[actionType];
 
-    // Get user's subscription plan for rate limiting
-    const { data: userData } = await supabase
+    // Get user's subscription plan and usage data for rate limiting
+    const { data: userData, error: userDataError } = await supabase
       .from("users")
-      .select("subscription_plan")
+      .select("subscription_plan, monthly_credits, extra_credits")
       .eq("user_id", user.id)
       .single();
     
+    if (userDataError) {
+      console.error("Error fetching user data:", userDataError);
+    }
+    
     const userPlan = (userData?.subscription_plan || "free") as keyof typeof RATE_LIMITS;
+    const planLimits = RATE_LIMITS[userPlan];
+
+    // Check if action is allowed for this plan
+    const allowedActions = planLimits.allowedActions as readonly string[] | null;
+    if (allowedActions && !allowedActions.includes(actionType)) {
+      return new Response(JSON.stringify({ 
+        error: `${actionType.replace(/_/g, " ")} is not available on your plan. Please upgrade to Pro or Studio.`,
+        upgradeRequired: true
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Calculate actual credit cost (2x for Studio heavy actions beyond threshold)
+    let actualCreditCost = creditCost;
+    if (userPlan === "studio" && HEAVY_ACTIONS.includes(actionType)) {
+      // Calculate total credits used this month (original allocation - remaining)
+      const originalMonthly = 1800; // Studio monthly credits
+      const usedCredits = originalMonthly - (userData?.monthly_credits || 0);
+      
+      if (usedCredits >= 1500) {
+        actualCreditCost = creditCost * 2;
+        console.log(`Studio user beyond threshold, applying 2x cost: ${creditCost} -> ${actualCreditCost}`);
+      }
+    }
 
     // Deduct credits before processing
     const { data: deductResult, error: deductError } = await supabase.rpc("deduct_credits", {
       p_user_id: user.id,
-      p_amount: creditCost,
-      p_description: `${actionType.replace(/_/g, " ")} - AI task`
+      p_amount: actualCreditCost,
+      p_description: `${actionType.replace(/_/g, " ")} - AI task${actualCreditCost > creditCost ? ' (2x penalty)' : ''}`
     });
 
     if (deductError || !deductResult?.success) {
