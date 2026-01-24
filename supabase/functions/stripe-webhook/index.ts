@@ -23,10 +23,49 @@ const CREDIT_REFILL_PRICES: Record<string, number> = {
   "price_1St8hdB0LQyHc0cSBbGILcsV": 1000, // Studio refill (€45)
 };
 
+// Map price IDs to plan names
+const PRICE_TO_PLAN: Record<string, { plan: string; cycle: string }> = {
+  "price_1St8PXB0LQyHc0cSUfR0Sz7u": { plan: "pro", cycle: "monthly" },
+  "price_1St8PnB0LQyHc0cSxyKT7KkJ": { plan: "pro", cycle: "yearly" },
+  "price_1St8QuB0LQyHc0cSHex3exfz": { plan: "studio", cycle: "monthly" },
+  "price_1St8R4B0LQyHc0cS3NOO4aXq": { plan: "studio", cycle: "yearly" },
+};
+
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
 };
+
+// User type for webhook processing
+interface WebhookUser {
+  user_id: string;
+  email: string;
+  subscription_plan: string | null;
+  subscription_status: string;
+}
+
+// Helper to find user by email
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function findUserByEmail(
+  supabase: any,
+  email: string
+): Promise<WebhookUser | null> {
+  const { data: users } = await supabase
+    .from("users")
+    .select("user_id, email, subscription_plan, subscription_status")
+    .eq("email", email)
+    .limit(1);
+  
+  if (!users || users.length === 0) return null;
+  return users[0] as WebhookUser;
+}
+
+// Helper to get customer email from Stripe customer ID
+async function getCustomerEmail(stripe: Stripe, customerId: string): Promise<string | null> {
+  const customer = await stripe.customers.retrieve(customerId);
+  if (customer.deleted || !("email" in customer)) return null;
+  return customer.email || null;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -74,6 +113,9 @@ serve(async (req) => {
     logStep("Webhook verified", { type: event.type, id: event.id });
 
     switch (event.type) {
+      // ============================================
+      // CHECKOUT EVENTS
+      // ============================================
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const customerEmail = session.customer_email || session.customer_details?.email;
@@ -83,19 +125,11 @@ serve(async (req) => {
           break;
         }
 
-        // Find user by email
-        const { data: users } = await supabase
-          .from("users")
-          .select("user_id")
-          .eq("email", customerEmail)
-          .limit(1);
-
-        if (!users || users.length === 0) {
+        const user = await findUserByEmail(supabase, customerEmail);
+        if (!user) {
           logStep("User not found for email", { email: customerEmail });
           break;
         }
-
-        const userId = users[0].user_id;
 
         if (session.mode === "subscription") {
           // Handle subscription checkout
@@ -103,22 +137,30 @@ serve(async (req) => {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           const priceId = subscription.items.data[0]?.price?.id;
           const credits = priceId ? PRICE_TO_CREDITS[priceId] : 0;
+          const planInfo = priceId ? PRICE_TO_PLAN[priceId] : null;
 
-          logStep("Processing subscription", { subscriptionId, priceId, credits });
+          logStep("Processing subscription checkout", { subscriptionId, priceId, credits, plan: planInfo?.plan });
 
-          // Add monthly credits using the database function
-          await supabase.rpc("add_credits", {
-            p_user_id: userId,
-            p_amount: credits,
-            p_type: "subscription_reset",
-            p_description: "Monthly subscription credits",
-          });
-
-          // Reset refills counter for new subscription
+          // Update subscription info
           await supabase
             .from("users")
-            .update({ refills_this_month: 0 })
-            .eq("user_id", userId);
+            .update({
+              subscription_plan: planInfo?.plan || "pro",
+              billing_cycle: planInfo?.cycle || "monthly",
+              subscription_status: "active",
+              stripe_customer_id: session.customer as string,
+              subscription_ends_at: new Date(subscription.current_period_end * 1000).toISOString(),
+              refills_this_month: 0,
+            })
+            .eq("user_id", user.user_id);
+
+          // Add monthly credits
+          await supabase.rpc("add_credits", {
+            p_user_id: user.user_id,
+            p_amount: credits,
+            p_type: "subscription_reset",
+            p_description: `${planInfo?.plan || "Pro"} subscription activated`,
+          });
 
         } else if (session.mode === "payment") {
           // Handle credit refill purchase
@@ -130,9 +172,8 @@ serve(async (req) => {
             logStep("Processing credit refill", { credits });
 
             if (credits > 0) {
-              // Add purchased credits to extra_credits
               await supabase.rpc("add_credits", {
-                p_user_id: userId,
+                p_user_id: user.user_id,
                 p_amount: credits,
                 p_type: "purchase",
                 p_description: `Credit refill - ${credits} credits`,
@@ -142,89 +183,291 @@ serve(async (req) => {
               const { data: userData } = await supabase
                 .from("users")
                 .select("refills_this_month")
-                .eq("user_id", userId)
+                .eq("user_id", user.user_id)
                 .single();
 
               await supabase
                 .from("users")
                 .update({ refills_this_month: (userData?.refills_this_month || 0) + 1 })
-                .eq("user_id", userId);
+                .eq("user_id", user.user_id);
             }
           }
         }
         break;
       }
 
-      case "invoice.paid": {
-        // Handle subscription renewal
-        const invoice = event.data.object as Stripe.Invoice;
-        if (invoice.billing_reason === "subscription_cycle") {
-          const customerEmail = invoice.customer_email;
-          if (!customerEmail) break;
-
-          const { data: users } = await supabase
-            .from("users")
-            .select("user_id")
-            .eq("email", customerEmail)
-            .limit(1);
-
-          if (!users || users.length === 0) break;
-
-          const userId = users[0].user_id;
-          const priceId = invoice.lines.data[0]?.price?.id;
-          const credits = priceId ? PRICE_TO_CREDITS[priceId] : 0;
-
-          logStep("Processing subscription renewal", { priceId, credits });
-
-          // Reset monthly credits
-          await supabase.rpc("add_credits", {
-            p_user_id: userId,
-            p_amount: credits,
-            p_type: "subscription_reset",
-            p_description: "Monthly subscription credits renewal",
-          });
-
-          // Reset refills counter on renewal
-          await supabase
-            .from("users")
-            .update({ refills_this_month: 0 })
-            .eq("user_id", userId);
+      // ============================================
+      // CUSTOMER EVENTS
+      // ============================================
+      case "customer.created": {
+        const customer = event.data.object as Stripe.Customer;
+        logStep("Customer created in Stripe", { 
+          customerId: customer.id, 
+          email: customer.email 
+        });
+        
+        // If user exists, link their Stripe customer ID
+        if (customer.email) {
+          const user = await findUserByEmail(supabase, customer.email);
+          if (user) {
+            await supabase
+              .from("users")
+              .update({ stripe_customer_id: customer.id })
+              .eq("user_id", user.user_id);
+            logStep("Linked Stripe customer to user", { userId: user.user_id });
+          }
         }
         break;
       }
 
-      case "customer.subscription.deleted": {
-        // Handle subscription cancellation - revert to free plan
+      case "customer.updated": {
+        const customer = event.data.object as Stripe.Customer;
+        logStep("Customer updated in Stripe", { 
+          customerId: customer.id, 
+          email: customer.email 
+        });
+        
+        // Update user email if changed in Stripe
+        if (customer.email) {
+          const { data: existingUser } = await supabase
+            .from("users")
+            .select("user_id, email")
+            .eq("stripe_customer_id", customer.id)
+            .limit(1)
+            .single();
+
+          if (existingUser && existingUser.email !== customer.email) {
+            logStep("Customer email changed", { 
+              oldEmail: existingUser.email, 
+              newEmail: customer.email 
+            });
+            // Note: We don't auto-update email as it should be controlled via auth
+          }
+        }
+        break;
+      }
+
+      // ============================================
+      // INVOICE EVENTS
+      // ============================================
+      case "invoice.paid": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerEmail = invoice.customer_email;
+        
+        if (!customerEmail) {
+          logStep("No customer email in invoice");
+          break;
+        }
+
+        const user = await findUserByEmail(supabase, customerEmail);
+        if (!user) break;
+
+        // Handle subscription renewal (not initial payment)
+        if (invoice.billing_reason === "subscription_cycle") {
+          const priceId = invoice.lines.data[0]?.price?.id;
+          const credits = priceId ? PRICE_TO_CREDITS[priceId] : 0;
+          const planInfo = priceId ? PRICE_TO_PLAN[priceId] : null;
+
+          logStep("Processing subscription renewal", { priceId, credits });
+
+          // Update subscription end date
+          const subscriptionId = invoice.subscription as string;
+          if (subscriptionId) {
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            await supabase
+              .from("users")
+              .update({
+                subscription_status: "active",
+                subscription_ends_at: new Date(subscription.current_period_end * 1000).toISOString(),
+                refills_this_month: 0,
+              })
+              .eq("user_id", user.user_id);
+          }
+
+          // Reset monthly credits
+          await supabase.rpc("add_credits", {
+            p_user_id: user.user_id,
+            p_amount: credits,
+            p_type: "subscription_reset",
+            p_description: `${planInfo?.plan || "Subscription"} renewal - monthly credits reset`,
+          });
+        }
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerEmail = invoice.customer_email;
+        
+        logStep("Invoice payment failed", { 
+          invoiceId: invoice.id,
+          customerEmail,
+          attemptCount: invoice.attempt_count,
+          nextAttempt: invoice.next_payment_attempt 
+        });
+
+        if (!customerEmail) break;
+
+        const user = await findUserByEmail(supabase, customerEmail);
+        if (!user) break;
+
+        // Update subscription status to past_due
+        await supabase
+          .from("users")
+          .update({ subscription_status: "past_due" })
+          .eq("user_id", user.user_id);
+
+        logStep("User subscription marked as past_due", { userId: user.user_id });
+        break;
+      }
+
+      // ============================================
+      // SUBSCRIPTION EVENTS
+      // ============================================
+      case "customer.subscription.created": {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
-        const customer = await stripe.customers.retrieve(customerId);
+        const customerEmail = await getCustomerEmail(stripe, customerId);
         
-        if (customer.deleted || !("email" in customer) || !customer.email) break;
+        if (!customerEmail) {
+          logStep("No customer email for subscription.created");
+          break;
+        }
 
-        const { data: users } = await supabase
+        const user = await findUserByEmail(supabase, customerEmail);
+        if (!user) {
+          logStep("User not found for subscription.created", { email: customerEmail });
+          break;
+        }
+
+        const priceId = subscription.items.data[0]?.price?.id;
+        const credits = priceId ? PRICE_TO_CREDITS[priceId] : 0;
+        const planInfo = priceId ? PRICE_TO_PLAN[priceId] : null;
+
+        logStep("Subscription created", { 
+          subscriptionId: subscription.id, 
+          priceId, 
+          plan: planInfo?.plan 
+        });
+
+        // Update user with subscription details
+        await supabase
           .from("users")
-          .select("user_id")
-          .eq("email", customer.email)
-          .limit(1);
+          .update({
+            subscription_plan: planInfo?.plan || "pro",
+            billing_cycle: planInfo?.cycle || "monthly",
+            subscription_status: subscription.status,
+            stripe_customer_id: customerId,
+            subscription_ends_at: new Date(subscription.current_period_end * 1000).toISOString(),
+            refills_this_month: 0,
+          })
+          .eq("user_id", user.user_id);
 
-        if (!users || users.length === 0) break;
+        // Add initial credits
+        await supabase.rpc("add_credits", {
+          p_user_id: user.user_id,
+          p_amount: credits,
+          p_type: "subscription_reset",
+          p_description: `${planInfo?.plan || "Pro"} subscription started`,
+        });
+        break;
+      }
 
-        logStep("Processing subscription cancellation", { customerId });
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+        const customerEmail = await getCustomerEmail(stripe, customerId);
+        
+        if (!customerEmail) break;
 
-        // Revert to free tier (40 credits/month)
+        const user = await findUserByEmail(supabase, customerEmail);
+        if (!user) break;
+
+        const priceId = subscription.items.data[0]?.price?.id;
+        const planInfo = priceId ? PRICE_TO_PLAN[priceId] : null;
+        const previousPlan = user.subscription_plan;
+
+        logStep("Subscription updated", { 
+          subscriptionId: subscription.id,
+          status: subscription.status,
+          previousPlan,
+          newPlan: planInfo?.plan,
+          cancelAtPeriodEnd: subscription.cancel_at_period_end
+        });
+
+        // Update subscription details
+        const updateData: Record<string, unknown> = {
+          subscription_status: subscription.status,
+          subscription_ends_at: new Date(subscription.current_period_end * 1000).toISOString(),
+        };
+
+        // If plan changed, update plan info
+        if (planInfo && planInfo.plan !== previousPlan) {
+          updateData.subscription_plan = planInfo.plan;
+          updateData.billing_cycle = planInfo.cycle;
+
+          // If upgrading, add the credit difference
+          const newCredits = PRICE_TO_CREDITS[priceId!] || 0;
+          const oldCredits = previousPlan === "pro" ? 700 : previousPlan === "studio" ? 1800 : 40;
+          
+          if (newCredits > oldCredits) {
+            const creditDiff = newCredits - oldCredits;
+            await supabase.rpc("add_credits", {
+              p_user_id: user.user_id,
+              p_amount: creditDiff,
+              p_type: "subscription_reset",
+              p_description: `Plan upgrade to ${planInfo.plan} - ${creditDiff} additional credits`,
+            });
+          }
+        }
+
+        // Handle cancellation scheduled
+        if (subscription.cancel_at_period_end) {
+          updateData.subscription_status = "canceling";
+          logStep("Subscription will cancel at period end");
+        }
+
+        await supabase
+          .from("users")
+          .update(updateData)
+          .eq("user_id", user.user_id);
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+        const customerEmail = await getCustomerEmail(stripe, customerId);
+        
+        if (!customerEmail) break;
+
+        const user = await findUserByEmail(supabase, customerEmail);
+        if (!user) break;
+
+        logStep("Subscription deleted/canceled", { 
+          subscriptionId: subscription.id,
+          customerId 
+        });
+
+        // Revert to free tier
         await supabase
           .from("users")
           .update({
             subscription_plan: "free",
             billing_cycle: null,
             subscription_status: "free",
-            monthly_credits: 40, // Free tier credits
+            monthly_credits: 40,
             subscription_ends_at: null,
             refills_this_month: 0,
           })
-          .eq("user_id", users[0].user_id);
+          .eq("user_id", user.user_id);
+
+        logStep("User reverted to free plan", { userId: user.user_id });
         break;
       }
+
+      default:
+        logStep("Unhandled event type", { type: event.type });
     }
 
     return new Response(JSON.stringify({ received: true }), {
