@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
 import { useSector, Sector, SECTORS } from "@/contexts/SectorContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Settings, FileText, Globe, Sparkles } from "lucide-react";
 
 export function Preferences() {
-  const { user } = useAuth();
   const { currentSector, setSector } = useSector();
   const { toast } = useToast();
   
