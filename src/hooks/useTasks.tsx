@@ -22,6 +22,8 @@ export interface Task {
   result: { content: string } | null;
   steps: TaskStep[];
   files: TaskFile[];
+  model_used: string | null;
+  credits_used: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +57,8 @@ export function useTasks() {
       result: task.result as Task["result"],
       steps: (task.steps as unknown as TaskStep[]) || [],
       files: (task.files as unknown as TaskFile[]) || [],
+      model_used: task.model_used || null,
+      credits_used: task.credits_used || null,
       created_at: task.created_at,
       updated_at: task.updated_at,
     }));
@@ -89,6 +93,8 @@ export function useTasks() {
             result: updated.result as Task["result"],
             steps: (updated.steps as TaskStep[]) || [],
             files: (updated.files as TaskFile[]) || [],
+            model_used: updated.model_used || null,
+            credits_used: updated.credits_used || null,
             created_at: updated.created_at,
             updated_at: updated.updated_at,
           };
@@ -143,6 +149,8 @@ export function useTasks() {
       result: null,
       steps: [],
       files: [],
+      model_used: null,
+      credits_used: null,
       created_at: data.created_at,
       updated_at: data.updated_at,
     };

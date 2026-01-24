@@ -15,6 +15,8 @@ import {
   Table,
   Presentation,
   AlertCircle,
+  Cpu,
+  Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -76,10 +78,28 @@ export function TaskExecution({ task, streamingContent, isLoading }: TaskExecuti
       <div className="max-w-3xl mx-auto py-6 sm:py-8 px-4">
         {/* Task Prompt - Luxury Card Style */}
         <div className="mb-6 p-4 sm:p-5 rounded-xl bg-card border border-border shadow-premium">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2 font-medium">
-            Your request
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">
+              Your request
+            </p>
+            {task.model_used && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary/50">
+                <Cpu className="h-3 w-3 text-primary" />
+                <span className="text-[10px] font-medium text-foreground">
+                  {task.model_used}
+                </span>
+              </div>
+            )}
+          </div>
           <p className="text-base sm:text-lg text-foreground leading-relaxed">{task.prompt}</p>
+          {task.credits_used && task.status === "completed" && (
+            <div className="flex items-center gap-1 mt-2">
+              <Coins className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground">
+                {task.credits_used} credits used
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Execution Pipeline - Mobile Responsive */}

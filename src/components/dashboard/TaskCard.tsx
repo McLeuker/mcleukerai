@@ -1,7 +1,7 @@
 import { Task } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
-import { CheckCircle, Clock, Loader2, FileText, ChevronRight } from "lucide-react";
+import { CheckCircle, Clock, Loader2, FileText, ChevronRight, Cpu } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
@@ -63,9 +63,18 @@ export function TaskCard({ task, isActive, onClick }: TaskCardProps) {
           <p className="text-sm font-medium line-clamp-2 leading-relaxed">
             {task.prompt}
           </p>
-          <p className="text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
-          </p>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}</span>
+            {task.model_used && (
+              <>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Cpu className="h-2.5 w-2.5" />
+                  {task.model_used.split("-")[0]}
+                </span>
+              </>
+            )}
+          </div>
         </div>
         <ChevronRight className={cn(
           "h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform duration-200",
