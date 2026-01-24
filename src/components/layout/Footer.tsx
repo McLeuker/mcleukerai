@@ -5,7 +5,7 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-border bg-background">
+    <footer className="border-t border-border bg-background mt-auto">
       <div className="container mx-auto px-6 py-12 lg:py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand Column */}
@@ -17,10 +17,16 @@ export function Footer() {
                 className="h-10 w-auto"
               />
             </Link>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              Professional AI-powered fashion intelligence platform. 
-              Research, analyze, and execute complex tasks with real deliverables.
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mb-4">
+              AI & Sustainability for Fashion. Research, analyze, and execute 
+              complex tasks with real deliverables.
             </p>
+            <a
+              href="mailto:contact@mcleukerai.com"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              contact@mcleukerai.com
+            </a>
           </div>
 
           {/* Product Column */}
@@ -39,45 +45,19 @@ export function Footer() {
               </li>
               <li>
                 <Link
+                  to="/services"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Services
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/pricing"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Pricing
                 </Link>
-              </li>
-              <li>
-                <span className="text-sm text-muted-foreground">
-                  API Access <span className="text-xs">(Coming Soon)</span>
-                </span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Use Cases Column */}
-          <div>
-            <h4 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wider">
-              Use Cases
-            </h4>
-            <ul className="space-y-3">
-              <li>
-                <span className="text-sm text-muted-foreground">
-                  Trend Forecasting
-                </span>
-              </li>
-              <li>
-                <span className="text-sm text-muted-foreground">
-                  Supplier Research
-                </span>
-              </li>
-              <li>
-                <span className="text-sm text-muted-foreground">
-                  Market Analysis
-                </span>
-              </li>
-              <li>
-                <span className="text-sm text-muted-foreground">
-                  Sustainability Reports
-                </span>
               </li>
             </ul>
           </div>
@@ -97,12 +77,37 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <a
-                  href="mailto:contact@mcleukerai.com"
+                <Link
+                  to="/contact"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Contact
-                </a>
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Legal Column */}
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wider">
+              Legal
+            </h4>
+            <ul className="space-y-3">
+              <li>
+                <Link
+                  to="/privacy"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/terms"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Terms of Service
+                </Link>
               </li>
             </ul>
           </div>
@@ -119,13 +124,19 @@ export function Footer() {
                 to="/privacy"
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                Privacy Policy
+                Privacy
               </Link>
               <Link
                 to="/terms"
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                Terms of Service
+                Terms
+              </Link>
+              <Link
+                to="/contact"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Contact
               </Link>
             </div>
           </div>

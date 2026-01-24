@@ -68,13 +68,33 @@ const Landing = () => {
               className="h-8 w-auto"
             />
           </Link>
-          <nav className="flex items-center gap-3">
+          <nav className="hidden md:flex items-center gap-6">
+            <Link
+              to="/about"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              About
+            </Link>
+            <Link
+              to="/services"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Services
+            </Link>
             <Link
               to="/pricing"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Pricing
             </Link>
+            <Link
+              to="/contact"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Contact
+            </Link>
+          </nav>
+          <nav className="flex items-center gap-3">
             {user ? (
               <Button size="sm" asChild>
                 <Link to="/dashboard">
@@ -103,19 +123,19 @@ const Landing = () => {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary border border-border mb-8 animate-fade-in">
             <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
             <span className="text-xs text-muted-foreground font-medium tracking-wide">
-              Fashion Intelligence Platform
+              AI & Sustainability for Fashion
             </span>
           </div>
 
           {/* Headline - Editorial Serif */}
           <h1 className="font-editorial text-5xl md:text-6xl lg:text-7xl text-foreground mb-6 text-balance animate-fade-in leading-[1.1]">
-            Your AI fashion analyst, researcher, and operator.
+            McLeuker AI — Your fashion analyst, researcher, and operator.
           </h1>
 
           {/* Subheadline */}
           <p className="text-lg md:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto text-balance animate-fade-in">
             From a single prompt to finished reports, sourcing sheets, and presentation decks.
-            Built for fashion professionals who need real deliverables.
+            AI-powered intelligence for fashion professionals who need real deliverables.
           </p>
 
           {/* Main Input */}
