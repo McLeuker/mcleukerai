@@ -1,0 +1,244 @@
+import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Shield, 
+  Key, 
+  LogOut, 
+  Monitor,
+  Smartphone,
+  Loader2
+} from "lucide-react";
+
+export function Security() {
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
+  
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [loggingOutAll, setLoggingOutAll] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill in all password fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "New password and confirmation must match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 8 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Password updated",
+        description: "Your password has been successfully changed.",
+      });
+      
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update password.",
+        variant: "destructive",
+      });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const handleLogoutAllSessions = async () => {
+    setLoggingOutAll(true);
+    try {
+      // Sign out from all sessions
+      await supabase.auth.signOut({ scope: "global" });
+      
+      toast({
+        title: "Logged out everywhere",
+        description: "All sessions have been terminated.",
+      });
+      
+      // Redirect to login
+      window.location.href = "/login";
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to log out from all sessions.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoggingOutAll(false);
+    }
+  };
+
+  const isOAuthUser = user?.app_metadata?.provider !== "email";
+
+  return (
+    <div className="space-y-6">
+      {/* Password Section */}
+      <Card className="border-border bg-card">
+        <CardHeader>
+          <CardTitle className="text-lg font-medium flex items-center gap-2">
+            <Key className="h-5 w-5" />
+            Password
+          </CardTitle>
+          <CardDescription>
+            Change your account password
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isOAuthUser ? (
+            <div className="py-4 text-center">
+              <p className="text-muted-foreground">
+                You signed in with Google. Password management is handled through your Google account.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="bg-background"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="bg-background"
+                />
+              </div>
+              
+              <Button 
+                onClick={handleChangePassword}
+                disabled={changingPassword || !newPassword || !confirmPassword}
+              >
+                {changingPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Update Password
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Sessions */}
+      <Card className="border-border bg-card">
+        <CardHeader>
+          <CardTitle className="text-lg font-medium flex items-center gap-2">
+            <Monitor className="h-5 w-5" />
+            Sessions
+          </CardTitle>
+          <CardDescription>
+            Manage your active sessions across devices
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Current Session */}
+          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-background">
+                <Monitor className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-medium">Current Session</p>
+                <p className="text-sm text-muted-foreground">
+                  This device • Active now
+                </p>
+              </div>
+            </div>
+            <Badge variant="default">Active</Badge>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-3">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start text-destructive hover:text-destructive"
+              onClick={handleLogoutAllSessions}
+              disabled={loggingOutAll}
+            >
+              {loggingOutAll ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4 mr-2" />
+              )}
+              Log Out From All Devices
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              This will sign you out from all devices including this one
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 2FA (Coming Soon) */}
+      <Card className="border-border bg-card opacity-60">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-medium flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Two-Factor Authentication
+              </CardTitle>
+              <CardDescription>
+                Add an extra layer of security to your account
+              </CardDescription>
+            </div>
+            <Badge variant="outline">Coming Soon</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Two-factor authentication will be available in a future update.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
