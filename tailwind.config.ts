@@ -15,7 +15,8 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
-        editorial: ["'Instrument Serif'", "Georgia", "'Times New Roman'", "serif"],
+        editorial: ["'Cormorant Garamond'", "'Instrument Serif'", "Georgia", "serif"],
+        luxury: ["'Cormorant Garamond'", "Georgia", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -72,6 +73,10 @@ export default {
         olive: "hsl(var(--olive))",
         sand: "hsl(var(--sand))",
         stone: "hsl(var(--stone))",
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+          foreground: "hsl(var(--gold-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
