@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -17,7 +16,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Pencil, Check, X, User, Mail, Calendar, Clock, Building2, Briefcase, Camera } from "lucide-react";
+import { User, Mail, Calendar, Clock, Building2, Briefcase, Loader2 } from "lucide-react";
+import { ProfileImageUpload } from "./ProfileImageUpload";
 
 interface UserData {
   name: string;
@@ -27,12 +27,6 @@ interface UserData {
   created_at: string;
   last_login_at: string;
   auth_provider: string;
-}
-
-interface ProfileData {
-  full_name: string | null;
-  company?: string;
-  role?: string;
 }
 
 const ROLES = [
@@ -47,21 +41,35 @@ const ROLES = [
 export function AccountOverview() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   
-  // Editing states
-  const [editingName, setEditingName] = useState(false);
-  const [editingCompany, setEditingCompany] = useState(false);
-  const [editingRole, setEditingRole] = useState(false);
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    company: "",
+    role: "",
+    profile_image: null as string | null,
+  });
   
-  const [newName, setNewName] = useState("");
-  const [newCompany, setNewCompany] = useState("");
-  const [newRole, setNewRole] = useState("");
-  const [uploadingImage, setUploadingImage] = useState(false);
+  // Track original values to detect changes
+  const [originalData, setOriginalData] = useState({
+    name: "",
+    company: "",
+    role: "",
+    profile_image: null as string | null,
+  });
+  
+  // Pending image for preview (not yet saved)
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+
+  const hasChanges = 
+    formData.name !== originalData.name ||
+    formData.company !== originalData.company ||
+    formData.role !== originalData.role ||
+    pendingImage !== null;
 
   useEffect(() => {
     if (user) {
@@ -73,7 +81,6 @@ export function AccountOverview() {
     if (!user) return;
     
     try {
-      // Fetch from users table
       const { data: usersData, error: usersError } = await supabase
         .from("users")
         .select("name, email, profile_image, subscription_plan, created_at, last_login_at, auth_provider")
@@ -82,124 +89,104 @@ export function AccountOverview() {
 
       if (usersError) throw usersError;
       setUserData(usersData);
-      setNewName(usersData.name || "");
       
-      // Fetch from profiles table for additional data
-      const { data: profilesData } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("user_id", user.id)
-        .single();
+      // Initialize form with current values
+      const initialData = {
+        name: usersData.name || "",
+        company: "", // TODO: Add company column to users table if needed
+        role: "", // TODO: Add role column to users table if needed
+        profile_image: usersData.profile_image,
+      };
       
-      if (profilesData) {
-        setProfileData(profilesData);
-      }
+      setFormData(initialData);
+      setOriginalData(initialData);
     } catch (error) {
       console.error("Error fetching user data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load profile data",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateName = async () => {
-    if (!user || !newName.trim()) return;
-
+  const handleSave = async () => {
+    if (!user || !hasChanges) return;
+    
+    setSaving(true);
+    
     try {
-      const { error } = await supabase
-        .from("users")
-        .update({ name: newName.trim() })
-        .eq("user_id", user.id);
-
-      if (error) throw error;
-
-      // Also update profiles table
-      await supabase
-        .from("profiles")
-        .update({ full_name: newName.trim() })
-        .eq("user_id", user.id);
-
-      setUserData(prev => prev ? { ...prev, name: newName.trim() } : null);
-      setEditingName(false);
-      toast({
-        title: "Name updated",
-        description: "Your name has been successfully updated.",
-      });
-    } catch (error) {
-      console.error("Error updating name:", error);
-      toast({
-        title: "Update failed",
-        description: "Failed to update your name. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !user) return;
-
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Invalid file type",
-        description: "Please select an image file.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please select an image smaller than 2MB.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setUploadingImage(true);
-
-    try {
-      // Convert to base64 for simple storage (or use Supabase Storage in production)
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Image = reader.result as string;
-        
-        const { error } = await supabase
+      // Build update object
+      const updates: Record<string, string | null> = {};
+      
+      if (formData.name !== originalData.name) {
+        updates.name = formData.name.trim();
+      }
+      
+      if (pendingImage) {
+        updates.profile_image = pendingImage;
+      }
+      
+      // Update users table
+      if (Object.keys(updates).length > 0) {
+        const { error: usersError } = await supabase
           .from("users")
-          .update({ profile_image: base64Image })
+          .update(updates)
           .eq("user_id", user.id);
 
-        if (error) throw error;
-
-        setUserData(prev => prev ? { ...prev, profile_image: base64Image } : null);
-        toast({
-          title: "Profile image updated",
-          description: "Your profile image has been updated.",
-        });
-        setUploadingImage(false);
+        if (usersError) throw usersError;
+      }
+      
+      // Also update profiles table if name changed
+      if (updates.name) {
+        await supabase
+          .from("profiles")
+          .update({ full_name: updates.name })
+          .eq("user_id", user.id);
+      }
+      
+      // Update local state
+      setUserData(prev => prev ? { 
+        ...prev, 
+        name: formData.name.trim(),
+        profile_image: pendingImage || prev.profile_image,
+      } : null);
+      
+      const newOriginalData = {
+        ...formData,
+        name: formData.name.trim(),
+        profile_image: pendingImage || originalData.profile_image,
       };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error("Error uploading image:", error);
+      
+      setOriginalData(newOriginalData);
+      setFormData(prev => ({ ...prev, profile_image: pendingImage || prev.profile_image }));
+      setPendingImage(null);
+      
       toast({
-        title: "Upload failed",
-        description: "Failed to upload image. Please try again.",
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      });
+      
+      // Trigger a page refresh to update avatar in navigation
+      window.dispatchEvent(new CustomEvent('profile-updated'));
+      
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      toast({
+        title: "Update failed",
+        description: "Failed to save your changes. Please try again.",
         variant: "destructive",
       });
-      setUploadingImage(false);
+    } finally {
+      setSaving(false);
     }
   };
 
-  const getInitials = (name: string | null | undefined) => {
-    if (!name) return "U";
-    return name
-      .split(" ")
-      .map(n => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+  const handleCancel = () => {
+    setFormData(originalData);
+    setPendingImage(null);
   };
 
   const getPlanBadgeVariant = (plan: string) => {
@@ -232,79 +219,20 @@ export function AccountOverview() {
           <CardTitle className="text-lg font-medium">Profile Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Avatar & Name Section */}
-          <div className="flex items-start gap-6">
-            <div className="relative group">
-              <Avatar className="h-24 w-24 border-2 border-border">
-                <AvatarImage src={userData?.profile_image || undefined} />
-                <AvatarFallback className="text-xl bg-muted text-foreground">
-                  {getInitials(userData?.name)}
-                </AvatarFallback>
-              </Avatar>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingImage}
-                className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              >
-                <Camera className="h-6 w-6 text-white" />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-            </div>
+          {/* Avatar Section */}
+          <div className="flex flex-col sm:flex-row items-start gap-6">
+            <ProfileImageUpload
+              currentImage={pendingImage || formData.profile_image}
+              name={formData.name}
+              onImageSelect={(base64) => setPendingImage(base64)}
+              disabled={saving}
+            />
             
-            <div className="flex-1 space-y-3">
-              <div className="flex items-center gap-3">
-                {editingName ? (
-                  <div className="flex items-center gap-2 flex-1">
-                    <Input
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      className="max-w-xs bg-background"
-                      placeholder="Enter your full name"
-                    />
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      onClick={handleUpdateName}
-                      className="h-8 w-8"
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      onClick={() => {
-                        setEditingName(false);
-                        setNewName(userData?.name || "");
-                      }}
-                      className="h-8 w-8"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <h2 className="text-2xl font-serif font-light">
-                      {userData?.name || "Unnamed User"}
-                    </h2>
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      onClick={() => setEditingName(true)}
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-2">
+            <div className="flex-1 space-y-1">
+              <h2 className="text-2xl font-serif font-light">
+                {formData.name || "Unnamed User"}
+              </h2>
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={getPlanBadgeVariant(userData?.subscription_plan || "free")}>
                   {userData?.subscription_plan?.toUpperCase() || "FREE"}
                 </Badge>
@@ -319,17 +247,83 @@ export function AccountOverview() {
 
           <Separator />
 
-          {/* Account Details */}
+          {/* Editable Fields */}
           <div className="grid gap-6 sm:grid-cols-2">
+            {/* Full Name */}
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-muted-foreground flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Full Name
+              </Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter your full name"
+                className="bg-background"
+                disabled={saving}
+              />
+            </div>
+            
+            {/* Email (Read-only) */}
             <div className="space-y-2">
               <Label className="text-muted-foreground flex items-center gap-2">
                 <Mail className="h-4 w-4" />
                 Email Address
               </Label>
-              <p className="text-sm font-medium">{userData?.email}</p>
+              <Input
+                value={userData?.email || ""}
+                disabled
+                className="bg-muted cursor-not-allowed"
+              />
               <p className="text-xs text-muted-foreground">Contact support to change email</p>
             </div>
+
+            {/* Company */}
+            <div className="space-y-2">
+              <Label htmlFor="company" className="text-muted-foreground flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Company / Organization
+              </Label>
+              <Input
+                id="company"
+                value={formData.company}
+                onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
+                placeholder="Enter company name"
+                className="bg-background"
+                disabled={saving}
+              />
+            </div>
             
+            {/* Role */}
+            <div className="space-y-2">
+              <Label className="text-muted-foreground flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                Role
+              </Label>
+              <Select 
+                value={formData.role} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, role: value }))}
+                disabled={saving}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Read-only Account Details */}
+          <div className="grid gap-6 sm:grid-cols-3">
             <div className="space-y-2">
               <Label className="text-muted-foreground flex items-center gap-2">
                 <User className="h-4 w-4" />
@@ -366,84 +360,35 @@ export function AccountOverview() {
               </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Professional Information */}
-      <Card className="border-border bg-card">
-        <CardHeader>
-          <CardTitle className="text-lg font-medium">Professional Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label className="text-muted-foreground flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Company / Organization
-              </Label>
-              <div className="flex items-center gap-2">
-                {editingCompany ? (
-                  <>
-                    <Input
-                      value={newCompany}
-                      onChange={(e) => setNewCompany(e.target.value)}
-                      className="bg-background"
-                      placeholder="Enter company name"
-                    />
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      onClick={() => {
-                        setEditingCompany(false);
-                        toast({ title: "Company updated" });
-                      }}
-                      className="h-8 w-8"
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      onClick={() => setEditingCompany(false)}
-                      className="h-8 w-8"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium">{newCompany || "Not specified"}</p>
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      onClick={() => setEditingCompany(true)}
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="text-muted-foreground flex items-center gap-2">
-                <Briefcase className="h-4 w-4" />
-                Role
-              </Label>
-              <Select value={newRole} onValueChange={setNewRole}>
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((role) => (
-                    <SelectItem key={role.value} value={role.value}>
-                      {role.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <Separator />
+
+          {/* Save/Cancel Buttons */}
+          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+            {hasChanges && (
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={saving}
+                className="sm:w-auto"
+              >
+                Cancel
+              </Button>
+            )}
+            <Button
+              onClick={handleSave}
+              disabled={!hasChanges || saving}
+              className="bg-foreground text-background hover:bg-foreground/90 sm:w-auto"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
