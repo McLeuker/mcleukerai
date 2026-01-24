@@ -12,6 +12,8 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import Billing from "./pages/Billing";
+import WorkspacePreferences from "./pages/WorkspacePreferences";
 import Pricing from "./pages/Pricing";
 import About from "./pages/About";
 import Services from "./pages/Services";
@@ -53,6 +55,22 @@ const App = () => {
                     }
                   />
                   <Route path="/pricing" element={<Pricing />} />
+                  <Route
+                    path="/billing"
+                    element={
+                      <ProtectedRoute>
+                        <Billing />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/preferences"
+                    element={
+                      <ProtectedRoute>
+                        <WorkspacePreferences />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="/about" element={<About />} />
                   <Route path="/services" element={<Services />} />
                   <Route path="/contact" element={<Contact />} />

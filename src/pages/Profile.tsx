@@ -2,18 +2,15 @@ import { useState } from "react";
 import { TopNavigation } from "@/components/layout/TopNavigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AccountOverview } from "@/components/profile/AccountOverview";
-import { SubscriptionCredits } from "@/components/profile/SubscriptionCredits";
-import { UsageActivity } from "@/components/profile/UsageActivity";
-import { Preferences } from "@/components/profile/Preferences";
 import { Security } from "@/components/profile/Security";
-import { BillingHistory } from "@/components/profile/BillingHistory";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { 
   User, 
-  CreditCard, 
-  BarChart3, 
-  Settings, 
-  Shield, 
-  Receipt 
+  Shield,
+  CreditCard,
+  Settings,
+  ArrowRight
 } from "lucide-react";
 
 const Profile = () => {
@@ -21,11 +18,7 @@ const Profile = () => {
 
   const tabs = [
     { id: "account", label: "Account", icon: User },
-    { id: "subscription", label: "Subscription & Credits", icon: CreditCard },
-    { id: "usage", label: "Usage", icon: BarChart3 },
-    { id: "preferences", label: "Preferences", icon: Settings },
     { id: "security", label: "Security", icon: Shield },
-    { id: "billing", label: "Billing", icon: Receipt },
   ];
 
   return (
@@ -41,13 +34,48 @@ const Profile = () => {
             Profile
           </h1>
           <p className="text-muted-foreground mt-2">
-            Manage your account, subscription, and preferences
+            Manage your account and security settings
           </p>
         </div>
 
+        {/* Quick Links */}
+        <div className="grid gap-4 sm:grid-cols-2 mb-8">
+          <Link 
+            to="/billing" 
+            className="flex items-center justify-between p-4 rounded-lg border border-border bg-card hover:bg-accent transition-colors group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-muted">
+                <CreditCard className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-medium">Billing & Credits</p>
+                <p className="text-sm text-muted-foreground">Manage subscription and credits</p>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+          </Link>
+          
+          <Link 
+            to="/preferences" 
+            className="flex items-center justify-between p-4 rounded-lg border border-border bg-card hover:bg-accent transition-colors group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-muted">
+                <Settings className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-medium">Workspace Preferences</p>
+                <p className="text-sm text-muted-foreground">Customize your AI experience</p>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+          </Link>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          {/* Desktop Tab Navigation */}
-          <TabsList className="hidden lg:flex w-full h-auto p-1 bg-card border border-border rounded-lg gap-1">
+          {/* Tab Navigation */}
+          <TabsList className="flex w-full h-auto p-1 bg-card border border-border rounded-lg gap-1">
             {tabs.map((tab) => (
               <TabsTrigger
                 key={tab.id}
@@ -60,46 +88,14 @@ const Profile = () => {
             ))}
           </TabsList>
 
-          {/* Mobile Tab Navigation */}
-          <div className="lg:hidden">
-            <TabsList className="flex flex-wrap w-full h-auto p-1 bg-card border border-border rounded-lg gap-1">
-              {tabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className="flex-1 min-w-[calc(33%-4px)] flex items-center justify-center gap-1.5 py-2.5 px-2 text-xs font-medium transition-all data-[state=active]:bg-foreground data-[state=active]:text-background rounded-md"
-                >
-                  <tab.icon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-
           {/* Tab Content */}
-          <div className="min-h-[500px]">
+          <div className="min-h-[400px]">
             <TabsContent value="account" className="mt-0">
               <AccountOverview />
             </TabsContent>
             
-            <TabsContent value="subscription" className="mt-0">
-              <SubscriptionCredits />
-            </TabsContent>
-            
-            <TabsContent value="usage" className="mt-0">
-              <UsageActivity />
-            </TabsContent>
-            
-            <TabsContent value="preferences" className="mt-0">
-              <Preferences />
-            </TabsContent>
-            
             <TabsContent value="security" className="mt-0">
               <Security />
-            </TabsContent>
-            
-            <TabsContent value="billing" className="mt-0">
-              <BillingHistory />
             </TabsContent>
           </div>
         </Tabs>
