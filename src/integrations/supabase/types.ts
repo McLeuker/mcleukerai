@@ -74,8 +74,10 @@ export type Database = {
       tasks: {
         Row: {
           created_at: string
+          credits_used: number | null
           files: Json | null
           id: string
+          model_used: string | null
           prompt: string
           result: Json | null
           status: Database["public"]["Enums"]["task_status"]
@@ -85,8 +87,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          credits_used?: number | null
           files?: Json | null
           id?: string
+          model_used?: string | null
           prompt: string
           result?: Json | null
           status?: Database["public"]["Enums"]["task_status"]
@@ -96,8 +100,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          credits_used?: number | null
           files?: Json | null
           id?: string
+          model_used?: string | null
           prompt?: string
           result?: Json | null
           status?: Database["public"]["Enums"]["task_status"]

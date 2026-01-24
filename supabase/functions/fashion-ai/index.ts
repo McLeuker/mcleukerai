@@ -39,30 +39,97 @@ const RATE_LIMITS = {
   free: { 
     maxQueriesPerDay: 5, 
     maxQueriesPerMinute: 1,
-    maxHeavyQueriesPerDay: 0, // No heavy queries for free
+    maxHeavyQueriesPerDay: 0,
     allowedActions: ["ai_research_query"],
   },
   pro: { 
     maxQueriesPerDay: 100, 
     maxQueriesPerMinute: null,
     maxHeavyQueriesPerDay: 20, 
-    allowedActions: null, // All actions
+    allowedActions: null,
   },
   studio: { 
     maxQueriesPerDay: 500, 
     maxQueriesPerMinute: null,
     maxHeavyQueriesPerDay: null,
     allowedActions: null,
-    heavyUsageThreshold: 1500, // Credits used before 2x kicks in
+    heavyUsageThreshold: 1500,
     heavyActionMultiplier: 2,
   },
   enterprise: { 
-    maxQueriesPerDay: null, // unlimited
+    maxQueriesPerDay: null,
     maxQueriesPerMinute: null,
     maxHeavyQueriesPerDay: null, 
     allowedActions: null,
   },
 } as const;
+
+// Hugging Face Models Configuration
+const HUGGINGFACE_MODELS = {
+  mistral: {
+    id: "mistralai/Mistral-7B-Instruct-v0.3",
+    displayName: "Mistral-7B-Instruct-v0.3",
+    description: "Structured research & supplier reports",
+  },
+  falcon: {
+    id: "tiiuae/Falcon3-7B-Instruct",
+    displayName: "Falcon3-7B-Instruct",
+    description: "Trend analysis & market intelligence",
+  },
+  llama: {
+    id: "meta-llama/Llama-2-7b-chat-hf",
+    displayName: "Llama-2-7b-chat",
+    description: "Conversational & follow-up tasks",
+  },
+} as const;
+
+// Model selection keywords
+const MODEL_KEYWORDS = {
+  mistral: [
+    "find", "list", "compare", "analyze", "map", "supplier", "pricing", 
+    "certification", "sourcing", "manufacturer", "factory", "moq", 
+    "research", "database", "report", "structured", "audit"
+  ],
+  falcon: [
+    "trend", "forecast", "prediction", "insights", "overview", "emerging",
+    "market intelligence", "competitive", "landscape", "growth", "projection"
+  ],
+  llama: [
+    "explain", "help", "what is", "how to", "tell me", "describe",
+    "clarify", "elaborate", "more about", "follow up"
+  ],
+} as const;
+
+// Function to select the best model based on prompt
+function selectModel(prompt: string): keyof typeof HUGGINGFACE_MODELS {
+  const lowerPrompt = prompt.toLowerCase();
+  
+  // Count keyword matches for each model
+  const scores = {
+    mistral: 0,
+    falcon: 0,
+    llama: 0,
+  };
+  
+  for (const keyword of MODEL_KEYWORDS.mistral) {
+    if (lowerPrompt.includes(keyword)) scores.mistral++;
+  }
+  for (const keyword of MODEL_KEYWORDS.falcon) {
+    if (lowerPrompt.includes(keyword)) scores.falcon++;
+  }
+  for (const keyword of MODEL_KEYWORDS.llama) {
+    if (lowerPrompt.includes(keyword)) scores.llama++;
+  }
+  
+  // Select model with highest score, default to mistral
+  if (scores.falcon > scores.mistral && scores.falcon > scores.llama) {
+    return "falcon";
+  }
+  if (scores.llama > scores.mistral && scores.llama >= scores.falcon) {
+    return "llama";
+  }
+  return "mistral"; // Default for structured research
+}
 
 const FASHION_SYSTEM_PROMPT = `You are an expert fashion industry AI analyst, researcher, and operator. You work with fashion sourcing managers, marketers, brand teams, buyers, merchandisers, and consultants.
 
@@ -109,12 +176,115 @@ You specialize in:
 - Brand positioning and competitive analysis
 - Collection planning and merchandising`;
 
-// Lovable AI Gateway Configuration (replaces OpenAI)
-const AI_CONFIG = {
-  model: "google/gemini-3-flash-preview",
-  temperature: 0.7,
-  max_tokens: 1000,
-};
+// Hugging Face API call with retry logic
+async function callHuggingFace(
+  apiKey: string,
+  modelId: string,
+  prompt: string,
+  systemPrompt: string,
+  retryCount = 0
+): Promise<{ success: boolean; content?: string; error?: string }> {
+  const maxRetries = 1;
+  
+  try {
+    const response = await fetch(
+      `https://api-inference.huggingface.co/models/${modelId}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inputs: `<s>[INST] ${systemPrompt}\n\nTask: ${prompt}\n\nProvide a comprehensive, professional response with:\n- Summary of results\n- Key insights\n- Recommendations\n- Sources (if applicable) [/INST]`,
+          parameters: {
+            max_new_tokens: 1500,
+            temperature: 0.7,
+            top_p: 0.95,
+            do_sample: true,
+            return_full_text: false,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`HuggingFace API error (${modelId}):`, response.status, errorText);
+      
+      // Retry once on failure
+      if (retryCount < maxRetries) {
+        console.log(`Retrying ${modelId}... (attempt ${retryCount + 2})`);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        return callHuggingFace(apiKey, modelId, prompt, systemPrompt, retryCount + 1);
+      }
+      
+      return { success: false, error: `API error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    
+    // Handle different response formats
+    let content = "";
+    if (Array.isArray(data) && data[0]?.generated_text) {
+      content = data[0].generated_text;
+    } else if (data.generated_text) {
+      content = data.generated_text;
+    } else if (typeof data === "string") {
+      content = data;
+    } else {
+      console.error("Unexpected HuggingFace response format:", data);
+      return { success: false, error: "Unexpected response format" };
+    }
+
+    // Clean up response (remove system prompt echoes if any)
+    content = content.trim();
+    
+    return { success: true, content };
+  } catch (error) {
+    console.error(`HuggingFace call error (${modelId}):`, error);
+    
+    if (retryCount < maxRetries) {
+      console.log(`Retrying ${modelId}... (attempt ${retryCount + 2})`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return callHuggingFace(apiKey, modelId, prompt, systemPrompt, retryCount + 1);
+    }
+    
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+// Try models with fallback
+async function executeWithFallback(
+  apiKey: string,
+  primaryModel: keyof typeof HUGGINGFACE_MODELS,
+  prompt: string,
+  systemPrompt: string
+): Promise<{ success: boolean; content?: string; modelUsed?: string; error?: string }> {
+  const modelOrder: (keyof typeof HUGGINGFACE_MODELS)[] = 
+    primaryModel === "mistral" ? ["mistral", "falcon", "llama"] :
+    primaryModel === "falcon" ? ["falcon", "mistral", "llama"] :
+    ["llama", "mistral", "falcon"];
+
+  for (const modelKey of modelOrder) {
+    const model = HUGGINGFACE_MODELS[modelKey];
+    console.log(`Trying model: ${model.displayName}`);
+    
+    const result = await callHuggingFace(apiKey, model.id, prompt, systemPrompt);
+    
+    if (result.success && result.content) {
+      return {
+        success: true,
+        content: result.content,
+        modelUsed: model.displayName,
+      };
+    }
+    
+    console.log(`Model ${model.displayName} failed, trying next...`);
+  }
+
+  return { success: false, error: "All AI models failed. Please try again later." };
+}
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -156,7 +326,6 @@ serve(async (req) => {
       });
     }
     
-    // Validate prompt length (max 5000 characters)
     const trimmedPrompt = prompt.trim();
     if (trimmedPrompt.length === 0) {
       return new Response(JSON.stringify({ error: "Prompt cannot be empty" }), {
@@ -171,7 +340,7 @@ serve(async (req) => {
       });
     }
     
-    // Validate taskId is a valid UUID
+    // Validate taskId
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!taskId || typeof taskId !== 'string' || !uuidRegex.test(taskId)) {
       return new Response(JSON.stringify({ error: "Invalid taskId format" }), {
@@ -180,7 +349,7 @@ serve(async (req) => {
       });
     }
     
-    // Verify task exists and belongs to the authenticated user
+    // Verify task ownership
     const { data: task, error: taskError } = await supabase
       .from("tasks")
       .select("user_id")
@@ -201,17 +370,22 @@ serve(async (req) => {
       });
     }
 
-    // Get Lovable AI API Key (auto-provisioned)
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
+    // Get Hugging Face API Key
+    const HF_API_KEY = Deno.env.get("Huggingface_api_key");
+    if (!HF_API_KEY) {
+      console.error("Huggingface_api_key is not configured");
       return new Response(JSON.stringify({ error: "AI service not configured." }), {
         status: 503,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Determine action type based on prompt keywords
+    // Select model based on prompt
+    const selectedModelKey = selectModel(trimmedPrompt);
+    const selectedModel = HUGGINGFACE_MODELS[selectedModelKey];
+    console.log(`Selected model: ${selectedModel.displayName} for prompt: "${trimmedPrompt.substring(0, 50)}..."`);
+
+    // Determine action type
     const lowerPrompt = trimmedPrompt.toLowerCase();
     let actionType: keyof typeof CREDIT_COSTS = "ai_research_query";
     
@@ -219,15 +393,15 @@ serve(async (req) => {
       actionType = "market_analysis";
     } else if (lowerPrompt.includes("trend") || lowerPrompt.includes("forecast")) {
       actionType = "trend_report";
-    } else if (lowerPrompt.includes("supplier") || lowerPrompt.includes("sourcing") || lowerPrompt.includes("find") && (lowerPrompt.includes("manufacturer") || lowerPrompt.includes("factory"))) {
+    } else if (lowerPrompt.includes("supplier") || lowerPrompt.includes("sourcing") || (lowerPrompt.includes("find") && (lowerPrompt.includes("manufacturer") || lowerPrompt.includes("factory")))) {
       actionType = "supplier_search";
     } else if (lowerPrompt.includes("sustainability") || lowerPrompt.includes("audit") || lowerPrompt.includes("certification")) {
-      actionType = "market_analysis"; // Use market_analysis cost for sustainability audits
+      actionType = "market_analysis";
     }
     
     const creditCost = CREDIT_COSTS[actionType];
 
-    // Get user's subscription plan and usage data for rate limiting
+    // Get user data
     const { data: userData, error: userDataError } = await supabase
       .from("users")
       .select("subscription_plan, monthly_credits, extra_credits")
@@ -241,7 +415,7 @@ serve(async (req) => {
     const userPlan = (userData?.subscription_plan || "free") as keyof typeof RATE_LIMITS;
     const planLimits = RATE_LIMITS[userPlan];
 
-    // Check if action is allowed for this plan
+    // Check allowed actions
     const allowedActions = planLimits.allowedActions as readonly string[] | null;
     if (allowedActions && !allowedActions.includes(actionType)) {
       return new Response(JSON.stringify({ 
@@ -253,11 +427,10 @@ serve(async (req) => {
       });
     }
 
-    // Calculate actual credit cost (2x for Studio heavy actions beyond threshold)
+    // Calculate credit cost
     let actualCreditCost = creditCost;
     if (userPlan === "studio" && HEAVY_ACTIONS.includes(actionType)) {
-      // Calculate total credits used this month (original allocation - remaining)
-      const originalMonthly = 1800; // Studio monthly credits
+      const originalMonthly = 1800;
       const usedCredits = originalMonthly - (userData?.monthly_credits || 0);
       
       if (usedCredits >= 1500) {
@@ -266,16 +439,50 @@ serve(async (req) => {
       }
     }
 
-    // Deduct credits before processing
+    // Update task to understanding status with selected model
+    await supabase.from("tasks").update({
+      status: "understanding",
+      model_used: selectedModel.displayName,
+      steps: [{ step: "understanding", status: "running", message: "Analyzing your request..." }]
+    }).eq("id", taskId);
+
+    // Execute AI with fallback
+    const aiResult = await executeWithFallback(HF_API_KEY, selectedModelKey, trimmedPrompt, FASHION_SYSTEM_PROMPT);
+
+    if (!aiResult.success) {
+      // Don't deduct credits on failure
+      await supabase.from("tasks").update({
+        status: "failed",
+        steps: [
+          { step: "understanding", status: "completed", message: "Request analyzed" },
+          { step: "researching", status: "failed", message: aiResult.error || "AI service failed" }
+        ]
+      }).eq("id", taskId);
+      
+      return new Response(JSON.stringify({ error: aiResult.error || "AI service failed. Please try again." }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Deduct credits only after successful AI execution
     const { data: deductResult, error: deductError } = await supabase.rpc("deduct_credits", {
       p_user_id: user.id,
       p_amount: actualCreditCost,
-      p_description: `${actionType.replace(/_/g, " ")} - AI task${actualCreditCost > creditCost ? ' (2x penalty)' : ''}`
+      p_description: `${actionType.replace(/_/g, " ")} - ${aiResult.modelUsed}${actualCreditCost > creditCost ? ' (2x penalty)' : ''}`
     });
 
     if (deductError || !deductResult?.success) {
       const errorMsg = deductResult?.error || "Failed to deduct credits";
       if (errorMsg === "Insufficient credits") {
+        await supabase.from("tasks").update({
+          status: "failed",
+          steps: [
+            { step: "understanding", status: "completed", message: "Request analyzed" },
+            { step: "researching", status: "failed", message: "Insufficient credits" }
+          ]
+        }).eq("id", taskId);
+        
         return new Response(JSON.stringify({ 
           error: "Insufficient credits. Please purchase more credits to continue.",
           balance: deductResult?.balance || 0
@@ -285,199 +492,69 @@ serve(async (req) => {
         });
       }
       console.error("Credit deduction error:", errorMsg);
-      return new Response(JSON.stringify({ error: "Unable to process request" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
-    // Update task to understanding status
-    await supabase.from("tasks").update({
-      status: "understanding",
-      steps: [{ step: "understanding", status: "running", message: "Analyzing your request..." }]
-    }).eq("id", taskId);
-
-    // Make streaming request to Lovable AI Gateway
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: AI_CONFIG.model,
-        messages: [
-          { role: "system", content: FASHION_SYSTEM_PROMPT },
-          { role: "user", content: trimmedPrompt },
-        ],
-        temperature: AI_CONFIG.temperature,
-        max_tokens: AI_CONFIG.max_tokens,
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Lovable AI Gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "AI service rate limit exceeded. Please try again in a moment." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 401) {
-        return new Response(JSON.stringify({ error: "AI service authentication failed." }), {
-          status: 503,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits to your workspace." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      
-      // Update task to failed status
-      await supabase.from("tasks").update({
-        status: "failed",
-        steps: [
-          { step: "understanding", status: "completed", message: "Request analyzed" },
-          { step: "researching", status: "failed", message: "AI service error. Please try again." }
-        ]
-      }).eq("id", taskId);
-      
-      return new Response(JSON.stringify({ error: "AI service temporarily unavailable. Please try again." }), {
-        status: 503,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Determine files based on action
+    const files = [];
+    if (actionType === "supplier_search") {
+      files.push(
+        { name: "Supplier Report.pdf", type: "pdf", description: "Detailed supplier analysis and recommendations" },
+        { name: "Supplier Database.xlsx", type: "excel", description: "Structured supplier data export" }
+      );
+    } else if (actionType === "trend_report") {
+      files.push(
+        { name: "Trend Analysis.pdf", type: "pdf", description: "Comprehensive trend report with forecasts" },
+        { name: "Trend Data.xlsx", type: "excel", description: "Trend data and adoption metrics" }
+      );
+    } else if (actionType === "market_analysis") {
+      files.push(
+        { name: "Market Report.pdf", type: "pdf", description: "Market analysis and competitive insights" },
+        { name: "Market Data.xlsx", type: "excel", description: "Market data and projections" }
+      );
+    } else {
+      files.push(
+        { name: "Research Report.pdf", type: "pdf", description: "Detailed analysis and recommendations" },
+        { name: "Data Export.xlsx", type: "excel", description: "Structured data and findings" }
+      );
     }
 
-    // Update to researching status
+    // Update task to completed
     await supabase.from("tasks").update({
-      status: "researching",
+      status: "completed",
+      model_used: aiResult.modelUsed,
+      credits_used: actualCreditCost,
+      result: { content: aiResult.content },
       steps: [
         { step: "understanding", status: "completed", message: "Request analyzed" },
-        { step: "researching", status: "running", message: "Researching fashion data..." }
-      ]
+        { step: "researching", status: "completed", message: "Research complete" },
+        { step: "structuring", status: "completed", message: "Insights structured" },
+        { step: "generating", status: "completed", message: "Deliverables ready" }
+      ],
+      files: files
     }).eq("id", taskId);
 
-    // Stream the response
+    // Return streaming-style response for compatibility
     const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-    let fullContent = "";
-
     const stream = new ReadableStream({
-      async start(controller) {
-        const reader = response.body!.getReader();
-        let buffer = "";
-
-        // Update to structuring after a delay
-        setTimeout(async () => {
-          await supabase.from("tasks").update({
-            status: "structuring",
-            steps: [
-              { step: "understanding", status: "completed", message: "Request analyzed" },
-              { step: "researching", status: "completed", message: "Research complete" },
-              { step: "structuring", status: "running", message: "Structuring insights..." }
-            ]
-          }).eq("id", taskId);
-        }, 2000);
-
-        // Update to generating after more delay
-        setTimeout(async () => {
-          await supabase.from("tasks").update({
-            status: "generating",
-            steps: [
-              { step: "understanding", status: "completed", message: "Request analyzed" },
-              { step: "researching", status: "completed", message: "Research complete" },
-              { step: "structuring", status: "completed", message: "Insights structured" },
-              { step: "generating", status: "running", message: "Generating deliverables..." }
-            ]
-          }).eq("id", taskId);
-        }, 4000);
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.slice(6).trim();
-                if (data === "[DONE]") continue;
-                try {
-                  const parsed = JSON.parse(data);
-                  const content = parsed.choices?.[0]?.delta?.content;
-                  if (content) {
-                    fullContent += content;
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-                  }
-                } catch {
-                  // Skip malformed JSON
-                }
-              }
-            }
-          }
-
-          // Determine file types based on action
-          const files = [];
-          if (actionType === "supplier_search") {
-            files.push(
-              { name: "Supplier Report.pdf", type: "pdf", description: "Detailed supplier analysis and recommendations" },
-              { name: "Supplier Database.xlsx", type: "excel", description: "Structured supplier data export" }
-            );
-          } else if (actionType === "trend_report") {
-            files.push(
-              { name: "Trend Analysis.pdf", type: "pdf", description: "Comprehensive trend report with forecasts" },
-              { name: "Trend Data.xlsx", type: "excel", description: "Trend data and adoption metrics" }
-            );
-          } else if (actionType === "market_analysis") {
-            files.push(
-              { name: "Market Report.pdf", type: "pdf", description: "Market analysis and competitive insights" },
-              { name: "Market Data.xlsx", type: "excel", description: "Market data and projections" }
-            );
+      start(controller) {
+        // Send content in chunks for streaming effect
+        const content = aiResult.content || "";
+        const chunkSize = 50;
+        let offset = 0;
+        
+        const sendChunk = () => {
+          if (offset < content.length) {
+            const chunk = content.slice(offset, offset + chunkSize);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: chunk, modelUsed: aiResult.modelUsed })}\n\n`));
+            offset += chunkSize;
+            setTimeout(sendChunk, 20);
           } else {
-            files.push(
-              { name: "Research Report.pdf", type: "pdf", description: "Detailed analysis and recommendations" },
-              { name: "Data Export.xlsx", type: "excel", description: "Structured data and findings" }
-            );
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
           }
-
-          // Update task to completed with full result
-          await supabase.from("tasks").update({
-            status: "completed",
-            result: { content: fullContent },
-            steps: [
-              { step: "understanding", status: "completed", message: "Request analyzed" },
-              { step: "researching", status: "completed", message: "Research complete" },
-              { step: "structuring", status: "completed", message: "Insights structured" },
-              { step: "generating", status: "completed", message: "Deliverables ready" }
-            ],
-            files: files
-          }).eq("id", taskId);
-
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          controller.close();
-        } catch (streamError) {
-          console.error("Stream processing error:", streamError);
-          
-          // Update task to failed
-          await supabase.from("tasks").update({
-            status: "failed",
-            steps: [
-              { step: "understanding", status: "completed", message: "Request analyzed" },
-              { step: "researching", status: "failed", message: "Processing error. Please try again." }
-            ]
-          }).eq("id", taskId);
-          
-          controller.error(streamError);
-        }
+        };
+        
+        sendChunk();
       },
     });
 
