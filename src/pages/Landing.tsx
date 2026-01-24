@@ -109,12 +109,12 @@ const Landing = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#000000]">
       {/* Sticky Navigation - Adapts to dark hero */}
       <header 
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
           isScrolled 
-            ? "bg-background/95 backdrop-blur-md border-b border-border" 
+            ? "bg-[#000000]/95 backdrop-blur-md border-b border-[hsl(0,0%,15%)]" 
             : "bg-transparent"
         }`}
       >
@@ -123,50 +123,32 @@ const Landing = () => {
             <img
               src={mcleukerLogo}
               alt="McLeuker AI"
-              className={`h-8 lg:h-10 w-auto transition-all duration-300 ${
-                isScrolled ? "" : "brightness-0 invert"
-              }`}
+              className="h-8 lg:h-10 w-auto brightness-0 invert"
             />
           </Link>
           
           <nav className="hidden lg:flex items-center gap-10">
             <Link 
               to="/about" 
-              className={`text-sm transition-colors link-underline ${
-                isScrolled 
-                  ? "text-muted-foreground hover:text-foreground" 
-                  : "text-[hsl(0,0%,70%)] hover:text-white"
-              }`}
+              className="text-sm text-[hsl(0,0%,70%)] hover:text-[#BFA56A] transition-colors link-underline"
             >
               About
             </Link>
             <Link 
               to="/services" 
-              className={`text-sm transition-colors link-underline ${
-                isScrolled 
-                  ? "text-muted-foreground hover:text-foreground" 
-                  : "text-[hsl(0,0%,70%)] hover:text-white"
-              }`}
+              className="text-sm text-[hsl(0,0%,70%)] hover:text-[#BFA56A] transition-colors link-underline"
             >
               Solutions
             </Link>
             <Link 
               to="/pricing" 
-              className={`text-sm transition-colors link-underline ${
-                isScrolled 
-                  ? "text-muted-foreground hover:text-foreground" 
-                  : "text-[hsl(0,0%,70%)] hover:text-white"
-              }`}
+              className="text-sm text-[hsl(0,0%,70%)] hover:text-[#BFA56A] transition-colors link-underline"
             >
               Pricing
             </Link>
             <Link 
               to="/contact" 
-              className={`text-sm transition-colors link-underline ${
-                isScrolled 
-                  ? "text-muted-foreground hover:text-foreground" 
-                  : "text-[hsl(0,0%,70%)] hover:text-white"
-              }`}
+              className="text-sm text-[hsl(0,0%,70%)] hover:text-[#BFA56A] transition-colors link-underline"
             >
               Contact
             </Link>
@@ -176,11 +158,7 @@ const Landing = () => {
             {user ? (
               <Button 
                 size="sm" 
-                className={`px-6 transition-all duration-300 ${
-                  isScrolled 
-                    ? "" 
-                    : "bg-[hsl(40,40%,58%)] hover:bg-[hsl(40,45%,50%)] text-[hsl(0,0%,5%)]"
-                }`} 
+                className="px-6 bg-[#BFA56A] hover:bg-[#A89055] text-[#000000] font-medium transition-all duration-300" 
                 asChild
               >
                 <Link to="/dashboard">
@@ -193,20 +171,14 @@ const Landing = () => {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className={`hidden sm:inline-flex ${
-                    isScrolled ? "" : "text-[hsl(0,0%,80%)] hover:text-white hover:bg-white/10"
-                  }`} 
+                  className="hidden sm:inline-flex text-[#FFFFFF] hover:text-[#BFA56A] hover:bg-white/10" 
                   asChild
                 >
                   <Link to="/login">Sign In</Link>
                 </Button>
                 <Button 
                   size="sm" 
-                  className={`px-6 transition-all duration-300 ${
-                    isScrolled 
-                      ? "" 
-                      : "bg-[hsl(40,40%,58%)] hover:bg-[hsl(40,45%,50%)] text-[hsl(0,0%,5%)]"
-                  }`}
+                  className="px-6 bg-[#BFA56A] hover:bg-[#A89055] text-[#000000] font-medium transition-all duration-300"
                   asChild
                 >
                   <Link to="/signup">Get Started</Link>
@@ -218,9 +190,9 @@ const Landing = () => {
       </header>
 
       {/* Hero Section - Full Screen Dark Theme */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-hero-dark">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#000000]">
         {/* Subtle gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(0,0%,0%)] via-[hsl(0,0%,4%)] to-[hsl(0,0%,6%)]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#000000] via-[#050505] to-[#0A0A0A]" />
         
         {/* Subtle noise texture */}
         <div 
@@ -234,34 +206,41 @@ const Landing = () => {
         <div className="relative z-10 container mx-auto px-6 lg:px-12 pt-24 pb-16 lg:pb-24">
           <div className="max-w-4xl mx-auto text-center">
             
-            {/* Personalized Greeting */}
-            <h2 className="font-montserrat text-2xl md:text-3xl lg:text-4xl font-bold text-[hsl(0,0%,90%)] mb-4 tracking-tight animate-fade-in">
-              Where is my mind — <span className="text-[hsl(40,40%,70%)]">{getUserName()}</span>
-            </h2>
+            {/* Personalized Greeting - Only show when logged in */}
+            {user && (
+              <h2 className="font-montserrat text-2xl md:text-3xl lg:text-4xl font-bold text-[#FFFFFF] mb-6 tracking-tight animate-fade-in">
+                Where is my mind — <span className="text-[#BFA56A]">{getUserName()}</span>
+              </h2>
+            )}
 
-            {/* Tagline */}
-            <p className="text-[hsl(0,0%,55%)] text-base md:text-lg mb-10 lg:mb-14 max-w-xl mx-auto font-lato animate-fade-in">
+            {/* Main Headline */}
+            <h1 className="font-montserrat text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-[#FFFFFF] mb-6 tracking-tight leading-tight animate-fade-in">
               AI-powered fashion intelligence at your fingertips
+            </h1>
+
+            {/* Subheadline */}
+            <p className="text-[hsl(0,0%,65%)] text-lg md:text-xl mb-10 lg:mb-12 max-w-2xl mx-auto font-lato animate-fade-in">
+              Research, analyze, and generate professional-grade insights in minutes
             </p>
 
             {/* AI Search Bar */}
-            <form onSubmit={handleSubmit} className="max-w-3xl mx-auto mb-10 lg:mb-14 animate-fade-in-slow">
+            <form onSubmit={handleSubmit} className="max-w-3xl mx-auto mb-8 animate-fade-in-slow">
               <div 
                 className={`relative rounded-2xl transition-all duration-500 ${
                   isFocused 
-                    ? "glow-hero-gold" 
-                    : "animate-subtle-pulse"
+                    ? "shadow-[0_0_30px_rgba(191,165,106,0.3)]" 
+                    : ""
                 }`}
               >
                 {/* Search Input Container */}
-                <div className="relative bg-[hsl(0,0%,8%)] rounded-2xl border border-[hsl(0,0%,15%)] overflow-hidden">
+                <div className="relative bg-[hsl(0,0%,8%)] rounded-2xl border border-[hsl(0,0%,20%)] overflow-hidden hover:border-[#BFA56A]/40 transition-colors">
                   <div className="flex items-start">
                     {/* Search Icon */}
                     <div className="flex-shrink-0 pl-5 pt-5">
                       {isProcessing ? (
-                        <Loader2 className="w-5 h-5 text-[hsl(40,40%,58%)] animate-spin" />
+                        <Loader2 className="w-5 h-5 text-[#BFA56A] animate-spin" />
                       ) : (
-                        <Search className="w-5 h-5 text-[hsl(0,0%,45%)]" />
+                        <Search className="w-5 h-5 text-[hsl(0,0%,50%)]" />
                       )}
                     </div>
                     
@@ -273,7 +252,7 @@ const Landing = () => {
                       onFocus={() => setIsFocused(true)}
                       onBlur={() => setIsFocused(false)}
                       placeholder="What would you like to research?"
-                      className="flex-1 w-full min-h-[100px] md:min-h-[120px] px-4 py-5 bg-transparent text-[hsl(0,0%,92%)] placeholder:text-[hsl(0,0%,40%)] focus:outline-none resize-none text-base md:text-lg font-lato leading-relaxed"
+                      className="flex-1 w-full min-h-[100px] md:min-h-[120px] px-4 py-5 bg-transparent text-[#FFFFFF] placeholder:text-[hsl(0,0%,45%)] focus:outline-none resize-none text-base md:text-lg font-lato leading-relaxed"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
@@ -285,11 +264,11 @@ const Landing = () => {
                   </div>
                   
                   {/* Bottom Bar */}
-                  <div className="flex items-center justify-between px-5 py-3 border-t border-[hsl(0,0%,12%)]">
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-[hsl(0,0%,15%)]">
                     {/* Credits Display (if logged in) */}
                     <div className="flex items-center gap-2">
                       {user && (
-                        <span className="text-xs text-[hsl(0,0%,45%)] font-medium">
+                        <span className="text-xs text-[hsl(0,0%,50%)] font-medium">
                           {creditBalance} credits available
                         </span>
                       )}
@@ -300,7 +279,7 @@ const Landing = () => {
                       type="submit"
                       disabled={!prompt.trim() || isProcessing}
                       size="sm"
-                      className="bg-[hsl(40,40%,58%)] hover:bg-[hsl(40,45%,50%)] text-[hsl(0,0%,5%)] font-medium px-5 py-2 rounded-lg transition-all duration-300 disabled:opacity-40"
+                      className="bg-[#BFA56A] hover:bg-[#A89055] text-[#000000] font-semibold px-6 py-2 rounded-lg transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {isProcessing ? (
                         <>
@@ -319,9 +298,9 @@ const Landing = () => {
               </div>
             </form>
 
-            {/* Quick Suggestion Prompts */}
-            <div className="max-w-3xl mx-auto animate-fade-in">
-              <div className="flex flex-wrap justify-center gap-2 md:gap-3">
+            {/* Suggested Topics - Gold Pills */}
+            <div className="max-w-3xl mx-auto mb-10 animate-fade-in">
+              <div className="flex flex-wrap justify-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
                 {suggestionPrompts.map((suggestion, i) => (
                   <button
                     key={i}
@@ -329,22 +308,44 @@ const Landing = () => {
                       setPrompt(suggestion.prompt);
                       searchInputRef.current?.focus();
                     }}
-                    className="group px-4 py-2 rounded-full bg-[hsl(0,0%,10%)] border border-[hsl(0,0%,18%)] hover:border-[hsl(40,40%,40%)] hover:bg-[hsl(0,0%,12%)] transition-all duration-300 text-left"
+                    className="px-5 py-2.5 rounded-full bg-[#BFA56A] hover:bg-[#A89055] text-[#FFFFFF] font-medium text-sm transition-all duration-300 hover:shadow-[0_0_15px_rgba(191,165,106,0.4)] whitespace-nowrap"
                   >
-                    <span className="text-sm text-[hsl(0,0%,65%)] group-hover:text-[hsl(40,40%,70%)] font-medium transition-colors">
-                      {suggestion.title}
-                    </span>
+                    {suggestion.title}
                   </button>
                 ))}
               </div>
             </div>
 
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in">
+              <Button 
+                size="lg" 
+                className="bg-[#BFA56A] hover:bg-[#A89055] text-[#000000] font-semibold px-8 py-3 text-base transition-all duration-300 hover:shadow-[0_0_20px_rgba(191,165,106,0.4)]"
+                asChild
+              >
+                <Link to="/signup">
+                  Start Free Trial
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Link>
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline"
+                className="bg-[#FFFFFF] hover:bg-[hsl(0,0%,95%)] text-[#000000] border-[#FFFFFF] font-semibold px-8 py-3 text-base transition-all duration-300"
+                asChild
+              >
+                <Link to="/contact">
+                  Request Demo
+                </Link>
+              </Button>
+            </div>
+
             {/* Recent Tasks Quick Access (if logged in) */}
             {user && (
-              <div className="mt-8 animate-fade-in">
+              <div className="mt-10 animate-fade-in">
                 <Link 
                   to="/dashboard"
-                  className="inline-flex items-center gap-2 text-sm text-[hsl(0,0%,45%)] hover:text-[hsl(40,40%,65%)] transition-colors"
+                  className="inline-flex items-center gap-2 text-sm text-[hsl(0,0%,50%)] hover:text-[#BFA56A] transition-colors"
                 >
                   <Sparkles className="w-4 h-4" />
                   View recent tasks
@@ -357,20 +358,20 @@ const Landing = () => {
 
         {/* Scroll Indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <div className="w-6 h-10 rounded-full border-2 border-[hsl(0,0%,25%)] flex items-start justify-center p-2">
-            <div className="w-1 h-2 bg-[hsl(0,0%,40%)] rounded-full"></div>
+          <div className="w-6 h-10 rounded-full border-2 border-[hsl(0,0%,30%)] flex items-start justify-center p-2">
+            <div className="w-1 h-2 bg-[hsl(0,0%,50%)] rounded-full"></div>
           </div>
         </div>
       </section>
 
       {/* Brand Statement */}
-      <section className="py-32 lg:py-40 bg-background">
+      <section className="py-32 lg:py-40 bg-[#000000]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className="font-luxury text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.2] mb-8">
+            <h2 className="font-luxury text-3xl md:text-4xl lg:text-5xl text-[#FFFFFF] leading-[1.2] mb-8">
               "We believe fashion intelligence should be as refined as the industry it serves."
             </h2>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-[hsl(0,0%,60%)] text-lg">
               — McLeuker AI
             </p>
           </div>
@@ -378,15 +379,15 @@ const Landing = () => {
       </section>
 
       {/* Services Section */}
-      <section className="py-24 lg:py-32 bg-secondary/30">
+      <section className="py-24 lg:py-32 bg-[hsl(0,0%,4%)]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-6xl mx-auto">
             {/* Section Header */}
             <div className="text-center mb-20">
-              <p className="text-sm text-muted-foreground uppercase tracking-[0.2em] mb-4">
+              <p className="text-sm text-[hsl(0,0%,50%)] uppercase tracking-[0.2em] mb-4">
                 Our Expertise
               </p>
-              <h2 className="font-luxury text-4xl md:text-5xl text-foreground">
+              <h2 className="font-luxury text-4xl md:text-5xl text-[#FFFFFF]">
                 Comprehensive Solutions
               </h2>
             </div>
@@ -396,18 +397,18 @@ const Landing = () => {
               {services.map((service, i) => (
                 <div 
                   key={i} 
-                  className="group p-8 lg:p-10 rounded-lg bg-card border border-border hover-lift cursor-pointer"
+                  className="group p-8 lg:p-10 rounded-lg bg-[hsl(0,0%,8%)] border border-[hsl(0,0%,15%)] hover:border-[#BFA56A]/40 transition-all cursor-pointer"
                 >
                   <div className="flex items-start justify-between mb-6">
-                    <span className="text-5xl font-luxury text-muted-foreground/20">
+                    <span className="text-5xl font-luxury text-[hsl(0,0%,20%)]">
                       0{i + 1}
                     </span>
-                    <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all" />
+                    <ArrowRight className="w-5 h-5 text-[hsl(0,0%,50%)] group-hover:text-[#BFA56A] group-hover:translate-x-1 transition-all" />
                   </div>
-                  <h3 className="text-xl lg:text-2xl font-medium text-foreground mb-3">
+                  <h3 className="text-xl lg:text-2xl font-medium text-[#FFFFFF] mb-3">
                     {service.title}
                   </h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-[hsl(0,0%,60%)] leading-relaxed">
                     {service.description}
                   </p>
                 </div>
@@ -416,7 +417,7 @@ const Landing = () => {
 
             {/* CTA */}
             <div className="text-center mt-16">
-              <Button size="lg" variant="outline" className="px-8" asChild>
+              <Button size="lg" variant="outline" className="px-8 bg-[#FFFFFF] hover:bg-[hsl(0,0%,95%)] text-[#000000] border-[#FFFFFF] font-semibold" asChild>
                 <Link to="/services">
                   Explore All Solutions
                   <ArrowRight className="h-4 w-4 ml-2" />
@@ -428,7 +429,7 @@ const Landing = () => {
       </section>
 
       {/* Visual Showcase - Atelier */}
-      <section className="py-24 lg:py-32">
+      <section className="py-24 lg:py-32 bg-[#000000]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-7xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
@@ -443,13 +444,13 @@ const Landing = () => {
 
               {/* Content */}
               <div className="lg:py-12">
-                <p className="text-sm text-muted-foreground uppercase tracking-[0.2em] mb-4">
+                <p className="text-sm text-[hsl(0,0%,50%)] uppercase tracking-[0.2em] mb-4">
                   Crafted for Excellence
                 </p>
-                <h2 className="font-luxury text-4xl md:text-5xl text-foreground mb-8 leading-[1.1]">
+                <h2 className="font-luxury text-4xl md:text-5xl text-[#FFFFFF] mb-8 leading-[1.1]">
                   Intelligence meets craftsmanship
                 </h2>
-                <p className="text-muted-foreground text-lg leading-relaxed mb-8">
+                <p className="text-[hsl(0,0%,60%)] text-lg leading-relaxed mb-8">
                   Just as the finest ateliers combine tradition with innovation, 
                   McLeuker AI blends deep fashion expertise with cutting-edge artificial intelligence. 
                   Every insight is curated, every report is refined.
@@ -460,13 +461,13 @@ const Landing = () => {
                     "Structured data exports ready for your workflow",
                     "Real deliverables, not just conversations"
                   ].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 text-foreground">
-                      <div className="w-1.5 h-1.5 rounded-full bg-foreground"></div>
+                    <li key={i} className="flex items-center gap-3 text-[#FFFFFF]">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#BFA56A]"></div>
                       {item}
                     </li>
                   ))}
                 </ul>
-                <Button size="lg" asChild>
+                <Button size="lg" className="bg-[#BFA56A] hover:bg-[#A89055] text-[#000000] font-semibold" asChild>
                   <Link to="/signup">
                     Start Your Journey
                     <ArrowRight className="h-4 w-4 ml-2" />
@@ -479,37 +480,37 @@ const Landing = () => {
       </section>
 
       {/* Sustainability Focus */}
-      <section className="py-24 lg:py-32 bg-secondary/30">
+      <section className="py-24 lg:py-32 bg-[hsl(0,0%,4%)]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-7xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
               {/* Content - Left on desktop */}
               <div className="lg:py-12 order-2 lg:order-1">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border mb-6">
-                  <Leaf className="w-4 h-4 text-olive" />
-                  <span className="text-sm text-muted-foreground">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[hsl(0,0%,10%)] border border-[hsl(0,0%,20%)] mb-6">
+                  <Leaf className="w-4 h-4 text-[#BFA56A]" />
+                  <span className="text-sm text-[hsl(0,0%,60%)]">
                     Sustainability First
                   </span>
                 </div>
-                <h2 className="font-luxury text-4xl md:text-5xl text-foreground mb-8 leading-[1.1]">
+                <h2 className="font-luxury text-4xl md:text-5xl text-[#FFFFFF] mb-8 leading-[1.1]">
                   Fashion with purpose
                 </h2>
-                <p className="text-muted-foreground text-lg leading-relaxed mb-8">
+                <p className="text-[hsl(0,0%,60%)] text-lg leading-relaxed mb-8">
                   Sustainability isn't an afterthought—it's woven into everything we do. 
                   From supplier certifications to impact assessments, we help brands 
                   make informed decisions that benefit both business and planet.
                 </p>
                 <div className="grid grid-cols-2 gap-8 mb-10">
                   <div>
-                    <p className="text-4xl font-luxury text-foreground mb-2">85%</p>
-                    <p className="text-sm text-muted-foreground">Time saved on sustainability research</p>
+                    <p className="text-4xl font-luxury text-[#FFFFFF] mb-2">85%</p>
+                    <p className="text-sm text-[hsl(0,0%,60%)]">Time saved on sustainability research</p>
                   </div>
                   <div>
-                    <p className="text-4xl font-luxury text-foreground mb-2">100+</p>
-                    <p className="text-sm text-muted-foreground">Certification databases tracked</p>
+                    <p className="text-4xl font-luxury text-[#FFFFFF] mb-2">100+</p>
+                    <p className="text-sm text-[hsl(0,0%,60%)]">Certification databases tracked</p>
                   </div>
                 </div>
-                <Button size="lg" variant="outline" asChild>
+                <Button size="lg" variant="outline" className="bg-[#FFFFFF] hover:bg-[hsl(0,0%,95%)] text-[#000000] border-[#FFFFFF] font-semibold" asChild>
                   <Link to="/about">
                     Learn About Our Mission
                     <ArrowRight className="h-4 w-4 ml-2" />
@@ -531,15 +532,15 @@ const Landing = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="py-24 lg:py-32 bg-background">
+      <section className="py-24 lg:py-32 bg-[#000000]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-6xl mx-auto">
             {/* Section Header */}
             <div className="text-center mb-20">
-              <p className="text-sm text-muted-foreground uppercase tracking-[0.2em] mb-4">
+              <p className="text-sm text-[hsl(0,0%,50%)] uppercase tracking-[0.2em] mb-4">
                 Trusted by Industry Leaders
               </p>
-              <h2 className="font-luxury text-4xl md:text-5xl text-foreground">
+              <h2 className="font-luxury text-4xl md:text-5xl text-[#FFFFFF]">
                 What Our Clients Say
               </h2>
             </div>
@@ -549,16 +550,16 @@ const Landing = () => {
               {testimonials.map((testimonial, i) => (
                 <div 
                   key={i} 
-                  className="p-8 rounded-lg bg-card border border-border hover-lift"
+                  className="p-8 rounded-lg bg-[hsl(0,0%,8%)] border border-[hsl(0,0%,15%)] hover:border-[#BFA56A]/40 transition-all"
                 >
-                  <blockquote className="text-foreground text-lg leading-relaxed mb-8">
+                  <blockquote className="text-[#FFFFFF] text-lg leading-relaxed mb-8">
                     "{testimonial.quote}"
                   </blockquote>
                   <div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-[#FFFFFF]">
                       {testimonial.author}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-[hsl(0,0%,60%)]">
                       {testimonial.company}
                     </p>
                   </div>
@@ -570,13 +571,13 @@ const Landing = () => {
       </section>
 
       {/* Second CTA Section - Simplified */}
-      <section className="py-24 lg:py-32 bg-[hsl(0,0%,4%)] text-white">
+      <section className="py-24 lg:py-32 bg-[#000000] text-[#FFFFFF]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-4xl mx-auto text-center">
             <p className="text-sm text-[hsl(0,0%,50%)] uppercase tracking-[0.2em] mb-4">
               Ready to Transform Your Research?
             </p>
-            <h2 className="font-montserrat text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-8">
+            <h2 className="font-montserrat text-3xl md:text-4xl lg:text-5xl font-bold text-[#FFFFFF] mb-8">
               Start Your AI Journey Today
             </h2>
             <p className="text-[hsl(0,0%,60%)] text-lg mb-10 max-w-2xl mx-auto font-lato">
@@ -586,7 +587,7 @@ const Landing = () => {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button 
                 size="lg" 
-                className="px-10 py-6 text-base bg-[hsl(40,40%,58%)] hover:bg-[hsl(40,45%,50%)] text-[hsl(0,0%,5%)]" 
+                className="px-10 py-6 text-base bg-[#BFA56A] hover:bg-[#A89055] text-[#000000] font-semibold" 
                 asChild
               >
                 <Link to="/signup">
@@ -597,7 +598,7 @@ const Landing = () => {
               <Button 
                 size="lg" 
                 variant="outline" 
-                className="px-10 py-6 text-base border-[hsl(0,0%,25%)] text-white hover:bg-[hsl(0,0%,10%)]" 
+                className="px-10 py-6 text-base bg-[#FFFFFF] hover:bg-[hsl(0,0%,95%)] text-[#000000] border-[#FFFFFF] font-semibold" 
                 asChild
               >
                 <Link to="/contact">
@@ -610,23 +611,23 @@ const Landing = () => {
       </section>
 
       {/* Final CTA */}
-      <section className="py-32 lg:py-40 bg-background">
+      <section className="py-32 lg:py-40 bg-[#000000]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="font-luxury text-4xl md:text-5xl lg:text-6xl text-foreground mb-8 leading-[1.1]">
+            <h2 className="font-luxury text-4xl md:text-5xl lg:text-6xl text-[#FFFFFF] mb-8 leading-[1.1]">
               Elevate your fashion intelligence
             </h2>
-            <p className="text-muted-foreground text-lg mb-12 max-w-xl mx-auto">
+            <p className="text-[hsl(0,0%,60%)] text-lg mb-12 max-w-xl mx-auto">
               Join leading fashion brands transforming their research with AI-powered insights.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button size="lg" className="px-10 py-6 text-base" asChild>
+              <Button size="lg" className="px-10 py-6 text-base bg-[#BFA56A] hover:bg-[#A89055] text-[#000000] font-semibold" asChild>
                 <Link to="/signup">
                   Start Free Trial
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" className="px-10 py-6 text-base" asChild>
+              <Button size="lg" variant="outline" className="px-10 py-6 text-base bg-[#FFFFFF] hover:bg-[hsl(0,0%,95%)] text-[#000000] border-[#FFFFFF] font-semibold" asChild>
                 <Link to="/pricing">
                   View Pricing
                 </Link>
