@@ -136,6 +136,32 @@ serve(async (req) => {
       });
     }
 
+    // Deduct credits before processing (10 credits per AI task)
+    const CREDITS_PER_TASK = 10;
+    const { data: deductResult, error: deductError } = await supabase.rpc("deduct_credits", {
+      p_user_id: user.id,
+      p_amount: CREDITS_PER_TASK,
+      p_description: "AI research task"
+    });
+
+    if (deductError || !deductResult?.success) {
+      const errorMsg = deductResult?.error || "Failed to deduct credits";
+      if (errorMsg === "Insufficient credits") {
+        return new Response(JSON.stringify({ 
+          error: "Insufficient credits. Please purchase more credits to continue.",
+          balance: deductResult?.balance || 0
+        }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.error("Credit deduction error:", errorMsg);
+      return new Response(JSON.stringify({ error: "Unable to process request" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Update task to understanding status
     await supabase.from("tasks").update({
       status: "understanding",

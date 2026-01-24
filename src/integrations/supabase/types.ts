@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          created_at: string | null
+          description: string | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -80,34 +110,52 @@ export type Database = {
       users: {
         Row: {
           auth_provider: string
+          billing_cycle: string | null
           created_at: string
           credit_balance: number
           email: string
+          extra_credits: number | null
           last_login_at: string
+          monthly_credits: number | null
           name: string | null
           profile_image: string | null
+          stripe_customer_id: string | null
+          subscription_ends_at: string | null
+          subscription_plan: string | null
           subscription_status: string
           user_id: string
         }
         Insert: {
           auth_provider?: string
+          billing_cycle?: string | null
           created_at?: string
           credit_balance?: number
           email: string
+          extra_credits?: number | null
           last_login_at?: string
+          monthly_credits?: number | null
           name?: string | null
           profile_image?: string | null
+          stripe_customer_id?: string | null
+          subscription_ends_at?: string | null
+          subscription_plan?: string | null
           subscription_status?: string
           user_id: string
         }
         Update: {
           auth_provider?: string
+          billing_cycle?: string | null
           created_at?: string
           credit_balance?: number
           email?: string
+          extra_credits?: number | null
           last_login_at?: string
+          monthly_credits?: number | null
           name?: string | null
           profile_image?: string | null
+          stripe_customer_id?: string | null
+          subscription_ends_at?: string | null
+          subscription_plan?: string | null
           subscription_status?: string
           user_id?: string
         }
@@ -118,7 +166,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      add_credits: {
+        Args: {
+          p_amount: number
+          p_description?: string
+          p_type: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      deduct_credits: {
+        Args: { p_amount: number; p_description?: string; p_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       task_status:
