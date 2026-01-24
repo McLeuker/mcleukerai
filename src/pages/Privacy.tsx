@@ -14,7 +14,7 @@ const Privacy = () => {
               Privacy Policy
             </h1>
             <p className="text-muted-foreground mb-12">
-              Last updated: January 24, 2025
+              Last updated: January 24, 2026
             </p>
 
             <div className="prose prose-neutral dark:prose-invert max-w-none">
@@ -155,8 +155,8 @@ const Privacy = () => {
                   If you have questions about this Privacy Policy or our privacy practices, please contact us at:
                 </p>
                 <p className="text-foreground mt-2">
-                  <a href="mailto:privacy@mcleukerai.com" className="hover:underline">
-                    privacy@mcleukerai.com
+                  <a href="mailto:contact@mcleuker.com" className="hover:underline">
+                    contact@mcleuker.com
                   </a>
                 </p>
               </section>

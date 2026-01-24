@@ -22,10 +22,10 @@ export function Footer() {
               complex tasks with real deliverables.
             </p>
             <a
-              href="mailto:contact@mcleukerai.com"
+              href="mailto:contact@mcleuker.com"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              contact@mcleukerai.com
+              contact@mcleuker.com
             </a>
           </div>
 

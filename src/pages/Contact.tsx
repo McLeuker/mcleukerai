@@ -67,15 +67,15 @@ const Contact = () => {
       icon: Mail,
       title: "Email Us",
       description: "For general inquiries and support",
-      action: "contact@mcleukerai.com",
-      href: "mailto:contact@mcleukerai.com"
+      action: "contact@mcleuker.com",
+      href: "mailto:contact@mcleuker.com"
     },
     {
       icon: MessageSquare,
       title: "Enterprise Sales",
       description: "For custom solutions and enterprise plans",
-      action: "enterprise@mcleukerai.com",
-      href: "mailto:enterprise@mcleukerai.com"
+      action: "contact@mcleuker.com",
+      href: "mailto:contact@mcleuker.com"
     }
   ];
 
