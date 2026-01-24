@@ -3,12 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Check, ArrowLeft, Zap, Users, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Footer } from "@/components/layout/Footer";
+import mcleukerLogo from "@/assets/mcleuker-logo.png";
 
 const plans = [
   {
     id: "free",
     name: "Explorer",
-    description: "For trying out Fashion AI",
+    description: "For trying out McLeuker AI",
     price: "0",
     credits: "10 credits/month",
     icon: Zap,
@@ -70,15 +72,16 @@ const creditUsage = [
 
 const Pricing = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-foreground rounded flex items-center justify-center">
-              <span className="text-background font-semibold text-xs">F</span>
-            </div>
-            <span className="font-medium text-sm">Fashion AI</span>
+            <img
+              src={mcleukerLogo}
+              alt="McLeuker AI"
+              className="h-8 w-auto"
+            />
           </Link>
           <Link
             to="/dashboard"
@@ -90,7 +93,7 @@ const Pricing = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-16 max-w-6xl">
+      <main className="container mx-auto px-6 py-16 max-w-6xl flex-1">
         {/* Hero */}
         <div className="text-center mb-16">
           <h1 className="font-editorial text-4xl md:text-5xl text-foreground mb-4">
@@ -198,13 +201,7 @@ const Pricing = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="container mx-auto px-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            © 2024 Fashion AI. Professional intelligence for the fashion industry.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

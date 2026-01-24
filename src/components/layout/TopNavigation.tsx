@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ import { useSector, SECTORS, Sector } from "@/contexts/SectorContext";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { Coins, User, CreditCard, LogOut } from "lucide-react";
+import mcleukerLogo from "@/assets/mcleuker-logo.png";
 
 interface TopNavigationProps {
   showSectorTabs?: boolean;
@@ -40,10 +41,11 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
       <div className="h-14 flex items-center justify-between px-4 lg:px-6">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <div className="w-7 h-7 bg-foreground rounded flex items-center justify-center">
-            <span className="text-background font-semibold text-xs">F</span>
-          </div>
-          <span className="font-medium text-sm tracking-tight hidden sm:block">Fashion AI</span>
+          <img
+            src={mcleukerLogo}
+            alt="McLeuker AI"
+            className="h-8 w-auto"
+          />
         </Link>
 
         {/* Sector Tabs - Center */}
@@ -86,6 +88,7 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                     <Avatar className="h-7 w-7">
+                      <AvatarImage src={user.user_metadata?.avatar_url || user.user_metadata?.picture} />
                       <AvatarFallback className="text-xs bg-secondary">
                         {getInitials(user.email || "U")}
                       </AvatarFallback>

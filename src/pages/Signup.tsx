@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import mcleukerLogo from "@/assets/mcleuker-logo.png";
 
 const Signup = () => {
   const [fullName, setFullName] = useState("");
@@ -44,7 +45,7 @@ const Signup = () => {
 
     toast({
       title: "Account created",
-      description: "Welcome to Fashion AI. You're now signed in.",
+      description: "Welcome to McLeuker AI. You're now signed in.",
     });
 
     navigate("/dashboard");
@@ -68,9 +69,13 @@ const Signup = () => {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-9 h-9 bg-foreground rounded flex items-center justify-center">
-            <span className="text-background font-semibold text-sm">F</span>
-          </div>
+          <Link to="/">
+            <img
+              src={mcleukerLogo}
+              alt="McLeuker AI"
+              className="h-10 w-auto"
+            />
+          </Link>
         </div>
 
         {/* Form */}
@@ -79,7 +84,7 @@ const Signup = () => {
             Create your account
           </h1>
           <p className="text-sm text-muted-foreground mb-6">
-            Start using Fashion AI to power your work.
+            Start using McLeuker AI to power your work.
           </p>
 
           {/* Google Sign In */}
