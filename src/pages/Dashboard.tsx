@@ -30,20 +30,22 @@ const Dashboard = () => {
     messages,
     loading,
     streamingContent,
+    researchState,
     sendMessage,
     createNewConversation,
     selectConversation,
     toggleFavorite,
     deleteMessage,
     deleteConversation,
+    cancelRequest,
   } = useConversations();
   const { getSectorConfig } = useSector();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const sectorConfig = getSectorConfig();
 
-  const handleSendMessage = async (message: string) => {
-    await sendMessage(message);
+  const handleSendMessage = async (message: string, mode: "quick" | "deep" = "quick") => {
+    await sendMessage(message, mode);
   };
 
   const handleExportPDF = () => {
@@ -157,6 +159,7 @@ const Dashboard = () => {
             messages={messages}
             streamingContent={streamingContent}
             isLoading={loading}
+            researchState={researchState}
             onToggleFavorite={toggleFavorite}
             onDeleteMessage={deleteMessage}
             onNewChat={createNewConversation}
@@ -166,12 +169,13 @@ const Dashboard = () => {
           <div className="border-t border-border bg-background/95 backdrop-blur-sm p-4 lg:p-6 sticky bottom-0">
             <div className="max-w-3xl mx-auto space-y-4">
               {messages.length === 0 && !loading && (
-                <QuickActions onAction={handleSendMessage} isLoading={loading} />
+                <QuickActions onAction={(msg) => handleSendMessage(msg, "quick")} isLoading={loading} />
               )}
               <ChatInput
                 onSubmit={handleSendMessage}
                 isLoading={loading}
                 placeholder={sectorConfig.placeholder}
+                onCancel={cancelRequest}
               />
             </div>
           </div>

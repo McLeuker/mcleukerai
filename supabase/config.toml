@@ -3,6 +3,9 @@ project_id = "pvyruwqjcnmyylsgvjkr"
 [functions.fashion-ai]
 verify_jwt = false
 
+[functions.research-agent]
+verify_jwt = false
+
 [functions.check-subscription]
 verify_jwt = false
 

@@ -1,6 +1,7 @@
 import { useRef, useEffect } from "react";
-import { ChatMessage as ChatMessageType } from "@/hooks/useConversations";
+import { ChatMessage as ChatMessageType, ResearchState } from "@/hooks/useConversations";
 import { ChatMessageComponent } from "./ChatMessage";
+import { ResearchProgress } from "./ResearchProgress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { MessageSquarePlus, Star, Filter } from "lucide-react";
@@ -11,6 +12,7 @@ interface ChatViewProps {
   messages: ChatMessageType[];
   streamingContent: string;
   isLoading: boolean;
+  researchState?: ResearchState;
   onToggleFavorite: (messageId: string) => void;
   onDeleteMessage: (messageId: string) => void;
   onNewChat: () => void;
@@ -20,6 +22,7 @@ export function ChatView({
   messages,
   streamingContent,
   isLoading,
+  researchState,
   onToggleFavorite,
   onDeleteMessage,
   onNewChat,
@@ -136,8 +139,22 @@ export function ChatView({
             />
           )}
 
-          {/* Loading indicator */}
-          {isLoading && !streamingContent && (
+          {/* Research Progress Indicator */}
+          {researchState?.isResearching && researchState.phase && (
+            <div className="px-4 py-4">
+              <div className="max-w-3xl mx-auto">
+                <ResearchProgress
+                  phase={researchState.phase}
+                  currentStep={researchState.currentStep}
+                  totalSteps={researchState.totalSteps}
+                  message={researchState.message}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Loading indicator (for quick mode) */}
+          {isLoading && !streamingContent && !researchState?.isResearching && (
             <div className="px-4 py-6 bg-muted/30">
               <div className="max-w-3xl mx-auto flex gap-4">
                 <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
