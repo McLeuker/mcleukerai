@@ -12,7 +12,7 @@ import { CreditDisplay } from "@/components/dashboard/CreditDisplay";
 import { TopNavigation } from "@/components/layout/TopNavigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { FileDown, FileSpreadsheet } from "lucide-react";
+import { FileDown, FileSpreadsheet, FileText } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { exportToPDF, exportToExcel, exportFavoritesToPDF, exportFavoritesToExcel } from "@/utils/chatExport";
+import { exportToPDF, exportToExcel, exportToWord, exportFavoritesToPDF, exportFavoritesToExcel } from "@/utils/chatExport";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -54,6 +54,10 @@ const Dashboard = () => {
 
   const handleExportExcel = () => {
     exportToExcel(currentConversation, messages);
+  };
+
+  const handleExportWord = () => {
+    exportToWord(currentConversation, messages);
   };
 
   const handleExportFavoritesPDF = () => {
@@ -131,6 +135,10 @@ const Dashboard = () => {
                     <DropdownMenuItem onClick={handleExportExcel}>
                       <FileSpreadsheet className="h-4 w-4 mr-2" />
                       Export as CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportWord}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export as Word
                     </DropdownMenuItem>
                     {hasFavorites && (
                       <>

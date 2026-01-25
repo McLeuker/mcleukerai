@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
-import { Check, Search, Globe, Shield, Sparkles, Brain, Loader2 } from "lucide-react";
+import { Check, Search, Globe, Shield, Sparkles, Brain, Loader2, Zap } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export type ResearchPhase = 
   | "planning" 
@@ -11,19 +12,22 @@ export type ResearchPhase =
   | "completed" 
   | "failed";
 
+export type QueryType = "supplier" | "trend" | "market" | "sustainability" | "general";
+
 interface ResearchProgressProps {
   phase: ResearchPhase;
   currentStep?: number;
   totalSteps?: number;
   message?: string;
+  queryType?: QueryType;
 }
 
 const phases = [
-  { key: "planning", label: "Planning", icon: Brain },
-  { key: "searching", label: "Searching", icon: Search },
-  { key: "browsing", label: "Browsing", icon: Globe },
-  { key: "validating", label: "Validating", icon: Shield },
-  { key: "generating", label: "Generating", icon: Sparkles },
+  { key: "planning", label: "Planning", icon: Brain, description: "Analyzing query and creating research plan" },
+  { key: "searching", label: "Searching", icon: Search, description: "Searching web for relevant information" },
+  { key: "browsing", label: "Browsing", icon: Globe, description: "Extracting data from websites" },
+  { key: "validating", label: "Validating", icon: Shield, description: "Cross-referencing and verifying findings" },
+  { key: "generating", label: "Generating", icon: Sparkles, description: "Synthesizing final report" },
 ] as const;
 
 function getPhaseIndex(phase: ResearchPhase): number {
@@ -34,20 +38,37 @@ function getPhaseIndex(phase: ResearchPhase): number {
   return index;
 }
 
+function getQueryTypeLabel(type?: QueryType): { label: string; color: string } {
+  switch (type) {
+    case "supplier":
+      return { label: "Supplier Research", color: "bg-blue-500/10 text-blue-600" };
+    case "trend":
+      return { label: "Trend Analysis", color: "bg-purple-500/10 text-purple-600" };
+    case "market":
+      return { label: "Market Intelligence", color: "bg-green-500/10 text-green-600" };
+    case "sustainability":
+      return { label: "Sustainability Audit", color: "bg-emerald-500/10 text-emerald-600" };
+    default:
+      return { label: "General Research", color: "bg-gray-500/10 text-gray-600" };
+  }
+}
+
 export function ResearchProgress({ 
   phase, 
   currentStep, 
   totalSteps, 
-  message 
+  message,
+  queryType
 }: ResearchProgressProps) {
   const currentPhaseIndex = getPhaseIndex(phase);
+  const queryTypeInfo = getQueryTypeLabel(queryType);
 
   if (phase === "failed") {
     return (
       <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
         <div className="flex items-center gap-2 text-destructive">
           <div className="h-5 w-5 rounded-full bg-destructive flex items-center justify-center">
-            <span className="text-xs text-destructive-foreground">!</span>
+            <span className="text-xs text-destructive-foreground font-bold">!</span>
           </div>
           <span className="font-medium">Research failed</span>
         </div>
@@ -59,9 +80,25 @@ export function ResearchProgress({
   }
 
   return (
-    <div className="bg-muted/50 rounded-lg p-4 space-y-4">
-      {/* Phase Timeline */}
+    <div className="bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg p-4 space-y-4 border border-border/50">
+      {/* Header with query type */}
       <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Zap className="h-4 w-4 text-primary" />
+          <span className="font-medium text-sm">Deep Research Mode</span>
+        </div>
+        {queryType && (
+          <Badge variant="secondary" className={cn("text-xs", queryTypeInfo.color)}>
+            {queryTypeInfo.label}
+          </Badge>
+        )}
+      </div>
+
+      {/* Phase Timeline */}
+      <div className="flex items-center justify-between relative">
+        {/* Connection line */}
+        <div className="absolute top-4 left-0 right-0 h-0.5 bg-muted -z-10" />
+        
         {phases.map((p, idx) => {
           const Icon = p.icon;
           const isActive = p.key === phase || (phase === "extracting" && p.key === "browsing");
@@ -69,12 +106,22 @@ export function ResearchProgress({
           const isPending = idx > currentPhaseIndex;
 
           return (
-            <div key={p.key} className="flex flex-col items-center gap-1.5 flex-1">
+            <div key={p.key} className="flex flex-col items-center gap-1.5 flex-1 relative">
+              {/* Connection line segment */}
+              {idx > 0 && (
+                <div 
+                  className={cn(
+                    "absolute h-0.5 right-1/2 top-4 w-full -z-10",
+                    isCompleted || isActive ? "bg-primary" : "bg-muted"
+                  )}
+                />
+              )}
+              
               {/* Icon */}
               <div
                 className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                  isCompleted && "bg-primary text-primary-foreground",
+                  "w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 relative z-10",
+                  isCompleted && "bg-primary text-primary-foreground shadow-sm",
                   isActive && "bg-primary/20 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background",
                   isPending && "bg-muted text-muted-foreground"
                 )}
@@ -91,7 +138,7 @@ export function ResearchProgress({
               {/* Label */}
               <span
                 className={cn(
-                  "text-xs font-medium",
+                  "text-xs font-medium text-center",
                   isActive && "text-primary",
                   isCompleted && "text-foreground",
                   isPending && "text-muted-foreground"
@@ -99,17 +146,6 @@ export function ResearchProgress({
               >
                 {p.label}
               </span>
-
-              {/* Connector line (not on last item) */}
-              {idx < phases.length - 1 && (
-                <div
-                  className={cn(
-                    "absolute h-0.5 w-full top-4 left-1/2",
-                    isCompleted ? "bg-primary" : "bg-muted"
-                  )}
-                  style={{ display: "none" }}
-                />
-              )}
             </div>
           );
         })}
@@ -118,18 +154,23 @@ export function ResearchProgress({
       {/* Progress bar */}
       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
         <div
-          className="h-full bg-primary transition-all duration-500 ease-out"
+          className="h-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-500 ease-out"
           style={{ width: `${Math.min((currentPhaseIndex + 1) / phases.length * 100, 100)}%` }}
         />
       </div>
 
       {/* Current status message */}
       <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">
-          {message || "Processing..."}
-        </span>
+        <div className="flex items-center gap-2">
+          {phase !== "completed" && (
+            <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+          )}
+          <span className="text-muted-foreground">
+            {message || phases.find(p => p.key === phase)?.description || "Processing..."}
+          </span>
+        </div>
         {currentStep && totalSteps && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
             Step {currentStep} of {totalSteps}
           </span>
         )}
