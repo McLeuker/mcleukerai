@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
+import type { ResearchPhase } from "@/components/dashboard/ResearchProgress";
+import type { Source } from "@/components/dashboard/SourceCitations";
+
+export type ResearchMode = "quick" | "deep";
 
 export interface ChatMessage {
   id: string;
@@ -13,6 +17,9 @@ export interface ChatMessage {
   credits_used: number;
   is_favorite: boolean;
   created_at: string;
+  // Research agent fields
+  sources?: Source[];
+  isResearched?: boolean;
 }
 
 export interface Conversation {
@@ -25,12 +32,27 @@ export interface Conversation {
   lastMessage?: ChatMessage;
 }
 
+export interface ResearchState {
+  isResearching: boolean;
+  phase: ResearchPhase | null;
+  currentStep: number;
+  totalSteps: number;
+  message: string;
+}
+
 export function useConversations() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [researchState, setResearchState] = useState<ResearchState>({
+    isResearching: false,
+    phase: null,
+    currentStep: 0,
+    totalSteps: 0,
+    message: "",
+  });
   const { user } = useAuth();
   const { toast } = useToast();
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -144,16 +166,24 @@ export function useConversations() {
   };
 
   // Send a message in the current conversation
-  const sendMessage = async (prompt: string): Promise<void> => {
+  const sendMessage = async (prompt: string, mode: ResearchMode = "quick"): Promise<void> => {
     if (!user) return;
 
     setLoading(true);
     setStreamingContent("");
+    setResearchState({
+      isResearching: mode === "deep",
+      phase: mode === "deep" ? "planning" : null,
+      currentStep: 0,
+      totalSteps: 0,
+      message: mode === "deep" ? "Starting research..." : "",
+    });
 
     // Get or create conversation
     const conversation = await getOrCreateConversation();
     if (!conversation) {
       setLoading(false);
+      setResearchState(prev => ({ ...prev, isResearching: false, phase: null }));
       return;
     }
 
@@ -177,6 +207,7 @@ export function useConversations() {
         variant: "destructive",
       });
       setLoading(false);
+      setResearchState(prev => ({ ...prev, isResearching: false, phase: null }));
       return;
     }
 
@@ -210,7 +241,7 @@ export function useConversations() {
       );
     }
 
-    // Call AI endpoint
+    // Call appropriate AI endpoint based on mode
     try {
       const session = await supabase.auth.getSession();
       if (!session.data.session?.access_token) {
@@ -219,8 +250,11 @@ export function useConversations() {
 
       abortControllerRef.current = new AbortController();
 
+      const endpoint = mode === "deep" ? "research-agent" : "fashion-ai";
+      const bodyParam = mode === "deep" ? "query" : "prompt";
+
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fashion-ai`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${endpoint}`,
         {
           method: "POST",
           headers: {
@@ -228,7 +262,7 @@ export function useConversations() {
             Authorization: `Bearer ${session.data.session.access_token}`,
           },
           body: JSON.stringify({
-            prompt,
+            [bodyParam]: prompt,
             conversationId: conversation.id,
           }),
           signal: abortControllerRef.current.signal,
@@ -252,6 +286,8 @@ export function useConversations() {
       let content = "";
       let modelUsed = "";
       let creditsUsed = 0;
+      let sources: Source[] = [];
+      let isResearched = mode === "deep";
 
       if (reader) {
         try {
@@ -268,6 +304,18 @@ export function useConversations() {
                 if (eventData === "[DONE]") continue;
                 try {
                   const parsed = JSON.parse(eventData);
+                  
+                  // Handle research phase updates
+                  if (parsed.phase && mode === "deep") {
+                    setResearchState(prev => ({
+                      ...prev,
+                      phase: parsed.phase as ResearchPhase,
+                      message: parsed.message || prev.message,
+                      currentStep: parsed.step || prev.currentStep,
+                      totalSteps: parsed.total || prev.totalSteps,
+                    }));
+                  }
+                  
                   if (parsed.content) {
                     content += parsed.content;
                     setStreamingContent(content);
@@ -277,6 +325,9 @@ export function useConversations() {
                   }
                   if (parsed.creditsUsed) {
                     creditsUsed = parsed.creditsUsed;
+                  }
+                  if (parsed.sources) {
+                    sources = parsed.sources;
                   }
                   if (parsed.error) {
                     throw new Error(parsed.error);
@@ -302,7 +353,7 @@ export function useConversations() {
             user_id: user.id,
             role: "assistant",
             content,
-            model_used: modelUsed || null,
+            model_used: modelUsed || (mode === "deep" ? "Research Agent" : null),
             credits_used: creditsUsed,
           })
           .select()
@@ -319,6 +370,8 @@ export function useConversations() {
             credits_used: assistantMsg.credits_used || 0,
             is_favorite: false,
             created_at: assistantMsg.created_at,
+            sources: sources.length > 0 ? sources : undefined,
+            isResearched,
           };
           setMessages((prev) => [...prev, newAssistantMessage]);
         }
@@ -331,6 +384,13 @@ export function useConversations() {
       }
 
       setStreamingContent("");
+      setResearchState({
+        isResearching: false,
+        phase: mode === "deep" ? "completed" : null,
+        currentStep: 0,
+        totalSteps: 0,
+        message: "",
+      });
     } catch (error) {
       if ((error as Error).name === "AbortError") {
         console.log("Request aborted");
@@ -342,12 +402,30 @@ export function useConversations() {
           variant: "destructive",
         });
       }
+      setResearchState(prev => ({ ...prev, isResearching: false, phase: "failed" }));
     }
 
     setLoading(false);
     abortControllerRef.current = null;
     await fetchConversations();
   };
+
+  // Cancel ongoing request
+  const cancelRequest = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+    setStreamingContent("");
+    setResearchState({
+      isResearching: false,
+      phase: null,
+      currentStep: 0,
+      totalSteps: 0,
+      message: "",
+    });
+  }, []);
 
   // Create a new conversation (user explicitly clicks New Chat)
   const createNewConversation = async (): Promise<void> => {
@@ -449,12 +527,14 @@ export function useConversations() {
     messages,
     loading,
     streamingContent,
+    researchState,
     sendMessage,
     createNewConversation,
     selectConversation,
     toggleFavorite,
     deleteMessage,
     deleteConversation,
+    cancelRequest,
     fetchConversations,
   };
 }

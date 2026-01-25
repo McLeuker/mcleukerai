@@ -139,6 +139,106 @@ export type Database = {
         }
         Relationships: []
       }
+      research_sources: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          id: string
+          relevance_score: number | null
+          snippet: string | null
+          source_type: string | null
+          task_id: string | null
+          title: string | null
+          url: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          relevance_score?: number | null
+          snippet?: string | null
+          source_type?: string | null
+          task_id?: string | null
+          title?: string | null
+          url: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          relevance_score?: number | null
+          snippet?: string | null
+          source_type?: string | null
+          task_id?: string | null
+          title?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_sources_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "research_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      research_tasks: {
+        Row: {
+          completed_at: string | null
+          conversation_id: string | null
+          created_at: string | null
+          credits_used: number | null
+          error_message: string | null
+          execution_steps: Json | null
+          final_answer: string | null
+          id: string
+          phase: Database["public"]["Enums"]["research_phase"] | null
+          plan: Json | null
+          query: string
+          sources: Json | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          credits_used?: number | null
+          error_message?: string | null
+          execution_steps?: Json | null
+          final_answer?: string | null
+          id?: string
+          phase?: Database["public"]["Enums"]["research_phase"] | null
+          plan?: Json | null
+          query: string
+          sources?: Json | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          credits_used?: number | null
+          error_message?: string | null
+          execution_steps?: Json | null
+          final_answer?: string | null
+          id?: string
+          phase?: Database["public"]["Enums"]["research_phase"] | null
+          plan?: Json | null
+          query?: string
+          sources?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_tasks_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           created_at: string
@@ -261,6 +361,15 @@ export type Database = {
       }
     }
     Enums: {
+      research_phase:
+        | "planning"
+        | "searching"
+        | "browsing"
+        | "extracting"
+        | "validating"
+        | "generating"
+        | "completed"
+        | "failed"
       task_status:
         | "pending"
         | "understanding"
@@ -396,6 +505,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      research_phase: [
+        "planning",
+        "searching",
+        "browsing",
+        "extracting",
+        "validating",
+        "generating",
+        "completed",
+        "failed",
+      ],
       task_status: [
         "pending",
         "understanding",
