@@ -64,37 +64,37 @@ const RATE_LIMITS = {
   },
 } as const;
 
-// Hugging Face Models Configuration
+// Hugging Face Models Configuration - Using freely accessible models
 const HUGGINGFACE_MODELS = {
-  mistral: {
-    id: "mistralai/Mistral-7B-Instruct-v0.3",
-    displayName: "Mistral-7B-Instruct-v0.3",
+  phi: {
+    id: "microsoft/Phi-3-mini-4k-instruct",
+    displayName: "Phi-3",
     description: "Structured research & supplier reports",
   },
-  falcon: {
-    id: "tiiuae/Falcon3-7B-Instruct",
-    displayName: "Falcon3-7B-Instruct",
+  zephyr: {
+    id: "HuggingFaceH4/zephyr-7b-beta",
+    displayName: "Zephyr-7B",
     description: "Trend analysis & market intelligence",
   },
-  llama: {
-    id: "meta-llama/Llama-2-7b-chat-hf",
-    displayName: "Llama-2-7b-chat",
+  gemma: {
+    id: "google/gemma-2-2b-it",
+    displayName: "Gemma-2",
     description: "Conversational & follow-up tasks",
   },
 } as const;
 
 // Model selection keywords
 const MODEL_KEYWORDS = {
-  mistral: [
+  phi: [
     "find", "list", "compare", "analyze", "map", "supplier", "pricing", 
     "certification", "sourcing", "manufacturer", "factory", "moq", 
     "research", "database", "report", "structured", "audit"
   ],
-  falcon: [
+  zephyr: [
     "trend", "forecast", "prediction", "insights", "overview", "emerging",
     "market intelligence", "competitive", "landscape", "growth", "projection"
   ],
-  llama: [
+  gemma: [
     "explain", "help", "what is", "how to", "tell me", "describe",
     "clarify", "elaborate", "more about", "follow up"
   ],
@@ -106,29 +106,29 @@ function selectModel(prompt: string): keyof typeof HUGGINGFACE_MODELS {
   
   // Count keyword matches for each model
   const scores = {
-    mistral: 0,
-    falcon: 0,
-    llama: 0,
+    phi: 0,
+    zephyr: 0,
+    gemma: 0,
   };
   
-  for (const keyword of MODEL_KEYWORDS.mistral) {
-    if (lowerPrompt.includes(keyword)) scores.mistral++;
+  for (const keyword of MODEL_KEYWORDS.phi) {
+    if (lowerPrompt.includes(keyword)) scores.phi++;
   }
-  for (const keyword of MODEL_KEYWORDS.falcon) {
-    if (lowerPrompt.includes(keyword)) scores.falcon++;
+  for (const keyword of MODEL_KEYWORDS.zephyr) {
+    if (lowerPrompt.includes(keyword)) scores.zephyr++;
   }
-  for (const keyword of MODEL_KEYWORDS.llama) {
-    if (lowerPrompt.includes(keyword)) scores.llama++;
+  for (const keyword of MODEL_KEYWORDS.gemma) {
+    if (lowerPrompt.includes(keyword)) scores.gemma++;
   }
   
-  // Select model with highest score, default to mistral
-  if (scores.falcon > scores.mistral && scores.falcon > scores.llama) {
-    return "falcon";
+  // Select model with highest score, default to phi
+  if (scores.zephyr > scores.phi && scores.zephyr > scores.gemma) {
+    return "zephyr";
   }
-  if (scores.llama > scores.mistral && scores.llama >= scores.falcon) {
-    return "llama";
+  if (scores.gemma > scores.phi && scores.gemma >= scores.zephyr) {
+    return "gemma";
   }
-  return "mistral"; // Default for structured research
+  return "phi"; // Default for structured research
 }
 
 const FASHION_SYSTEM_PROMPT = `You are an expert fashion industry AI analyst, researcher, and operator. You work with fashion sourcing managers, marketers, brand teams, buyers, merchandisers, and consultants.
@@ -176,7 +176,7 @@ You specialize in:
 - Brand positioning and competitive analysis
 - Collection planning and merchandising`;
 
-// Hugging Face API call with retry logic
+// Hugging Face API call with retry logic - using serverless inference
 async function callHuggingFace(
   apiKey: string,
   modelId: string,
@@ -187,9 +187,21 @@ async function callHuggingFace(
   const maxRetries = 1;
   
   try {
+    // Format prompt based on model type
+    let formattedPrompt: string;
+    if (modelId.includes("Phi-3")) {
+      formattedPrompt = `<|system|>\n${systemPrompt}<|end|>\n<|user|>\nTask: ${prompt}\n\nProvide a comprehensive, professional response with:\n- Summary of results\n- Key insights\n- Recommendations<|end|>\n<|assistant|>`;
+    } else if (modelId.includes("zephyr")) {
+      formattedPrompt = `<|system|>\n${systemPrompt}</s>\n<|user|>\nTask: ${prompt}\n\nProvide a comprehensive, professional response with:\n- Summary of results\n- Key insights\n- Recommendations</s>\n<|assistant|>`;
+    } else if (modelId.includes("gemma")) {
+      formattedPrompt = `<start_of_turn>user\n${systemPrompt}\n\nTask: ${prompt}\n\nProvide a comprehensive, professional response with:\n- Summary of results\n- Key insights\n- Recommendations<end_of_turn>\n<start_of_turn>model`;
+    } else {
+      formattedPrompt = `${systemPrompt}\n\nTask: ${prompt}\n\nProvide a comprehensive, professional response with:\n- Summary of results\n- Key insights\n- Recommendations`;
+    }
+
+    // Use the serverless inference API endpoint
     const response = await fetch(
-      // HF deprecated api-inference.*; router.* is the supported endpoint
-      `https://router.huggingface.co/hf-inference/models/${modelId}`,
+      `https://api-inference.huggingface.co/models/${modelId}`,
       {
         method: "POST",
         headers: {
@@ -197,7 +209,7 @@ async function callHuggingFace(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          inputs: `<s>[INST] ${systemPrompt}\n\nTask: ${prompt}\n\nProvide a comprehensive, professional response with:\n- Summary of results\n- Key insights\n- Recommendations\n- Sources (if applicable) [/INST]`,
+          inputs: formattedPrompt,
           parameters: {
             max_new_tokens: 1500,
             temperature: 0.7,
@@ -213,10 +225,17 @@ async function callHuggingFace(
       const errorText = await response.text();
       console.error(`HuggingFace API error (${modelId}):`, response.status, errorText);
       
-      // Retry once on failure
+      // Model loading - wait and retry
+      if (response.status === 503 && retryCount < 2) {
+        console.log(`Model ${modelId} is loading, waiting 5s...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return callHuggingFace(apiKey, modelId, prompt, systemPrompt, retryCount + 1);
+      }
+      
+      // Retry once on other failures
       if (retryCount < maxRetries) {
         console.log(`Retrying ${modelId}... (attempt ${retryCount + 2})`);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        await new Promise(resolve => setTimeout(resolve, 1000));
         return callHuggingFace(apiKey, modelId, prompt, systemPrompt, retryCount + 1);
       }
       
@@ -238,8 +257,14 @@ async function callHuggingFace(
       return { success: false, error: "Unexpected response format" };
     }
 
-    // Clean up response (remove system prompt echoes if any)
+    // Clean up response (remove prompt echoes and special tokens)
     content = content.trim();
+    // Remove common model-specific tokens that might leak through
+    content = content.replace(/<\|end\|>/g, '').replace(/<\|assistant\|>/g, '').replace(/<end_of_turn>/g, '').trim();
+    
+    if (!content || content.length < 10) {
+      return { success: false, error: "Response too short or empty" };
+    }
     
     return { success: true, content };
   } catch (error) {
@@ -299,23 +324,36 @@ async function callLovableAI(
   }
 }
 
-// Try models with fallback
+// Try models with fallback - prioritize Lovable AI for reliability
 async function executeWithFallback(
-  apiKey: string,
+  hfApiKey: string,
   primaryModel: keyof typeof HUGGINGFACE_MODELS,
   prompt: string,
   systemPrompt: string
 ): Promise<{ success: boolean; content?: string; modelUsed?: string; error?: string }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  
+  // Try Lovable AI first for maximum reliability
+  if (LOVABLE_API_KEY) {
+    console.log("Trying Lovable AI (Gemini 3 Flash) first for reliability...");
+    const lovableResult = await callLovableAI(LOVABLE_API_KEY, prompt, systemPrompt);
+    if (lovableResult.success && lovableResult.content) {
+      return { success: true, content: lovableResult.content, modelUsed: "Gemini 3 Flash" };
+    }
+    console.log("Lovable AI failed, falling back to HuggingFace models...");
+  }
+  
+  // Fallback to HuggingFace models
   const modelOrder: (keyof typeof HUGGINGFACE_MODELS)[] = 
-    primaryModel === "mistral" ? ["mistral", "falcon", "llama"] :
-    primaryModel === "falcon" ? ["falcon", "mistral", "llama"] :
-    ["llama", "mistral", "falcon"];
+    primaryModel === "phi" ? ["phi", "zephyr", "gemma"] :
+    primaryModel === "zephyr" ? ["zephyr", "phi", "gemma"] :
+    ["gemma", "phi", "zephyr"];
 
   for (const modelKey of modelOrder) {
     const model = HUGGINGFACE_MODELS[modelKey];
-    console.log(`Trying model: ${model.displayName}`);
+    console.log(`Trying HuggingFace model: ${model.displayName}`);
     
-    const result = await callHuggingFace(apiKey, model.id, prompt, systemPrompt);
+    const result = await callHuggingFace(hfApiKey, model.id, prompt, systemPrompt);
     
     if (result.success && result.content) {
       return {
@@ -325,21 +363,10 @@ async function executeWithFallback(
       };
     }
     
-    console.log(`Model ${model.displayName} failed, trying next...`);
+    console.log(`Model ${model.displayName} failed: ${result.error}`);
   }
 
-  // Final fallback: Lovable AI Gateway
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (LOVABLE_API_KEY) {
-    console.log("All Hugging Face models failed; falling back to Lovable AI (Gemini 3 Flash)");
-    const fallback = await callLovableAI(LOVABLE_API_KEY, prompt, systemPrompt);
-    if (fallback.success && fallback.content) {
-      return { success: true, content: fallback.content, modelUsed: fallback.modelUsed };
-    }
-    return { success: false, error: fallback.error || "All AI providers failed." };
-  }
-
-  return { success: false, error: "All AI models failed. Please try again later." };
+  return { success: false, error: "All AI models are currently unavailable. Please try again later." };
 }
 
 serve(async (req) => {
