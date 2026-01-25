@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ChevronRight, Leaf, Sparkles, Play } from "lucide-react";
+import { ArrowRight, ChevronRight, Leaf, Sparkles, TrendingUp, Search, BarChart3, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Footer } from "@/components/layout/Footer";
 import mcleukerLogo from "@/assets/mcleuker-logo.png";
@@ -36,20 +36,28 @@ const Landing = () => {
 
   const suggestionPrompts = [
     {
+      icon: TrendingUp,
       title: "Trend Forecasting",
-      prompt: "Analyze SS26 womenswear trends from Milan and Paris Fashion Week"
+      prompt: "Analyze SS26 womenswear trends from Milan and Paris Fashion Week",
+      gradient: "from-rose-500/10 to-orange-500/10"
     },
     {
+      icon: Search,
       title: "Supplier Research",
-      prompt: "Find sustainable denim suppliers in Europe with MOQ under 500 units"
+      prompt: "Find sustainable denim suppliers in Europe with MOQ under 500 units",
+      gradient: "from-blue-500/10 to-cyan-500/10"
     },
     {
+      icon: BarChart3,
       title: "Market Intelligence",
-      prompt: "Compare luxury handbag pricing across US, EU, and Asian markets"
+      prompt: "Compare luxury handbag pricing across US, EU, and Asian markets",
+      gradient: "from-violet-500/10 to-purple-500/10"
     },
     {
+      icon: ShieldCheck,
       title: "Sustainability Audit",
-      prompt: "Map sustainability certifications for European fashion brands"
+      prompt: "Map sustainability certifications for European fashion brands",
+      gradient: "from-emerald-500/10 to-teal-500/10"
     }
   ];
 
@@ -146,8 +154,89 @@ const Landing = () => {
         </div>
       </header>
 
-      {/* Hero Section - Full Screen */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Experience the Platform - TOP SECTION */}
+      <section className="pt-24 lg:pt-28 pb-16 lg:pb-24 bg-foreground text-background">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-12">
+          <div className="max-w-4xl mx-auto text-center">
+            <p className="text-xs sm:text-sm text-background/60 uppercase tracking-[0.2em] mb-3 sm:mb-4">
+              Experience the Platform
+            </p>
+            <h1 className="font-luxury text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-background mb-4 sm:mb-6 leading-[1.1]">
+              Try McLeuker AI
+            </h1>
+            <p className="text-background/70 text-base sm:text-lg mb-8 sm:mb-10 max-w-2xl mx-auto px-2">
+              Describe your research task and let our AI deliver professional-grade intelligence.
+            </p>
+
+            {/* Interactive Input */}
+            <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-10 sm:mb-12 px-2">
+              <div className="relative">
+                <textarea 
+                  value={prompt} 
+                  onChange={e => setPrompt(e.target.value)} 
+                  placeholder="e.g., Analyze SS26 womenswear color trends from Milan and Paris..." 
+                  className="w-full h-28 sm:h-32 px-4 sm:px-6 py-4 sm:py-5 rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm sm:text-base shadow-luxury"
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit(e);
+                    }
+                  }} 
+                />
+                <Button 
+                  type="submit" 
+                  disabled={!prompt.trim()} 
+                  className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 px-4 sm:px-6"
+                  size="sm"
+                >
+                  <span className="hidden sm:inline">Run Task</span>
+                  <ArrowRight className="w-4 h-4 sm:ml-2" />
+                </Button>
+              </div>
+            </form>
+
+            {/* Suggestion Prompts - Enhanced Cards */}
+            <div className="max-w-4xl mx-auto px-2">
+              <p className="text-xs sm:text-sm text-background/50 uppercase tracking-[0.15em] mb-4 sm:mb-6">
+                Try one of these examples
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                {suggestionPrompts.map((suggestion, i) => {
+                  const IconComponent = suggestion.icon;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setPrompt(suggestion.prompt)}
+                      className="group relative p-4 sm:p-5 rounded-xl bg-background/5 border border-background/10 hover:bg-background/15 hover:border-background/25 transition-all duration-300 text-left overflow-hidden"
+                    >
+                      {/* Subtle gradient background */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${suggestion.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+                      
+                      <div className="relative flex items-start gap-3 sm:gap-4">
+                        <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-background/10 flex items-center justify-center group-hover:bg-background/20 transition-colors">
+                          <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-background/80" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm sm:text-base font-medium text-background mb-1 sm:mb-1.5">
+                            {suggestion.title}
+                          </p>
+                          <p className="text-xs sm:text-sm text-background/60 leading-relaxed line-clamp-2">
+                            {suggestion.prompt}
+                          </p>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-background/40 group-hover:text-background/70 group-hover:translate-x-1 transition-all flex-shrink-0 mt-1" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Hero Section */}
+      <section className="relative min-h-[70vh] lg:min-h-[80vh] flex items-center justify-center overflow-hidden">
         {/* Background Image */}
         <div className="absolute inset-0">
           <img 
@@ -159,10 +248,10 @@ const Landing = () => {
         </div>
 
         {/* Hero Content */}
-        <div className="relative z-10 container mx-auto px-6 lg:px-12 pt-24 pb-32">
+        <div className="relative z-10 container mx-auto px-6 lg:px-12 py-20 lg:py-32">
           <div className="max-w-4xl mx-auto text-center">
             {/* Tagline */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 mb-10 animate-fade-in">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 mb-8 lg:mb-10 animate-fade-in">
               <Sparkles className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground tracking-wide">
                 AI & Sustainability for Fashion
@@ -170,12 +259,12 @@ const Landing = () => {
             </div>
 
             {/* Main Headline */}
-            <h1 className="font-luxury text-5xl md:text-6xl lg:text-7xl xl:text-8xl text-foreground mb-8 leading-[1.05] animate-fade-in-slow">
+            <h2 className="font-luxury text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-foreground mb-6 lg:mb-8 leading-[1.05] animate-fade-in-slow">
               The Future of<br />Fashion Intelligence
-            </h1>
+            </h2>
 
             {/* Subheadline */}
-            <p className="text-lg md:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed animate-fade-in">
+            <p className="text-base md:text-lg lg:text-xl text-muted-foreground mb-10 lg:mb-12 max-w-2xl mx-auto leading-relaxed animate-fade-in">
               From a single prompt to finished reports, sourcing sheets, and presentation decks. 
               AI-powered research for fashion professionals who demand excellence.
             </p>
@@ -194,13 +283,6 @@ const Landing = () => {
                 </Link>
               </Button>
             </div>
-          </div>
-        </div>
-
-        {/* Scroll Indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <div className="w-6 h-10 rounded-full border-2 border-muted-foreground/30 flex items-start justify-center p-2">
-            <div className="w-1 h-2 bg-muted-foreground/50 rounded-full"></div>
           </div>
         </div>
       </section>
@@ -411,68 +493,22 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Interactive Demo Section */}
-      <section className="py-24 lg:py-32 bg-foreground text-background">
+      {/* Secondary CTA Section */}
+      <section className="py-20 lg:py-28 bg-secondary/50">
         <div className="container mx-auto px-6 lg:px-12">
-          <div className="max-w-4xl mx-auto text-center">
-            <p className="text-sm text-background/60 uppercase tracking-[0.2em] mb-4">
-              Experience the Platform
-            </p>
-            <h2 className="font-luxury text-4xl md:text-5xl text-background mb-8">
-              Try McLeuker AI
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="font-luxury text-3xl md:text-4xl text-foreground mb-6">
+              Ready to transform your research?
             </h2>
-            <p className="text-background/70 text-lg mb-10 max-w-2xl mx-auto">
-              Describe your research task and let our AI deliver professional-grade intelligence.
+            <p className="text-muted-foreground text-lg mb-8">
+              Join leading fashion brands leveraging AI-powered insights.
             </p>
-
-            {/* Interactive Input */}
-            <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-12">
-              <div className="relative">
-                <textarea 
-                  value={prompt} 
-                  onChange={e => setPrompt(e.target.value)} 
-                  placeholder="e.g., Analyze SS26 womenswear color trends from Milan and Paris..." 
-                  className="w-full h-32 px-6 py-5 rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none text-base"
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSubmit(e);
-                    }
-                  }} 
-                />
-                <Button 
-                  type="submit" 
-                  disabled={!prompt.trim()} 
-                  className="absolute bottom-4 right-4"
-                >
-                  Run Task
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </form>
-
-            {/* Suggestion Prompts */}
-            <div className="max-w-3xl mx-auto">
-              <p className="text-sm text-background/50 uppercase tracking-[0.15em] mb-6">
-                Try one of these examples
-              </p>
-              <div className="grid sm:grid-cols-2 gap-3">
-                {suggestionPrompts.map((suggestion, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setPrompt(suggestion.prompt)}
-                    className="group p-4 rounded-lg bg-background/10 border border-background/20 hover:bg-background/20 hover:border-background/30 transition-all text-left"
-                  >
-                    <p className="text-sm font-medium text-background mb-1">
-                      {suggestion.title}
-                    </p>
-                    <p className="text-sm text-background/60 line-clamp-2">
-                      {suggestion.prompt}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <Button size="lg" className="px-8" asChild>
+              <Link to="/signup">
+                Start Free Trial
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Link>
+            </Button>
           </div>
         </div>
       </section>
