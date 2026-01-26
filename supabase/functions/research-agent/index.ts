@@ -24,7 +24,7 @@ function getCorsHeaders(req: Request) {
 // Research agent phases
 type ResearchPhase = "planning" | "searching" | "browsing" | "extracting" | "validating" | "generating" | "completed" | "failed";
 
-// Query type classification for model selection
+// Query type classification
 type QueryType = "supplier" | "trend" | "market" | "sustainability" | "general";
 
 // Tool definitions for the planner
@@ -55,17 +55,16 @@ const MAX_RETRIES = 2;
 const PERPLEXITY_TIMEOUT = 60000;
 const FIRECRAWL_TIMEOUT = 30000;
 
-// HuggingFace models for different query types
-const HF_MODELS = {
-  supplier: "mistralai/Mistral-7B-Instruct-v0.3",
-  trend: "meta-llama/Llama-2-7b-chat-hf",
-  market: "tiiuae/Falcon3-7B-Instruct",
-  sustainability: "mistralai/Mistral-7B-Instruct-v0.3",
-  general: "google/gemma-2-2b-it"
+// ============ GROK-ONLY CONFIGURATION ============
+// All AI operations use Grok (xAI) exclusively
+const GROK_CONFIG = {
+  endpoint: "https://api.x.ai/v1/chat/completions",
+  model: "grok-4-latest",
+  temperature: 0.2,
 };
 
-// Fashion industry system prompt for planner
-const PLANNER_SYSTEM_PROMPT = `You are an autonomous research planning agent for the fashion industry. Given a user query, create a comprehensive execution plan using available tools.
+// PLANNER SYSTEM PROMPT - Grok-powered hidden planner
+const PLANNER_SYSTEM_PROMPT = `You are a senior fashion research planner. Break the task into clear, efficient research steps using available tools. Do not generate answers.
 
 AVAILABLE TOOLS:
 1. web_search - Search the web for current information (query, limit). Best for: trends, market data, news
@@ -86,7 +85,7 @@ PLANNING RULES:
 5. Always validate findings with multiple sources when possible
 6. Prioritize authoritative fashion sources: WWD, BOF, Vogue Business, sustainability certifications
 
-OUTPUT STRICT JSON FORMAT:
+OUTPUT STRICT JSON FORMAT ONLY:
 {
   "query_type": "supplier" | "trend" | "market" | "sustainability" | "general",
   "reasoning": "Brief explanation of the research approach",
@@ -98,14 +97,33 @@ OUTPUT STRICT JSON FORMAT:
   "expected_output_format": "table" | "report" | "list" | "comparison"
 }`;
 
-const FASHION_SYSTEM_PROMPT = `You are an expert fashion industry AI analyst. Your role is to synthesize research findings into professional, actionable intelligence reports.
+// VALIDATOR SYSTEM PROMPT - Grok-powered validator
+const VALIDATOR_SYSTEM_PROMPT = `You are a fashion industry analyst validating research findings. Only approve information supported by sources.
+
+Your role:
+- Cross-check findings for consistency
+- Detect inconsistencies or contradictions
+- Flag low-confidence or outdated information
+- Ensure all claims are supported by the provided sources
+
+OUTPUT JSON ONLY:
+{
+  "verified": true | false,
+  "issues": ["list of issues found"],
+  "confidence_score": 0.0 - 1.0,
+  "notes": "summary of validation"
+}`;
+
+// SYNTHESIZER SYSTEM PROMPT - Grok-powered report writer
+const SYNTHESIZER_SYSTEM_PROMPT = `You are a senior fashion consultant. Write structured, professional reports using verified research only.
 
 OUTPUT FORMAT REQUIREMENTS:
-- Use clear headers and sections with markdown formatting
+- Executive summary at the top
+- Clear headers and sections with markdown formatting
 - Present data in tables where appropriate (supplier lists, comparisons, trend summaries)
 - Use bullet points for key insights
 - Include inline citations using [1], [2], etc. format referencing sources
-- Be professional, concise, and data-driven
+- Be professional, concise, and data-driven (McKinsey-level luxury consulting tone)
 - Focus on actionable insights for fashion professionals
 
 QUERY-SPECIFIC FORMATTING:
@@ -114,11 +132,12 @@ QUERY-SPECIFIC FORMATTING:
 - Market Intelligence: Include competitive landscape, market size estimates, key opportunities with supporting data
 - Sustainability: Focus on certifications, compliance requirements, action items with timelines
 
-QUALITY STANDARDS:
-- Always acknowledge data limitations or uncertainty
-- Distinguish between verified facts and market estimates
-- Provide context for numbers and claims
-- Include actionable next steps when relevant`;
+CRITICAL RULES:
+- NEVER hallucinate or fabricate information
+- All factual claims must reference the provided research findings
+- If information is incomplete, explicitly acknowledge it
+- Include actionable next steps when relevant
+- Add a "Key Takeaways" section at the end`;
 
 // Helper to send SSE events
 function createSSEStream() {
@@ -147,7 +166,7 @@ function createSSEStream() {
   return { stream, send, close };
 }
 
-// Classify query type for model selection
+// Classify query type
 function classifyQuery(query: string): QueryType {
   const lowerQuery = query.toLowerCase();
   
@@ -181,7 +200,7 @@ async function withRetry<T>(
       lastError = error instanceof Error ? error : new Error(String(error));
       if (attempt <= maxRetries) {
         onRetry?.(attempt, lastError);
-        await new Promise(r => setTimeout(r, 1000 * attempt)); // Exponential backoff
+        await new Promise(r => setTimeout(r, 1000 * attempt));
       }
     }
   }
@@ -199,7 +218,137 @@ function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Pro
   ]);
 }
 
-// Call Perplexity for web search
+// ============ GROK API CALL ============
+// Single unified function for all Grok calls
+async function callGrok(
+  apiKey: string,
+  systemPrompt: string,
+  userPrompt: string,
+  options?: { stream?: boolean; jsonMode?: boolean }
+): Promise<{ success: boolean; content?: string; error?: string }> {
+  try {
+    const body: Record<string, unknown> = {
+      model: GROK_CONFIG.model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: GROK_CONFIG.temperature,
+      stream: options?.stream ?? false,
+    };
+
+    if (options?.jsonMode) {
+      body.response_format = { type: "json_object" };
+    }
+
+    const response = await fetch(GROK_CONFIG.endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Grok API error:", response.status, errorText);
+      
+      if (response.status === 429) {
+        return { success: false, error: "Rate limit exceeded. Please try again shortly." };
+      }
+      if (response.status === 401) {
+        return { success: false, error: "AI authentication failed." };
+      }
+      return { success: false, error: `Grok API error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    
+    if (!content) {
+      return { success: false, error: "Empty response from Grok" };
+    }
+
+    return { success: true, content };
+  } catch (error) {
+    console.error("Grok call error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Grok call failed" };
+  }
+}
+
+// Grok streaming call for final report generation
+async function callGrokStreaming(
+  apiKey: string,
+  systemPrompt: string,
+  userPrompt: string,
+  onChunk: (chunk: string) => void
+): Promise<{ success: boolean; content?: string; error?: string }> {
+  try {
+    const response = await fetch(GROK_CONFIG.endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: GROK_CONFIG.model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: GROK_CONFIG.temperature,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Grok streaming error:", response.status, errorText);
+      return { success: false, error: `Grok API error: ${response.status}` };
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let fullContent = "";
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                fullContent += content;
+                onChunk(content);
+              }
+            } catch {
+              // Ignore parse errors for partial chunks
+            }
+          }
+        }
+      }
+      reader.releaseLock();
+    }
+
+    return { success: true, content: fullContent };
+  } catch (error) {
+    console.error("Grok streaming error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Streaming failed" };
+  }
+}
+
+// Call Perplexity for web search (tool only - NOT an LLM replacement)
 async function webSearch(
   apiKey: string,
   query: string,
@@ -228,7 +377,7 @@ async function webSearch(
       const errorText = await response.text();
       console.error("Perplexity API error:", response.status, errorText);
       if (response.status === 429) {
-        return { success: false, error: "Search rate limit reached. Using fallback..." };
+        return { success: false, error: "Search rate limit reached" };
       }
       return { success: false, error: `Search failed: ${response.status}` };
     }
@@ -248,7 +397,7 @@ async function webSearch(
   }
 }
 
-// Call Firecrawl to scrape a URL
+// Call Firecrawl to scrape a URL (tool only - NOT an LLM replacement)
 async function scrapeUrl(
   apiKey: string,
   url: string
@@ -291,7 +440,7 @@ async function scrapeUrl(
   }
 }
 
-// Extract structured data using Firecrawl
+// Extract structured data using Firecrawl (tool only)
 async function extractStructured(
   apiKey: string,
   url: string,
@@ -334,150 +483,60 @@ async function extractStructured(
   }
 }
 
-// Call HuggingFace model (with 503 retry logic for model loading)
-async function callHuggingFace(
-  apiKey: string,
-  model: string,
-  prompt: string
-): Promise<{ success: boolean; content?: string; error?: string }> {
-  try {
-    const hfPromise = async () => {
-      const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 1500,
-            temperature: 0.7,
-            return_full_text: false,
-          },
-        }),
-      });
+// Create fallback plan based on query type
+function createFallbackPlan(queryType: QueryType, query: string): {
+  query_type: QueryType;
+  steps: Array<{ tool: string; params: Record<string, unknown>; purpose: string }>;
+  validation_criteria: string[];
+  expected_output_format: string;
+} {
+  const basePlan = {
+    query_type: queryType,
+    validation_criteria: ["Source reliability", "Data currency", "Information accuracy"],
+    expected_output_format: "report" as string,
+    steps: [] as Array<{ tool: string; params: Record<string, unknown>; purpose: string }>
+  };
 
-      if (response.status === 503) {
-        const data = await response.json();
-        if (data.estimated_time) {
-          throw new Error(`Model loading: ${data.estimated_time}s`);
-        }
-        throw new Error("Model unavailable");
-      }
-
-      if (!response.ok) {
-        throw new Error(`HuggingFace error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const content = Array.isArray(data) ? data[0]?.generated_text : data.generated_text;
-      return content;
-    };
-
-    const content = await withRetry(hfPromise, 2, (attempt, error) => {
-      console.log(`HuggingFace retry ${attempt}: ${error.message}`);
-    });
-
-    return { success: true, content };
-  } catch (error) {
-    console.error("HuggingFace error:", error);
-    return { success: false, error: error instanceof Error ? error.message : "HuggingFace call failed" };
-  }
-}
-
-// Call Lovable AI for planning and generation (primary model)
-async function callLovableAI(
-  apiKey: string,
-  systemPrompt: string,
-  userPrompt: string,
-  useToolCall: boolean = false,
-  toolSchema?: Record<string, unknown>
-): Promise<{ success: boolean; content?: string; toolOutput?: Record<string, unknown>; error?: string }> {
-  try {
-    const body: Record<string, unknown> = {
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 2500,
-    };
-
-    if (useToolCall && toolSchema) {
-      body.tools = [
-        {
-          type: "function",
-          function: {
-            name: "create_research_plan",
-            description: "Create a structured research plan with tool calls",
-            parameters: {
-              type: "object",
-              properties: {
-                query_type: { type: "string", enum: ["supplier", "trend", "market", "sustainability", "general"] },
-                reasoning: { type: "string", description: "Brief explanation of research approach" },
-                steps: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      tool: { type: "string", enum: ["web_search", "scrape_url", "extract_structured"] },
-                      params: { type: "object" },
-                      purpose: { type: "string" }
-                    },
-                    required: ["tool", "params", "purpose"]
-                  }
-                },
-                validation_criteria: { type: "array", items: { type: "string" } },
-                expected_output_format: { type: "string", enum: ["table", "report", "list", "comparison"] }
-              },
-              required: ["query_type", "reasoning", "steps", "validation_criteria"]
-            }
-          }
-        }
+  switch (queryType) {
+    case "supplier":
+      basePlan.steps = [
+        { tool: "web_search", params: { query: `${query} manufacturers suppliers`, limit: 5 }, purpose: "Find relevant suppliers" },
+        { tool: "web_search", params: { query: `${query} MOQ pricing wholesale`, limit: 5 }, purpose: "Get pricing and MOQ details" }
       ];
-      body.tool_choice = { type: "function", function: { name: "create_research_plan" } };
-    }
+      basePlan.expected_output_format = "table";
+      break;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    case "trend":
+      basePlan.steps = [
+        { tool: "web_search", params: { query: `${query} fashion trends 2024 2025`, limit: 5 }, purpose: "Current trend analysis" },
+        { tool: "web_search", params: { query: `${query} fashion week runway`, limit: 5 }, purpose: "Runway validation" }
+      ];
+      basePlan.expected_output_format = "report";
+      break;
 
-    if (!response.ok) {
-      const t = await response.text();
-      console.error("Lovable AI error:", response.status, t);
-      if (response.status === 429) return { success: false, error: "Rate limit exceeded. Please try again shortly." };
-      if (response.status === 402) return { success: false, error: "AI credits exhausted." };
-      return { success: false, error: "AI service temporarily unavailable." };
-    }
+    case "market":
+      basePlan.steps = [
+        { tool: "web_search", params: { query: `${query} market analysis size growth`, limit: 5 }, purpose: "Market overview" },
+        { tool: "web_search", params: { query: `${query} competition brands pricing`, limit: 5 }, purpose: "Competitive landscape" }
+      ];
+      basePlan.expected_output_format = "report";
+      break;
 
-    const data = await response.json();
-    
-    // Handle tool call response
-    if (useToolCall && data.choices?.[0]?.message?.tool_calls?.[0]) {
-      const toolCall = data.choices[0].message.tool_calls[0];
-      try {
-        const toolOutput = JSON.parse(toolCall.function.arguments);
-        return { success: true, toolOutput };
-      } catch {
-        return { success: false, error: "Failed to parse tool call response" };
-      }
-    }
+    case "sustainability":
+      basePlan.steps = [
+        { tool: "web_search", params: { query: `${query} sustainable certifications GOTS OEKO-TEX`, limit: 5 }, purpose: "Certification research" },
+        { tool: "web_search", params: { query: `${query} eco-friendly materials suppliers`, limit: 5 }, purpose: "Sustainable options" }
+      ];
+      basePlan.expected_output_format = "report";
+      break;
 
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) return { success: false, error: "Empty response from AI" };
-
-    return { success: true, content };
-  } catch (error) {
-    console.error("Lovable AI error:", error);
-    return { success: false, error: error instanceof Error ? error.message : "AI call failed" };
+    default:
+      basePlan.steps = [
+        { tool: "web_search", params: { query: query, limit: 5 }, purpose: "General research" }
+      ];
   }
+
+  return basePlan;
 }
 
 // Main research agent handler
@@ -529,14 +588,13 @@ serve(async (req) => {
         return;
       }
 
-      // Get API keys
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      // Get API keys - GROK IS REQUIRED
+      const GROK_API_KEY = Deno.env.get("Grok_API");
       const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
       const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-      const HUGGINGFACE_API_KEY = Deno.env.get("Huggingface_api_key");
 
-      if (!LOVABLE_API_KEY) {
-        send({ phase: "failed", error: "AI service not configured" });
+      if (!GROK_API_KEY) {
+        send({ phase: "failed", error: "Grok AI service not configured" });
         close();
         return;
       }
@@ -554,9 +612,8 @@ serve(async (req) => {
         return;
       }
 
-      // Classify query type for model selection
+      // Classify query type
       const queryType = classifyQuery(trimmedQuery);
-      const selectedHFModel = HF_MODELS[queryType];
 
       // Create research task record
       const { data: taskData, error: taskError } = await supabase
@@ -582,15 +639,14 @@ serve(async (req) => {
       const allSources: Array<{ url: string; title: string; snippet: string; type: string; relevance_score?: number }> = [];
       const executionSteps: Array<{ step: number; tool: string; status: string; message: string }> = [];
 
-      // ============ PHASE 1: PLANNING ============
+      // ============ PHASE 1: PLANNING (Grok) ============
       send({ phase: "planning", message: "Analyzing your research request...", queryType });
 
-      const planResult = await callLovableAI(
-        LOVABLE_API_KEY,
+      const planResult = await callGrok(
+        GROK_API_KEY,
         PLANNER_SYSTEM_PROMPT,
-        `Research Query: ${trimmedQuery}\n\nCreate a detailed research plan optimized for this ${queryType} query.`,
-        true,
-        { type: "object" }
+        `Research Query: ${trimmedQuery}\n\nCreate a detailed research plan optimized for this ${queryType} query. Output JSON only.`,
+        { jsonMode: true }
       );
 
       let plan: { 
@@ -600,14 +656,18 @@ serve(async (req) => {
         expected_output_format?: string;
       };
       
-      if (planResult.success && planResult.toolOutput) {
-        plan = planResult.toolOutput as typeof plan;
+      if (planResult.success && planResult.content) {
+        try {
+          plan = JSON.parse(planResult.content);
+        } catch {
+          console.log("Failed to parse Grok plan, using fallback");
+          plan = createFallbackPlan(queryType, trimmedQuery);
+        }
       } else {
-        // Fallback: create a smart plan based on query type
         plan = createFallbackPlan(queryType, trimmedQuery);
       }
 
-      // Save plan (hidden from user)
+      // Save plan (hidden from user - internal only)
       await supabase
         .from("research_tasks")
         .update({ plan: plan, phase: "searching" })
@@ -627,7 +687,7 @@ serve(async (req) => {
           break;
         }
 
-        // WEB SEARCH
+        // WEB SEARCH (using Perplexity as a tool)
         if (step.tool === "web_search" && PERPLEXITY_API_KEY) {
           send({ phase: "searching", step: i + 1, total: plan.steps.length, message: `Searching: ${step.purpose}` });
           
@@ -651,7 +711,7 @@ serve(async (req) => {
                   title: `Search Result ${allSources.length + 1}`,
                   snippet: "",
                   type: "search",
-                  relevance_score: 1 - (idx * 0.1) // Higher relevance for earlier results
+                  relevance_score: 1 - (idx * 0.1)
                 });
               });
             }
@@ -660,25 +720,11 @@ serve(async (req) => {
             searchCount++;
             executionSteps.push({ step: i + 1, tool: "web_search", status: "completed", message: step.purpose });
           } else {
-            // Fallback to Lovable AI if Perplexity fails
-            send({ phase: "searching", step: i + 1, total: plan.steps.length, message: `Using AI fallback for: ${step.purpose}` });
-            
-            const fallbackResult = await callLovableAI(
-              LOVABLE_API_KEY,
-              "You are a fashion industry research assistant. Provide detailed, current information.",
-              searchQuery
-            );
-            
-            if (fallbackResult.success && fallbackResult.content) {
-              researchFindings += `\n\n### AI Analysis: ${searchQuery}\n${fallbackResult.content}`;
-              executionSteps.push({ step: i + 1, tool: "web_search", status: "fallback", message: `${step.purpose} (AI fallback)` });
-            } else {
-              executionSteps.push({ step: i + 1, tool: "web_search", status: "failed", message: searchResult.error || "Search failed" });
-            }
+            executionSteps.push({ step: i + 1, tool: "web_search", status: "failed", message: searchResult.error || "Search failed" });
           }
         }
         
-        // SCRAPE URL
+        // SCRAPE URL (using Firecrawl as a tool)
         if (step.tool === "scrape_url" && FIRECRAWL_API_KEY) {
           const url = step.params.url as string;
           if (url) {
@@ -692,7 +738,7 @@ serve(async (req) => {
             }
             
             if (scrapeResult.success && scrapeResult.content) {
-              // Limit content length to avoid token overflow
+              // Limit content length
               const truncatedContent = scrapeResult.content.slice(0, 4000);
               researchFindings += `\n\n### Scraped: ${scrapeResult.title || url}\n${truncatedContent}`;
               
@@ -713,7 +759,7 @@ serve(async (req) => {
           }
         }
 
-        // EXTRACT STRUCTURED
+        // EXTRACT STRUCTURED (using Firecrawl as a tool)
         if (step.tool === "extract_structured" && FIRECRAWL_API_KEY) {
           const url = step.params.url as string;
           const schema = step.params.schema as Record<string, unknown>;
@@ -761,32 +807,43 @@ serve(async (req) => {
         .update({ execution_steps: executionSteps, sources: allSources, phase: "validating" })
         .eq("id", taskId);
 
-      // ============ PHASE 3: VALIDATION ============
+      // ============ PHASE 3: VALIDATION (Grok) ============
       send({ phase: "validating", message: "Cross-referencing and verifying findings..." });
 
-      // Validate we have sufficient findings
+      // Handle case with no findings
       if (!researchFindings || researchFindings.length < 100) {
-        // If no external findings, do a direct AI query as fallback
-        const directResult = await callLovableAI(
-          LOVABLE_API_KEY,
-          FASHION_SYSTEM_PROMPT,
-          trimmedQuery
-        );
-        if (directResult.success && directResult.content) {
-          researchFindings = directResult.content;
+        // Return partial results with disclaimer
+        researchFindings = `Note: Limited data was retrieved from external sources. The following response is based on available information.\n\nQuery: ${trimmedQuery}`;
+      }
+
+      // Validate findings with Grok
+      const validationResult = await callGrok(
+        GROK_API_KEY,
+        VALIDATOR_SYSTEM_PROMPT,
+        `Validate the following research findings for the query: "${trimmedQuery}"\n\nFINDINGS:\n${researchFindings.slice(0, 4000)}\n\nSOURCES: ${allSources.length} sources collected`,
+        { jsonMode: true }
+      );
+
+      let validationNotes: string[] = [];
+      if (validationResult.success && validationResult.content) {
+        try {
+          const validation = JSON.parse(validationResult.content);
+          if (validation.issues && validation.issues.length > 0) {
+            validationNotes = validation.issues;
+          }
+          if (validation.confidence_score && validation.confidence_score < 0.7) {
+            validationNotes.push("Confidence level moderate - recommend verification");
+          }
+        } catch {
+          console.log("Failed to parse validation result");
         }
       }
 
-      // Cross-validation: Check for consistency
-      const validationNotes: string[] = [];
       if (allSources.length < 2) {
         validationNotes.push("Limited sources available - findings should be verified independently");
       }
-      if (scrapeCount === 0 && plan.query_type === "supplier") {
-        validationNotes.push("No direct supplier websites were accessible - data from aggregated sources");
-      }
 
-      // ============ PHASE 4: GENERATION ============
+      // ============ PHASE 4: GENERATION (Grok with Streaming) ============
       send({ phase: "generating", message: "Synthesizing research findings..." });
 
       await supabase
@@ -806,57 +863,59 @@ RESEARCH FINDINGS:
 ${researchFindings}
 
 AVAILABLE SOURCES:
-${sourceList}
+${sourceList || "No external sources - provide general industry knowledge with clear disclaimers."}
 
 VALIDATION NOTES:
-${validationNotes.join("\n") || "All findings verified against multiple sources."}
+${validationNotes.join("\n") || "All findings verified."}
 
-INSTRUCTIONS:
-1. Synthesize the findings into a clear, professional ${plan.expected_output_format || "report"}
-2. Use inline citations like [1], [2] when referencing sources
-3. Format with markdown headers, bullet points, and tables where appropriate
-4. Focus on actionable insights for fashion industry professionals
-5. If information is incomplete or uncertain, acknowledge it
-6. Include a brief "Key Takeaways" section at the end
-7. For supplier queries, use table format with key details
-8. For trend queries, organize by category with confidence levels`;
+CRITICAL INSTRUCTIONS:
+1. DO NOT hallucinate or fabricate any data
+2. Only use information from the provided research findings
+3. Use inline citations like [1], [2] when referencing sources
+4. Format with markdown headers, bullet points, and tables where appropriate
+5. Focus on actionable insights for fashion industry professionals
+6. If information is incomplete or uncertain, acknowledge it clearly
+7. Include a "Key Takeaways" section at the end
+8. For supplier queries, use table format with key details
+9. For trend queries, organize by category with confidence levels`;
 
-      // Try HuggingFace model first for specific query types, fallback to Lovable AI
-      let generationResult: { success: boolean; content?: string; error?: string } = { success: false };
+      // Stream the response from Grok
+      let finalContent = "";
       
-      if (HUGGINGFACE_API_KEY && queryType !== "general") {
-        send({ phase: "generating", message: `Using specialized ${queryType} model...` });
-        generationResult = await callHuggingFace(
-          HUGGINGFACE_API_KEY,
-          selectedHFModel,
-          `${FASHION_SYSTEM_PROMPT}\n\n${generationPrompt}`
-        );
-      }
+      const streamResult = await callGrokStreaming(
+        GROK_API_KEY,
+        SYNTHESIZER_SYSTEM_PROMPT,
+        generationPrompt,
+        (chunk) => {
+          send({ phase: "generating", content: chunk });
+        }
+      );
 
-      // Fallback to Lovable AI if HuggingFace fails or not available
-      if (!generationResult.success) {
-        generationResult = await callLovableAI(
-          LOVABLE_API_KEY,
-          FASHION_SYSTEM_PROMPT,
+      if (!streamResult.success || !streamResult.content) {
+        // Fallback to non-streaming if streaming fails
+        const fallbackResult = await callGrok(
+          GROK_API_KEY,
+          SYNTHESIZER_SYSTEM_PROMPT,
           generationPrompt
         );
-      }
-
-      if (!generationResult.success || !generationResult.content) {
-        send({ phase: "failed", error: generationResult.error || "Failed to generate response" });
-        await supabase.from("research_tasks").update({ phase: "failed", error_message: generationResult.error }).eq("id", taskId);
-        close();
-        return;
-      }
-
-      // Stream the final answer
-      const finalContent = generationResult.content;
-      const chunkSize = 50;
-      
-      for (let i = 0; i < finalContent.length; i += chunkSize) {
-        const chunk = finalContent.slice(i, i + chunkSize);
-        send({ phase: "generating", content: chunk });
-        await new Promise(r => setTimeout(r, 15));
+        
+        if (!fallbackResult.success || !fallbackResult.content) {
+          send({ phase: "failed", error: fallbackResult.error || "Failed to generate response" });
+          await supabase.from("research_tasks").update({ phase: "failed", error_message: fallbackResult.error }).eq("id", taskId);
+          close();
+          return;
+        }
+        
+        finalContent = fallbackResult.content;
+        // Stream the fallback content
+        const chunkSize = 50;
+        for (let i = 0; i < finalContent.length; i += chunkSize) {
+          const chunk = finalContent.slice(i, i + chunkSize);
+          send({ phase: "generating", content: chunk });
+          await new Promise(r => setTimeout(r, 15));
+        }
+      } else {
+        finalContent = streamResult.content;
       }
 
       // Deduct credits only on success
@@ -889,9 +948,7 @@ INSTRUCTIONS:
         creditsUsed: finalCredits,
         taskId,
         queryType,
-        modelUsed: generationResult.success && HUGGINGFACE_API_KEY && queryType !== "general" 
-          ? selectedHFModel.split("/")[1] 
-          : "Gemini-3-Flash"
+        modelUsed: "Grok-4"
       });
 
       close();
@@ -911,59 +968,3 @@ INSTRUCTIONS:
     },
   });
 });
-
-// Create a fallback plan based on query type
-function createFallbackPlan(queryType: QueryType, query: string): {
-  query_type: QueryType;
-  steps: Array<{ tool: string; params: Record<string, unknown>; purpose: string }>;
-  validation_criteria: string[];
-  expected_output_format: string;
-} {
-  const basePlan = {
-    query_type: queryType,
-    validation_criteria: ["Source reliability", "Data currency", "Information accuracy"],
-    expected_output_format: "report" as string,
-    steps: [] as Array<{ tool: string; params: Record<string, unknown>; purpose: string }>
-  };
-
-  switch (queryType) {
-    case "supplier":
-      basePlan.steps = [
-        { tool: "web_search", params: { query: `${query} manufacturers suppliers`, limit: 5 }, purpose: "Find relevant suppliers" },
-        { tool: "web_search", params: { query: `${query} MOQ pricing wholesale`, limit: 5 }, purpose: "Get pricing and MOQ details" }
-      ];
-      basePlan.expected_output_format = "table";
-      break;
-
-    case "trend":
-      basePlan.steps = [
-        { tool: "web_search", params: { query: `${query} fashion trends 2024 2025`, limit: 5 }, purpose: "Current trend analysis" },
-        { tool: "web_search", params: { query: `${query} fashion week runway`, limit: 5 }, purpose: "Runway validation" }
-      ];
-      basePlan.expected_output_format = "report";
-      break;
-
-    case "market":
-      basePlan.steps = [
-        { tool: "web_search", params: { query: `${query} market size growth analysis`, limit: 5 }, purpose: "Market sizing" },
-        { tool: "web_search", params: { query: `${query} industry competitors landscape`, limit: 5 }, purpose: "Competitive analysis" }
-      ];
-      basePlan.expected_output_format = "comparison";
-      break;
-
-    case "sustainability":
-      basePlan.steps = [
-        { tool: "web_search", params: { query: `${query} sustainable certification GOTS OEKO-TEX`, limit: 5 }, purpose: "Certification requirements" },
-        { tool: "web_search", params: { query: `${query} eco-friendly materials suppliers`, limit: 5 }, purpose: "Sustainable options" }
-      ];
-      basePlan.expected_output_format = "list";
-      break;
-
-    default:
-      basePlan.steps = [
-        { tool: "web_search", params: { query, limit: 5 }, purpose: "Primary research" }
-      ];
-  }
-
-  return basePlan;
-}
