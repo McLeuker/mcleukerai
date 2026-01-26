@@ -64,73 +64,15 @@ const RATE_LIMITS = {
   },
 } as const;
 
-// Hugging Face Models Configuration - Using freely accessible models
-const HUGGINGFACE_MODELS = {
-  phi: {
-    id: "microsoft/Phi-3-mini-4k-instruct",
-    displayName: "Phi-3",
-    description: "Structured research & supplier reports",
-  },
-  zephyr: {
-    id: "HuggingFaceH4/zephyr-7b-beta",
-    displayName: "Zephyr-7B",
-    description: "Trend analysis & market intelligence",
-  },
-  gemma: {
-    id: "google/gemma-2-2b-it",
-    displayName: "Gemma-2",
-    description: "Conversational & follow-up tasks",
-  },
-} as const;
+// ============ GROK-ONLY CONFIGURATION ============
+// All AI operations use Grok (xAI) exclusively - NO FALLBACKS
+const GROK_CONFIG = {
+  endpoint: "https://api.x.ai/v1/chat/completions",
+  model: "grok-4-latest",
+  temperature: 0.2,
+};
 
-// Model selection keywords
-const MODEL_KEYWORDS = {
-  phi: [
-    "find", "list", "compare", "analyze", "map", "supplier", "pricing", 
-    "certification", "sourcing", "manufacturer", "factory", "moq", 
-    "research", "database", "report", "structured", "audit"
-  ],
-  zephyr: [
-    "trend", "forecast", "prediction", "insights", "overview", "emerging",
-    "market intelligence", "competitive", "landscape", "growth", "projection"
-  ],
-  gemma: [
-    "explain", "help", "what is", "how to", "tell me", "describe",
-    "clarify", "elaborate", "more about", "follow up"
-  ],
-} as const;
-
-// Function to select the best model based on prompt
-function selectModel(prompt: string): keyof typeof HUGGINGFACE_MODELS {
-  const lowerPrompt = prompt.toLowerCase();
-  
-  // Count keyword matches for each model
-  const scores = {
-    phi: 0,
-    zephyr: 0,
-    gemma: 0,
-  };
-  
-  for (const keyword of MODEL_KEYWORDS.phi) {
-    if (lowerPrompt.includes(keyword)) scores.phi++;
-  }
-  for (const keyword of MODEL_KEYWORDS.zephyr) {
-    if (lowerPrompt.includes(keyword)) scores.zephyr++;
-  }
-  for (const keyword of MODEL_KEYWORDS.gemma) {
-    if (lowerPrompt.includes(keyword)) scores.gemma++;
-  }
-  
-  // Select model with highest score, default to phi
-  if (scores.zephyr > scores.phi && scores.zephyr > scores.gemma) {
-    return "zephyr";
-  }
-  if (scores.gemma > scores.phi && scores.gemma >= scores.zephyr) {
-    return "gemma";
-  }
-  return "phi"; // Default for structured research
-}
-
+// Fashion AI System Prompt for Grok
 const FASHION_SYSTEM_PROMPT = `You are an expert fashion industry AI analyst, researcher, and operator. You work with fashion sourcing managers, marketers, brand teams, buyers, merchandisers, and consultants.
 
 Your role is to:
@@ -144,7 +86,7 @@ When responding, format your output professionally for the luxury fashion indust
 - Present data in tables where appropriate (supplier lists, comparisons, etc.)
 - Use bullet points for key insights and recommendations
 - Include summary sections for quick reference
-- Be professional, concise, and data-driven
+- Be professional, concise, and data-driven (McKinsey-level consulting tone)
 - Focus on actionable insights
 - Reference industry standards and best practices
 
@@ -168,6 +110,11 @@ For Sustainability Audit queries:
 - Provide clear action items for improvement
 - Reference industry standards (Higg Index, ZDHC, etc.)
 
+CRITICAL RULES:
+- NEVER hallucinate or fabricate information
+- If you don't have specific data, acknowledge the limitation
+- Be clear about what is general industry knowledge vs. specific research
+
 You specialize in:
 - Supplier research and sourcing strategies
 - Market analysis and trend forecasting
@@ -176,197 +123,58 @@ You specialize in:
 - Brand positioning and competitive analysis
 - Collection planning and merchandising`;
 
-// Hugging Face API call with retry logic - using serverless inference
-async function callHuggingFace(
-  apiKey: string,
-  modelId: string,
-  prompt: string,
-  systemPrompt: string,
-  retryCount = 0
-): Promise<{ success: boolean; content?: string; error?: string }> {
-  const maxRetries = 1;
-  
-  try {
-    // Format prompt based on model type
-    let formattedPrompt: string;
-    if (modelId.includes("Phi-3")) {
-      formattedPrompt = `<|system|>\n${systemPrompt}<|end|>\n<|user|>\nTask: ${prompt}\n\nProvide a comprehensive, professional response with:\n- Summary of results\n- Key insights\n- Recommendations<|end|>\n<|assistant|>`;
-    } else if (modelId.includes("zephyr")) {
-      formattedPrompt = `<|system|>\n${systemPrompt}</s>\n<|user|>\nTask: ${prompt}\n\nProvide a comprehensive, professional response with:\n- Summary of results\n- Key insights\n- Recommendations</s>\n<|assistant|>`;
-    } else if (modelId.includes("gemma")) {
-      formattedPrompt = `<start_of_turn>user\n${systemPrompt}\n\nTask: ${prompt}\n\nProvide a comprehensive, professional response with:\n- Summary of results\n- Key insights\n- Recommendations<end_of_turn>\n<start_of_turn>model`;
-    } else {
-      formattedPrompt = `${systemPrompt}\n\nTask: ${prompt}\n\nProvide a comprehensive, professional response with:\n- Summary of results\n- Key insights\n- Recommendations`;
-    }
-
-    // Use the serverless inference API endpoint
-    const response = await fetch(
-      `https://api-inference.huggingface.co/models/${modelId}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          inputs: formattedPrompt,
-          parameters: {
-            max_new_tokens: 1500,
-            temperature: 0.7,
-            top_p: 0.95,
-            do_sample: true,
-            return_full_text: false,
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`HuggingFace API error (${modelId}):`, response.status, errorText);
-      
-      // Model loading - wait and retry
-      if (response.status === 503 && retryCount < 2) {
-        console.log(`Model ${modelId} is loading, waiting 5s...`);
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        return callHuggingFace(apiKey, modelId, prompt, systemPrompt, retryCount + 1);
-      }
-      
-      // Retry once on other failures
-      if (retryCount < maxRetries) {
-        console.log(`Retrying ${modelId}... (attempt ${retryCount + 2})`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return callHuggingFace(apiKey, modelId, prompt, systemPrompt, retryCount + 1);
-      }
-      
-      return { success: false, error: `API error: ${response.status}` };
-    }
-
-    const data = await response.json();
-    
-    // Handle different response formats
-    let content = "";
-    if (Array.isArray(data) && data[0]?.generated_text) {
-      content = data[0].generated_text;
-    } else if (data.generated_text) {
-      content = data.generated_text;
-    } else if (typeof data === "string") {
-      content = data;
-    } else {
-      console.error("Unexpected HuggingFace response format:", data);
-      return { success: false, error: "Unexpected response format" };
-    }
-
-    // Clean up response (remove prompt echoes and special tokens)
-    content = content.trim();
-    // Remove common model-specific tokens that might leak through
-    content = content.replace(/<\|end\|>/g, '').replace(/<\|assistant\|>/g, '').replace(/<end_of_turn>/g, '').trim();
-    
-    if (!content || content.length < 10) {
-      return { success: false, error: "Response too short or empty" };
-    }
-    
-    return { success: true, content };
-  } catch (error) {
-    console.error(`HuggingFace call error (${modelId}):`, error);
-    
-    if (retryCount < maxRetries) {
-      console.log(`Retrying ${modelId}... (attempt ${retryCount + 2})`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return callHuggingFace(apiKey, modelId, prompt, systemPrompt, retryCount + 1);
-    }
-    
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
-  }
-}
-
-async function callLovableAI(
+// Single Grok API call function - NO FALLBACKS
+async function callGrok(
   apiKey: string,
   prompt: string,
   systemPrompt: string
-): Promise<{ success: boolean; content?: string; error?: string; modelUsed?: string }> {
+): Promise<{ success: boolean; content?: string; error?: string }> {
   try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(GROK_CONFIG.endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: GROK_CONFIG.model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
-        temperature: 0.7,
-        max_tokens: 1500,
+        temperature: GROK_CONFIG.temperature,
         stream: false,
       }),
     });
 
     if (!response.ok) {
-      const t = await response.text();
-      console.error("Lovable AI Gateway error:", response.status, t);
-      if (response.status === 429) return { success: false, error: "AI rate limit exceeded. Please try again shortly." };
-      if (response.status === 402) return { success: false, error: "AI credits exhausted. Please add credits to your workspace." };
-      if (response.status === 401) return { success: false, error: "AI authentication failed." };
-      return { success: false, error: "AI service temporarily unavailable." };
+      const errorText = await response.text();
+      console.error("Grok API error:", response.status, errorText);
+      
+      if (response.status === 429) {
+        return { success: false, error: "AI rate limit exceeded. Please try again shortly." };
+      }
+      if (response.status === 402) {
+        return { success: false, error: "AI credits exhausted." };
+      }
+      if (response.status === 401) {
+        return { success: false, error: "AI authentication failed." };
+      }
+      return { success: false, error: `Grok API error: ${response.status}` };
     }
 
     const data = await response.json();
-    const content = (data?.choices?.[0]?.message?.content as string | undefined)?.trim();
-    if (!content) return { success: false, error: "AI returned an empty response." };
-
-    return { success: true, content, modelUsed: "Lovable AI (Gemini 3 Flash)" };
-  } catch (e) {
-    console.error("Lovable AI call error:", e);
-    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
-  }
-}
-
-// Try models with fallback - prioritize Lovable AI for reliability
-async function executeWithFallback(
-  hfApiKey: string,
-  primaryModel: keyof typeof HUGGINGFACE_MODELS,
-  prompt: string,
-  systemPrompt: string
-): Promise<{ success: boolean; content?: string; modelUsed?: string; error?: string }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  
-  // Try Lovable AI first for maximum reliability
-  if (LOVABLE_API_KEY) {
-    console.log("Trying Lovable AI (Gemini 3 Flash) first for reliability...");
-    const lovableResult = await callLovableAI(LOVABLE_API_KEY, prompt, systemPrompt);
-    if (lovableResult.success && lovableResult.content) {
-      return { success: true, content: lovableResult.content, modelUsed: "Gemini 3 Flash" };
+    const content = data.choices?.[0]?.message?.content?.trim();
+    
+    if (!content) {
+      return { success: false, error: "Empty response from Grok" };
     }
-    console.log("Lovable AI failed, falling back to HuggingFace models...");
-  }
-  
-  // Fallback to HuggingFace models
-  const modelOrder: (keyof typeof HUGGINGFACE_MODELS)[] = 
-    primaryModel === "phi" ? ["phi", "zephyr", "gemma"] :
-    primaryModel === "zephyr" ? ["zephyr", "phi", "gemma"] :
-    ["gemma", "phi", "zephyr"];
 
-  for (const modelKey of modelOrder) {
-    const model = HUGGINGFACE_MODELS[modelKey];
-    console.log(`Trying HuggingFace model: ${model.displayName}`);
-    
-    const result = await callHuggingFace(hfApiKey, model.id, prompt, systemPrompt);
-    
-    if (result.success && result.content) {
-      return {
-        success: true,
-        content: result.content,
-        modelUsed: model.displayName,
-      };
-    }
-    
-    console.log(`Model ${model.displayName} failed: ${result.error}`);
+    return { success: true, content };
+  } catch (error) {
+    console.error("Grok call error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Grok call failed" };
   }
-
-  return { success: false, error: "All AI models are currently unavailable. Please try again later." };
 }
 
 serve(async (req) => {
@@ -458,20 +266,15 @@ serve(async (req) => {
       }
     }
 
-    // Get Hugging Face API Key
-    const HF_API_KEY = Deno.env.get("Huggingface_api_key");
-    if (!HF_API_KEY) {
-      console.error("Huggingface_api_key is not configured");
+    // Get Grok API Key - REQUIRED, NO FALLBACKS
+    const GROK_API_KEY = Deno.env.get("Grok_API");
+    if (!GROK_API_KEY) {
+      console.error("Grok_API is not configured");
       return new Response(JSON.stringify({ error: "AI service not configured." }), {
         status: 503,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Select model based on prompt
-    const selectedModelKey = selectModel(trimmedPrompt);
-    const selectedModel = HUGGINGFACE_MODELS[selectedModelKey];
-    console.log(`Selected model: ${selectedModel.displayName} for prompt: "${trimmedPrompt.substring(0, 50)}..."`);
 
     // Determine action type
     const lowerPrompt = trimmedPrompt.toLowerCase();
@@ -527,25 +330,29 @@ serve(async (req) => {
       }
     }
 
-    // Update task to understanding status with selected model
-    await supabase.from("tasks").update({
-      status: "understanding",
-      model_used: selectedModel.displayName,
-      steps: [{ step: "understanding", status: "running", message: "Analyzing your request..." }]
-    }).eq("id", taskId);
+    // Update task to understanding status
+    if (isLegacyMode) {
+      await supabase.from("tasks").update({
+        status: "understanding",
+        model_used: "Grok-4",
+        steps: [{ step: "understanding", status: "running", message: "Analyzing your request..." }]
+      }).eq("id", taskId);
+    }
 
-    // Execute AI with fallback
-    const aiResult = await executeWithFallback(HF_API_KEY, selectedModelKey, trimmedPrompt, FASHION_SYSTEM_PROMPT);
+    // Execute AI with Grok ONLY - NO FALLBACKS
+    const aiResult = await callGrok(GROK_API_KEY, trimmedPrompt, FASHION_SYSTEM_PROMPT);
 
     if (!aiResult.success) {
       // Don't deduct credits on failure
-      await supabase.from("tasks").update({
-        status: "failed",
-        steps: [
-          { step: "understanding", status: "completed", message: "Request analyzed" },
-          { step: "researching", status: "failed", message: aiResult.error || "AI service failed" }
-        ]
-      }).eq("id", taskId);
+      if (isLegacyMode) {
+        await supabase.from("tasks").update({
+          status: "failed",
+          steps: [
+            { step: "understanding", status: "completed", message: "Request analyzed" },
+            { step: "researching", status: "failed", message: aiResult.error || "AI service failed" }
+          ]
+        }).eq("id", taskId);
+      }
       
       return new Response(JSON.stringify({ error: aiResult.error || "AI service failed. Please try again." }), {
         status: 503,
@@ -557,19 +364,21 @@ serve(async (req) => {
     const { data: deductResult, error: deductError } = await supabase.rpc("deduct_credits", {
       p_user_id: user.id,
       p_amount: actualCreditCost,
-      p_description: `${actionType.replace(/_/g, " ")} - ${aiResult.modelUsed}${actualCreditCost > creditCost ? ' (2x penalty)' : ''}`
+      p_description: `${actionType.replace(/_/g, " ")} - Grok-4${actualCreditCost > creditCost ? ' (2x penalty)' : ''}`
     });
 
     if (deductError || !deductResult?.success) {
       const errorMsg = deductResult?.error || "Failed to deduct credits";
       if (errorMsg === "Insufficient credits") {
-        await supabase.from("tasks").update({
-          status: "failed",
-          steps: [
-            { step: "understanding", status: "completed", message: "Request analyzed" },
-            { step: "researching", status: "failed", message: "Insufficient credits" }
-          ]
-        }).eq("id", taskId);
+        if (isLegacyMode) {
+          await supabase.from("tasks").update({
+            status: "failed",
+            steps: [
+              { step: "understanding", status: "completed", message: "Request analyzed" },
+              { step: "researching", status: "failed", message: "Insufficient credits" }
+            ]
+          }).eq("id", taskId);
+        }
         
         return new Response(JSON.stringify({ 
           error: "Insufficient credits. Please purchase more credits to continue.",
@@ -607,19 +416,21 @@ serve(async (req) => {
     }
 
     // Update task to completed
-    await supabase.from("tasks").update({
-      status: "completed",
-      model_used: aiResult.modelUsed,
-      credits_used: actualCreditCost,
-      result: { content: aiResult.content },
-      steps: [
-        { step: "understanding", status: "completed", message: "Request analyzed" },
-        { step: "researching", status: "completed", message: "Research complete" },
-        { step: "structuring", status: "completed", message: "Insights structured" },
-        { step: "generating", status: "completed", message: "Deliverables ready" }
-      ],
-      files: files
-    }).eq("id", taskId);
+    if (isLegacyMode) {
+      await supabase.from("tasks").update({
+        status: "completed",
+        model_used: "Grok-4",
+        credits_used: actualCreditCost,
+        result: { content: aiResult.content },
+        steps: [
+          { step: "understanding", status: "completed", message: "Request analyzed" },
+          { step: "researching", status: "completed", message: "Research complete" },
+          { step: "structuring", status: "completed", message: "Insights structured" },
+          { step: "generating", status: "completed", message: "Deliverables ready" }
+        ],
+        files: files
+      }).eq("id", taskId);
+    }
 
     // Return streaming-style response for compatibility
     const encoder = new TextEncoder();
@@ -633,7 +444,7 @@ serve(async (req) => {
         const sendChunk = () => {
           if (offset < content.length) {
             const chunk = content.slice(offset, offset + chunkSize);
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: chunk, modelUsed: aiResult.modelUsed })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: chunk, modelUsed: "Grok-4" })}\n\n`));
             offset += chunkSize;
             setTimeout(sendChunk, 20);
           } else {
