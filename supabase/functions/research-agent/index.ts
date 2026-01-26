@@ -55,11 +55,20 @@ const MAX_RETRIES = 2;
 const PERPLEXITY_TIMEOUT = 60000;
 const FIRECRAWL_TIMEOUT = 30000;
 
-// ============ GROK-ONLY CONFIGURATION ============
-// All AI operations use Grok (xAI) exclusively
+// ============ GROK MODEL CONFIGURATION ============
+// Supported Grok model versions
+const GROK_MODELS = {
+  "grok-4-latest": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-latest" },
+  "grok-4-mini": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-mini" },
+  "grok-4-fast": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-fast" },
+} as const;
+
+type GrokModelId = keyof typeof GROK_MODELS;
+
+// Default configuration
 const GROK_CONFIG = {
   endpoint: "https://api.x.ai/v1/chat/completions",
-  model: "grok-4-latest",
+  model: "grok-4-latest" as string,
   temperature: 0.2,
 };
 
@@ -118,78 +127,95 @@ OUTPUT JSON ONLY:
 const SYNTHESIZER_SYSTEM_PROMPT = `You are a senior fashion intelligence analyst writing for executives. Tone: Precise, Structured, Neutral, Consulting-grade.
 
 GLOBAL RULES (NON-NEGOTIABLE):
-1. NEVER return free-form prose
-2. NEVER use "--" or ad-hoc separators
-3. ALWAYS use explicit markdown headings, tables, and lists
-4. ALWAYS end with a Sources section
+1. NEVER return free-form prose or unstructured paragraphs
+2. NEVER use "--" or ad-hoc separators - use proper markdown "---"
+3. ALWAYS use explicit markdown headings (##, ###), tables, and lists
+4. ALWAYS end with a numbered Sources section
 5. If sources are missing → mark section as "Insufficient data"
 6. NEVER hallucinate or fabricate information
 7. All factual claims must reference provided research findings
+8. Use visual trend indicators: ↑ for growth/positive, ↓ for decline/negative
 
 REQUIRED OUTPUT STRUCTURE:
 
 ## Executive Summary
-- 3–5 bullet points
+- 3–5 bullet points only
 - Clear, factual, decision-oriented
+- Include trend indicators where relevant (e.g., "LV positive buzz ↑")
 - No speculation
 
 ---
 
-## [Main Analysis Section]
+## [Main Analysis Section - Context-Appropriate Title]
 | Column 1 | Column 2 | Column 3 | Column 4 | Column 5 |
 |----------|----------|----------|----------|----------|
 | Data     | Data     | Data     | Data     | Data     |
 
 Rules:
-- Tables MUST be valid markdown tables
+- Tables MUST be valid markdown tables with header row
+- Use trend indicators in cells: "Positive ↑", "Declining ↓"
 - No inline commentary inside tables
+- Tables should be scannable by executives
 
 ---
 
 ## Detailed Analysis
 
-### [Subsection 1]
-- Key finding 1
-- Key finding 2
+### [Entity/Brand/Topic 1]
+- **Key Metric:** Value with trend indicator
+- Key finding with specific data
 - Platform/Channel Signals:
-  - Signal 1:
-  - Signal 2:
+  - Signal 1: specific observation
+  - Signal 2: specific observation
 
-### [Subsection 2]
-(same structure)
+### [Entity/Brand/Topic 2]
+(same structure - maintain consistency)
 
 ---
 
 ## Comparative Insights
 - Bullet-point comparison across entities
-- Contrast key differentiators
+- Contrast key differentiators with ↑↓ indicators
 - Tie insights to strategic positioning
+- Highlight what separates leaders from others
 
 ---
 
 ## Strategic Takeaways
-- What worked
-- What drove engagement/success
-- What risks emerged
-- What to replicate or avoid
+- **What worked:** Specific successful strategies
+- **What drove engagement:** Key success factors
+- **What risks emerged:** Potential concerns or pitfalls
+- **Recommended actions:** Concrete next steps
 
 ---
 
 ## Sources
-1. Source title – publication – URL
-2. Source title – publication – URL
-3. Additional reference
+1. [Source title] – [publication/platform] – [URL if available]
+2. [Source title] – [publication/platform] – [URL if available]
+3. Additional references...
 
 Rules:
-- Numbered list only
-- No inline links within body text
-- Sources must match claims above
+- Numbered list only (1, 2, 3...)
+- No inline hyperlinks within body text
+- Every factual claim above must trace to a source here
 
-QUERY-SPECIFIC FORMATTING:
-- Supplier Research: Table with columns: Supplier Name, Location, Specialization, MOQ, Certifications, Contact
-- Trend Analysis: Organize by category (colors, materials, silhouettes) with seasonal relevance
-- Market Intelligence: Include competitive landscape, market size, key opportunities
-- Sustainability: Focus on certifications, compliance, action items with timelines
+QUERY-SPECIFIC TABLE FORMATS:
+
+For Supplier Research:
+| Supplier Name | Location | Specialization | MOQ | Certifications | Contact |
+|---------------|----------|----------------|-----|----------------|---------|
+
+For Trend Analysis:
+| Trend Category | Description | Seasonal Relevance | Adoption Level | Confidence |
+|----------------|-------------|-------------------|----------------|------------|
+
+For Market Intelligence:
+| Brand/Company | Market Position | Key Strengths | Growth Trend | Opportunity |
+|---------------|-----------------|---------------|--------------|-------------|
+
+For Social Media Analysis:
+| Brand | Sentiment | Key Drivers | Platform Performance | Overall Impact |
+|-------|-----------|-------------|---------------------|----------------|
 
 Deviation from this structure is considered a failed task.`;
 
@@ -627,7 +653,7 @@ serve(async (req) => {
         return;
       }
 
-      const { query, conversationId } = await req.json();
+      const { query, conversationId, model: requestedModel } = await req.json();
       
       if (!query || typeof query !== "string" || query.trim().length === 0) {
         send({ phase: "failed", error: "Invalid query" });
@@ -642,6 +668,14 @@ serve(async (req) => {
         return;
       }
 
+      // Validate and set model
+      const selectedModel = (requestedModel && GROK_MODELS[requestedModel as GrokModelId]) 
+        ? requestedModel as GrokModelId 
+        : "grok-4-latest";
+      
+      // Update config for this request
+      GROK_CONFIG.model = GROK_MODELS[selectedModel].model;
+
       // Get API keys - GROK IS REQUIRED
       const GROK_API_KEY = Deno.env.get("Grok_API");
       const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
@@ -653,15 +687,27 @@ serve(async (req) => {
         return;
       }
 
-      // Check user credits
+      // PRE-FLIGHT CREDIT CHECK - Verify sufficient credits before starting
       const { data: userData } = await supabase
         .from("users")
         .select("credit_balance, subscription_plan")
         .eq("user_id", user.id)
         .single();
 
-      if (!userData || userData.credit_balance < BASE_RESEARCH_COST) {
-        send({ phase: "failed", error: "Insufficient credits for research task" });
+      if (!userData) {
+        send({ phase: "failed", error: "Unable to verify account. Please try again." });
+        close();
+        return;
+      }
+
+      if (userData.credit_balance < BASE_RESEARCH_COST) {
+        send({ 
+          phase: "failed", 
+          error: "You don't have enough credits for this research. Please purchase more credits or upgrade your plan.",
+          insufficientCredits: true,
+          currentBalance: userData.credit_balance,
+          requiredCredits: BASE_RESEARCH_COST
+        });
         close();
         return;
       }

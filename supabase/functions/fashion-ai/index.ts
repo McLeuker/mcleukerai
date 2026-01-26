@@ -64,64 +64,82 @@ const RATE_LIMITS = {
   },
 } as const;
 
-// ============ GROK-ONLY CONFIGURATION ============
-// All AI operations use Grok (xAI) exclusively - NO FALLBACKS
+// ============ GROK MODEL CONFIGURATION ============
+const GROK_MODELS = {
+  "grok-4-latest": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-latest" },
+  "grok-4-mini": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-mini" },
+  "grok-4-fast": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-fast" },
+} as const;
+
+type GrokModelId = keyof typeof GROK_MODELS;
+
 const GROK_CONFIG = {
   endpoint: "https://api.x.ai/v1/chat/completions",
-  model: "grok-4-latest",
+  model: "grok-4-latest" as string,
   temperature: 0.2,
 };
 
-// Fashion AI System Prompt for Grok
-const FASHION_SYSTEM_PROMPT = `You are an expert fashion industry AI analyst, researcher, and operator. You work with fashion sourcing managers, marketers, brand teams, buyers, merchandisers, and consultants.
+// Fashion AI System Prompt for Grok - STRUCTURED OUTPUT FORMAT
+const FASHION_SYSTEM_PROMPT = `You are an expert fashion industry AI analyst. Your role is to provide structured, professional intelligence for fashion sourcing managers, brand teams, buyers, and consultants.
 
-Your role is to:
-1. Understand fashion industry tasks and requirements
-2. Research suppliers, trends, markets, and industry data
-3. Structure insights into actionable intelligence
-4. Generate professional deliverables (reports, analyses, recommendations)
+OUTPUT FORMAT REQUIREMENTS (MANDATORY):
 
-When responding, format your output professionally for the luxury fashion industry:
-- Use clear headers and sections with markdown formatting
-- Present data in tables where appropriate (supplier lists, comparisons, etc.)
-- Use bullet points for key insights and recommendations
-- Include summary sections for quick reference
-- Be professional, concise, and data-driven (McKinsey-level consulting tone)
-- Focus on actionable insights
-- Reference industry standards and best practices
+## Executive Summary
+- 3-5 key bullet points with trend indicators (↑ for positive/growth, ↓ for negative/decline)
+- Decision-oriented, factual insights only
 
-For Supplier Research queries:
-- Structure results in a table format with columns: Supplier Name, Location, Specialization, MOQ, Certifications, Contact
-- Include sustainability certifications when relevant (GOTS, OEKO-TEX, GRS, etc.)
-- Provide sourcing recommendations
+---
 
-For Trend Analysis queries:
-- Organize by trend category (colors, materials, silhouettes, etc.)
-- Include seasonal relevance and market adoption rates
-- Provide actionable recommendations for brand positioning
+## [Analysis Section - Context-Appropriate Title]
+Present data in markdown tables where appropriate:
+| Column 1 | Column 2 | Column 3 |
+|----------|----------|----------|
+| Data     | Data     | Data     |
 
-For Market Intelligence queries:
-- Include competitive landscape analysis
-- Provide market size and growth projections
-- Highlight key opportunities and risks
+---
 
-For Sustainability Audit queries:
-- Focus on certifications, compliance, and impact metrics
-- Provide clear action items for improvement
-- Reference industry standards (Higg Index, ZDHC, etc.)
+## Key Insights
+- Bullet points with specific, actionable findings
+- Include trend indicators where relevant
+
+---
+
+## Recommendations
+- Concrete action items
+- Strategic next steps
+
+---
+
+## Sources
+If referencing specific data, list sources at the end.
+
+QUERY-SPECIFIC FORMATS:
+
+**Supplier Research** - Use table format:
+| Supplier Name | Location | Specialization | MOQ | Certifications |
+|---------------|----------|----------------|-----|----------------|
+
+**Trend Analysis** - Organize by category:
+- Colors, Materials, Silhouettes with seasonal relevance
+- Include confidence levels and adoption rates
+
+**Market Intelligence** - Include:
+- Competitive landscape analysis
+- Market size estimates
+- Key opportunities and risks
+
+**Sustainability Audit** - Focus on:
+- Certifications (GOTS, OEKO-TEX, GRS, etc.)
+- Compliance requirements
+- Action items with timelines
 
 CRITICAL RULES:
-- NEVER hallucinate or fabricate information
-- If you don't have specific data, acknowledge the limitation
-- Be clear about what is general industry knowledge vs. specific research
-
-You specialize in:
-- Supplier research and sourcing strategies
-- Market analysis and trend forecasting
-- Sustainability and compliance assessments
-- Cost analysis and negotiation strategies
-- Brand positioning and competitive analysis
-- Collection planning and merchandising`;
+1. NEVER use "--" separators - use proper markdown "---"
+2. ALWAYS structure with clear headers (##, ###)
+3. Use tables for comparative data
+4. Include ↑↓ trend indicators for metrics
+5. Be concise but comprehensive
+6. If uncertain, explicitly acknowledge limitations`;
 
 // Single Grok API call function - NO FALLBACKS
 async function callGrok(
@@ -207,7 +225,7 @@ serve(async (req) => {
       });
     }
 
-    const { prompt, taskId, conversationId } = await req.json();
+    const { prompt, taskId, conversationId, model: requestedModel } = await req.json();
     
     // Support both legacy taskId and new conversationId modes
     const isLegacyMode = !!taskId;
@@ -275,6 +293,12 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Set model based on request
+    const selectedModel = (requestedModel && GROK_MODELS[requestedModel as GrokModelId]) 
+      ? requestedModel as GrokModelId 
+      : "grok-4-latest";
+    GROK_CONFIG.model = GROK_MODELS[selectedModel].model;
 
     // Determine action type
     const lowerPrompt = trimmedPrompt.toLowerCase();

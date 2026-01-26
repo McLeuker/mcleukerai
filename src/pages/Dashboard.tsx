@@ -44,8 +44,8 @@ const Dashboard = () => {
 
   const sectorConfig = getSectorConfig();
 
-  const handleSendMessage = async (message: string, mode: "quick" | "deep" = "quick") => {
-    await sendMessage(message, mode);
+  const handleSendMessage = async (message: string, mode: "quick" | "deep" = "quick", model?: string) => {
+    await sendMessage(message, mode, model);
   };
 
   const handleExportPDF = () => {
