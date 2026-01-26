@@ -2,10 +2,23 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const allowedOrigins = [
+  "https://mcleukerai.lovable.app",
+  "https://www.mcleukerai.com",
+  "https://mcleukerai.com",
+  "http://localhost:5173",
+  "http://localhost:8080",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Credentials": "true",
+  };
+}
 
 // Map Stripe price IDs to plan names and credits (NEW PRICING)
 const PRICE_TO_PLAN: Record<string, { plan: string; credits: number; billingCycle: string }> = {
@@ -30,6 +43,8 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
 };
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -83,16 +98,16 @@ serve(async (req) => {
           .eq("user_id", user.id);
       }
 
-      const userData = existingUser || { monthly_credits: FREE_PLAN.credits, extra_credits: 0, credit_balance: FREE_PLAN.credits };
+      const userDataResult = existingUser || { monthly_credits: FREE_PLAN.credits, extra_credits: 0, credit_balance: FREE_PLAN.credits };
 
       return new Response(JSON.stringify({
         subscribed: false,
         plan: "free",
         billingCycle: null,
         subscriptionEnd: null,
-        monthlyCredits: userData.monthly_credits || FREE_PLAN.credits,
-        extraCredits: userData.extra_credits || 0,
-        creditBalance: userData.credit_balance || FREE_PLAN.credits,
+        monthlyCredits: userDataResult.monthly_credits || FREE_PLAN.credits,
+        extraCredits: userDataResult.extra_credits || 0,
+        creditBalance: userDataResult.credit_balance || FREE_PLAN.credits,
         refillsThisMonth: existingUser?.refills_this_month || 0,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
