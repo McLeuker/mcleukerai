@@ -2,10 +2,12 @@ import { useState, useMemo } from "react";
 import { ChatMessage as ChatMessageType } from "@/hooks/useConversations";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Star, Trash2, User, Bot, Cpu, Coins, Copy, Check } from "lucide-react";
+import { Star, Trash2, User, Bot, Cpu, Coins, Copy, Check, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "react-markdown";
 import DOMPurify from "dompurify";
+import { TrendIndicator, parseTrendFromText } from "./TrendIndicator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -124,12 +126,13 @@ export function ChatMessageComponent({
               <ReactMarkdown
                 components={{
                   h1: ({ children }) => (
-                    <h1 className="font-editorial text-2xl text-foreground mt-6 mb-4 first:mt-0">
+                    <h1 className="font-editorial text-2xl text-foreground mt-6 mb-4 first:mt-0 pb-2 border-b border-border">
                       {children}
                     </h1>
                   ),
                   h2: ({ children }) => (
-                    <h2 className="font-editorial text-xl text-foreground mt-5 mb-3">
+                    <h2 className="font-editorial text-xl text-foreground mt-6 mb-3 flex items-center gap-2">
+                      <span className="w-1 h-5 bg-gold rounded-full" />
                       {children}
                     </h2>
                   ),
@@ -138,57 +141,155 @@ export function ChatMessageComponent({
                       {children}
                     </h3>
                   ),
-                  p: ({ children }) => (
-                    <p className="text-foreground leading-relaxed mb-4 text-[15px]">
-                      {children}
-                    </p>
-                  ),
+                  p: ({ children }) => {
+                    // Check for trend indicators in text
+                    const childText = String(children);
+                    const hasTrendUp = childText.includes("↑");
+                    const hasTrendDown = childText.includes("↓");
+                    
+                    if (hasTrendUp || hasTrendDown) {
+                      return (
+                        <p className="text-foreground leading-relaxed mb-4 text-[15px] flex items-center gap-1 flex-wrap">
+                          {childText.split(/(↑|↓)/).map((part, i) => {
+                            if (part === "↑") {
+                              return <TrendIndicator key={i} direction="up" showIcon={false} />;
+                            }
+                            if (part === "↓") {
+                              return <TrendIndicator key={i} direction="down" showIcon={false} />;
+                            }
+                            return <span key={i}>{part}</span>;
+                          })}
+                        </p>
+                      );
+                    }
+                    
+                    return (
+                      <p className="text-foreground leading-relaxed mb-4 text-[15px]">
+                        {children}
+                      </p>
+                    );
+                  },
                   ul: ({ children }) => (
-                    <ul className="list-disc pl-5 mb-4 space-y-1.5">{children}</ul>
+                    <ul className="list-none pl-0 mb-4 space-y-2">{children}</ul>
                   ),
                   ol: ({ children }) => (
-                    <ol className="list-decimal pl-5 mb-4 space-y-1.5">{children}</ol>
+                    <ol className="list-decimal pl-5 mb-4 space-y-2">{children}</ol>
                   ),
                   li: ({ children }) => (
-                    <li className="text-foreground text-[15px]">{children}</li>
+                    <li className="text-foreground text-[15px] flex items-start gap-2">
+                      <span className="text-gold mt-1.5 text-xs">●</span>
+                      <span className="flex-1">{children}</span>
+                    </li>
                   ),
                   strong: ({ children }) => (
                     <strong className="font-semibold text-foreground">{children}</strong>
                   ),
                   table: ({ children }) => (
-                    <div className="overflow-x-auto my-4 rounded-lg border border-border">
+                    <div className="overflow-x-auto my-5 rounded-xl border border-border shadow-sm">
                       <table className="min-w-full divide-y divide-border">
                         {children}
                       </table>
                     </div>
                   ),
                   thead: ({ children }) => (
-                    <thead className="bg-muted">{children}</thead>
+                    <thead className="bg-muted/70">{children}</thead>
+                  ),
+                  tr: ({ children }) => (
+                    <tr className="hover:bg-muted/30 transition-colors">{children}</tr>
                   ),
                   th: ({ children }) => (
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider whitespace-nowrap">
                       {children}
                     </th>
                   ),
-                  td: ({ children }) => (
-                    <td className="px-4 py-3 text-sm text-foreground border-t border-border">
-                      {children}
-                    </td>
-                  ),
+                  td: ({ children }) => {
+                    const cellText = String(children);
+                    // Check for trend indicators in cell
+                    if (cellText.includes("↑") || cellText.includes("positive") || cellText.includes("Positive")) {
+                      return (
+                        <td className="px-4 py-3 text-sm text-foreground border-t border-border">
+                          <span className="flex items-center gap-1.5">
+                            {children}
+                            <TrendIndicator direction="up" showIcon />
+                          </span>
+                        </td>
+                      );
+                    }
+                    if (cellText.includes("↓") || cellText.includes("negative") || cellText.includes("Negative") || cellText.includes("polarized") || cellText.includes("Polarized")) {
+                      return (
+                        <td className="px-4 py-3 text-sm text-foreground border-t border-border">
+                          <span className="flex items-center gap-1.5">
+                            {children}
+                            <TrendIndicator direction="down" showIcon />
+                          </span>
+                        </td>
+                      );
+                    }
+                    return (
+                      <td className="px-4 py-3 text-sm text-foreground border-t border-border">
+                        {children}
+                      </td>
+                    );
+                  },
                   blockquote: ({ children }) => (
-                    <blockquote className="border-l-2 border-gold pl-4 italic text-muted-foreground my-4">
-                      {children}
+                    <blockquote className="border-l-3 border-gold pl-4 py-2 my-4 bg-gold/5 rounded-r-lg">
+                      <span className="text-foreground italic">{children}</span>
                     </blockquote>
                   ),
                   code: ({ children }) => (
-                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">
+                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground">
                       {children}
                     </code>
+                  ),
+                  hr: () => (
+                    <hr className="my-6 border-t border-border" />
+                  ),
+                  a: ({ href, children }) => (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gold hover:text-gold/80 underline underline-offset-2 inline-flex items-center gap-1"
+                    >
+                      {children}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
                   ),
                 }}
               >
                 {sanitizedContent}
               </ReactMarkdown>
+              
+              {/* Sources Section (if message has sources) */}
+              {message.sources && message.sources.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-border">
+                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <span className="w-1 h-4 bg-gold rounded-full" />
+                    Sources ({message.sources.length})
+                  </h4>
+                  <ol className="space-y-2">
+                    {message.sources.map((source, index) => (
+                      <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-gold font-medium">[{index + 1}]</span>
+                        <div className="flex-1">
+                          <span className="text-foreground">{source.title || "Source"}</span>
+                          {source.url && (
+                            <a
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-2 text-gold hover:underline inline-flex items-center gap-1"
+                            >
+                              View
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
               
               {isStreaming && (
                 <span className="inline-block w-2 h-4 bg-foreground animate-pulse ml-1" />
