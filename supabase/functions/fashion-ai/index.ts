@@ -1,6 +1,42 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ============ INPUT VALIDATION & SECURITY ============
+// Inline validation to prevent SQL/NoSQL injection attacks
+
+const SQL_INJECTION_PATTERNS = [
+  /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|EXEC|EXECUTE|UNION|FROM|WHERE|OR|AND)\b.*\b(FROM|INTO|TABLE|DATABASE|SET|VALUES)\b)/i,
+  /(\-\-|\/\*|\*\/|;|\bOR\b\s+\d+\s*=\s*\d+|\bAND\b\s+\d+\s*=\s*\d+)/i,
+  /(\bOR\b\s*['"]?\d+['"]?\s*=\s*['"]?\d+['"]?)/i,
+  /(\b(SLEEP|BENCHMARK|WAITFOR|DELAY)\s*\()/i,
+  /(CHAR\s*\(|CONCAT\s*\(|SUBSTRING\s*\()/i,
+  /(\bINTO\s+(OUTFILE|DUMPFILE)\b)/i,
+  /(\bUNION\s+(ALL\s+)?SELECT\b)/i,
+];
+
+function containsSqlInjection(input: string): boolean {
+  if (!input || typeof input !== 'string') return false;
+  const normalized = input.replace(/\s+/g, ' ').trim();
+  return SQL_INJECTION_PATTERNS.some(pattern => pattern.test(normalized));
+}
+
+function sanitizeString(input: string, maxLength = 5000): string {
+  if (!input || typeof input !== 'string') return '';
+  let sanitized = input.substring(0, maxLength);
+  sanitized = sanitized.replace(/\0/g, ''); // Remove null bytes
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars
+  return sanitized.trim();
+}
+
+function isValidUUID(input: string): boolean {
+  if (!input || typeof input !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input);
+}
+
+function logSecurityEvent(event: string, details: Record<string, unknown>): void {
+  console.warn(`[SECURITY:${event.toUpperCase()}]`, JSON.stringify({ timestamp: new Date().toISOString(), event, ...details }));
+}
+
 // Allowed origins for CORS
 const allowedOrigins = [
   "https://mcleukerai.lovable.app",
@@ -230,39 +266,55 @@ serve(async (req) => {
     // Support both legacy taskId and new conversationId modes
     const isLegacyMode = !!taskId;
     
-    // Validate prompt
+    // ============ INPUT VALIDATION WITH INJECTION PROTECTION ============
+    
+    // Validate prompt exists and is a string
     if (!prompt || typeof prompt !== 'string') {
+      logSecurityEvent('validation_error', { field: 'prompt', userId: user.id, reason: 'invalid_type' });
       return new Response(JSON.stringify({ error: "Invalid prompt" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     
-    const trimmedPrompt = prompt.trim();
-    if (trimmedPrompt.length === 0) {
+    // Sanitize the prompt - removes null bytes, control characters
+    const sanitizedPrompt = sanitizeString(prompt, 5000);
+    
+    if (sanitizedPrompt.length === 0) {
       return new Response(JSON.stringify({ error: "Prompt cannot be empty" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (trimmedPrompt.length > 5000) {
-      return new Response(JSON.stringify({ error: "Prompt too long (max 5000 characters)" }), {
+    
+    // Check for SQL injection attempts
+    if (containsSqlInjection(sanitizedPrompt)) {
+      logSecurityEvent('injection_attempt', { 
+        type: 'sql', 
+        userId: user.id, 
+        promptLength: sanitizedPrompt.length,
+        // Don't log the actual prompt to avoid log injection
+      });
+      return new Response(JSON.stringify({ error: "Invalid characters detected in input" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     
-    // Validate taskId only in legacy mode
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    // Use sanitized prompt from here on
+    const trimmedPrompt = sanitizedPrompt;
+    
+    // Validate taskId format using secure UUID validation
     if (isLegacyMode) {
-      if (!taskId || typeof taskId !== 'string' || !uuidRegex.test(taskId)) {
+      if (!taskId || typeof taskId !== 'string' || !isValidUUID(taskId)) {
+        logSecurityEvent('validation_error', { field: 'taskId', userId: user.id, reason: 'invalid_uuid' });
         return new Response(JSON.stringify({ error: "Invalid taskId format" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       
-      // Verify task ownership
+      // Verify task ownership using parameterized query (Supabase SDK handles this safely)
       const { data: task, error: taskError } = await supabase
         .from("tasks")
         .select("user_id")
@@ -277,11 +329,21 @@ serve(async (req) => {
       }
       
       if (task.user_id !== user.id) {
+        logSecurityEvent('auth_failure', { type: 'task_ownership', userId: user.id, taskId });
         return new Response(JSON.stringify({ error: "Unauthorized access to task" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+    }
+    
+    // Validate conversationId if provided
+    if (conversationId && !isValidUUID(conversationId)) {
+      logSecurityEvent('validation_error', { field: 'conversationId', userId: user.id, reason: 'invalid_uuid' });
+      return new Response(JSON.stringify({ error: "Invalid conversationId format" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Get Grok API Key - REQUIRED, NO FALLBACKS
