@@ -175,7 +175,7 @@ const Dashboard = () => {
 
           {/* Input Area */}
           <div className="border-t border-border bg-background/95 backdrop-blur-sm p-4 lg:p-6 sticky bottom-0">
-            <div className="w-full max-w-3xl mx-auto flex flex-col gap-4">
+            <div className="w-full max-w-3xl mx-auto flex flex-col gap-5 animate-fade-in">
               {messages.length === 0 && !loading && (
                 <QuickActions onAction={(msg) => handleSendMessage(msg, "quick")} isLoading={loading} />
               )}
