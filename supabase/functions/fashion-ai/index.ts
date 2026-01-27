@@ -103,17 +103,18 @@ const RATE_LIMITS = {
 } as const;
 
 // ============ GROK MODEL CONFIGURATION ============
+// Only use models confirmed to exist in your xAI account
 const GROK_MODELS = {
-  "grok-4-latest": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-latest" },
-  "grok-4-mini": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-mini" },
-  "grok-4-fast": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-fast" },
+  "grok-2-latest": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-2-latest" },
+  "grok-2": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-2" },
+  "grok-beta": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-beta" },
 } as const;
 
 type GrokModelId = keyof typeof GROK_MODELS;
 
 const GROK_CONFIG = {
   endpoint: "https://api.x.ai/v1/chat/completions",
-  model: "grok-4-latest" as string,
+  model: "grok-2-latest" as string,
   temperature: 0.2,
 };
 
@@ -361,7 +362,7 @@ serve(async (req) => {
     // Set model based on request
     const selectedModel = (requestedModel && GROK_MODELS[requestedModel as GrokModelId]) 
       ? requestedModel as GrokModelId 
-      : "grok-4-latest";
+      : "grok-2-latest";
     GROK_CONFIG.model = GROK_MODELS[selectedModel].model;
 
     // Determine action type
