@@ -1,6 +1,42 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ============ INPUT VALIDATION & SECURITY ============
+// SQL/NoSQL injection protection patterns
+
+const SQL_INJECTION_PATTERNS = [
+  /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|EXEC|EXECUTE|UNION|FROM|WHERE|OR|AND)\b.*\b(FROM|INTO|TABLE|DATABASE|SET|VALUES)\b)/i,
+  /(\-\-|\/\*|\*\/|;|\bOR\b\s+\d+\s*=\s*\d+|\bAND\b\s+\d+\s*=\s*\d+)/i,
+  /(\bOR\b\s*['"]?\d+['"]?\s*=\s*['"]?\d+['"]?)/i,
+  /(\b(SLEEP|BENCHMARK|WAITFOR|DELAY)\s*\()/i,
+  /(CHAR\s*\(|CONCAT\s*\(|SUBSTRING\s*\()/i,
+  /(\bINTO\s+(OUTFILE|DUMPFILE)\b)/i,
+  /(\bUNION\s+(ALL\s+)?SELECT\b)/i,
+];
+
+function containsSqlInjection(input: string): boolean {
+  if (!input || typeof input !== 'string') return false;
+  const normalized = input.replace(/\s+/g, ' ').trim();
+  return SQL_INJECTION_PATTERNS.some(pattern => pattern.test(normalized));
+}
+
+function sanitizeString(input: string, maxLength = 5000): string {
+  if (!input || typeof input !== 'string') return '';
+  let sanitized = input.substring(0, maxLength);
+  sanitized = sanitized.replace(/\0/g, ''); // Remove null bytes
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars
+  return sanitized.trim();
+}
+
+function isValidUUID(input: string): boolean {
+  if (!input || typeof input !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input);
+}
+
+function logSecurityEvent(event: string, details: Record<string, unknown>): void {
+  console.warn(`[SECURITY:${event.toUpperCase()}]`, JSON.stringify({ timestamp: new Date().toISOString(), event, ...details }));
+}
+
 // Allowed origins for CORS
 const allowedOrigins = [
   "https://mcleukerai.lovable.app",
@@ -655,15 +691,43 @@ serve(async (req) => {
 
       const { query, conversationId, model: requestedModel } = await req.json();
       
-      if (!query || typeof query !== "string" || query.trim().length === 0) {
+      // ============ INPUT VALIDATION WITH INJECTION PROTECTION ============
+      
+      if (!query || typeof query !== "string") {
+        logSecurityEvent('validation_error', { field: 'query', userId: user.id, reason: 'invalid_type' });
         send({ phase: "failed", error: "Invalid query" });
         close();
         return;
       }
-
-      const trimmedQuery = query.trim();
-      if (trimmedQuery.length > 5000) {
-        send({ phase: "failed", error: "Query too long (max 5000 characters)" });
+      
+      // Sanitize the query - removes null bytes, control characters, limits length
+      const sanitizedQuery = sanitizeString(query, 5000);
+      
+      if (sanitizedQuery.length === 0) {
+        send({ phase: "failed", error: "Query cannot be empty" });
+        close();
+        return;
+      }
+      
+      // Check for SQL injection attempts
+      if (containsSqlInjection(sanitizedQuery)) {
+        logSecurityEvent('injection_attempt', { 
+          type: 'sql', 
+          userId: user.id, 
+          queryLength: sanitizedQuery.length,
+        });
+        send({ phase: "failed", error: "Invalid characters detected in query" });
+        close();
+        return;
+      }
+      
+      // Use sanitized query from here on
+      const trimmedQuery = sanitizedQuery;
+      
+      // Validate conversationId if provided
+      if (conversationId && !isValidUUID(conversationId)) {
+        logSecurityEvent('validation_error', { field: 'conversationId', userId: user.id, reason: 'invalid_uuid' });
+        send({ phase: "failed", error: "Invalid conversation ID format" });
         close();
         return;
       }
