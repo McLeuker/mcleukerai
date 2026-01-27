@@ -44,11 +44,11 @@ interface QuickActionsProps {
 
 export function QuickActions({ onAction, isLoading, className }: QuickActionsProps) {
   return (
-    <div className={cn("space-y-2", className)}>
-      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider px-1">
+    <div className={cn("w-full space-y-2", className)}>
+      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
         Quick Actions
       </p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
         {QUICK_ACTIONS.map((action) => (
           <Button
             key={action.label}
@@ -57,7 +57,7 @@ export function QuickActions({ onAction, isLoading, className }: QuickActionsPro
             disabled={isLoading}
             onClick={() => onAction(action.prompt)}
             className={cn(
-              "h-auto py-3 px-3 flex flex-col items-start gap-1.5",
+              "h-auto py-3 px-3 flex flex-col items-start gap-1.5 w-full",
               "bg-card hover:bg-accent border-border hover:border-foreground/20",
               "transition-all duration-200 group"
             )}

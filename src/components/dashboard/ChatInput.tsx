@@ -39,10 +39,10 @@ export function ChatInput({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="w-full space-y-3">
       {/* Research Mode & Model Toggle */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap w-full">
+        <div className="flex items-center gap-2 flex-wrap">
           <ResearchModeToggle
             mode={researchMode}
             onModeChange={setResearchMode}
