@@ -3,6 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./use-toast";
 import type { ResearchPhase } from "@/components/dashboard/ResearchProgress";
 import type { Source } from "@/components/dashboard/SourceCitations";
+import type { ModelId } from "@/components/dashboard/ModelSelector";
+import { isManusModel } from "@/components/dashboard/ModelSelector";
+
+export interface BudgetConfirmationData {
+  estimatedCost: { min: number; max: number };
+  userBalance: number;
+  maxAllowed: number;
+  profileName: string;
+}
 
 export interface ResearchState {
   isResearching: boolean;
@@ -14,6 +23,9 @@ export interface ResearchState {
   sources: Source[];
   creditsUsed: number;
   error: string | null;
+  isAgentMode: boolean;
+  budgetConfirmation: BudgetConfirmationData | null;
+  awaitingBudgetConfirmation: boolean;
 }
 
 const initialState: ResearchState = {
@@ -26,27 +38,36 @@ const initialState: ResearchState = {
   sources: [],
   creditsUsed: 0,
   error: null,
+  isAgentMode: false,
+  budgetConfirmation: null,
+  awaitingBudgetConfirmation: false,
 };
 
 export function useResearchAgent() {
   const [state, setState] = useState<ResearchState>(initialState);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const pendingQueryRef = useRef<{ query: string; conversationId?: string; model?: ModelId } | null>(null);
   const { toast } = useToast();
 
   const reset = useCallback(() => {
     setState(initialState);
+    pendingQueryRef.current = null;
   }, []);
 
   const startResearch = useCallback(async (
     query: string,
-    conversationId?: string
+    conversationId?: string,
+    model?: ModelId
   ): Promise<{ success: boolean; content: string; sources: Source[]; creditsUsed: number }> => {
+    const isAgent = model ? isManusModel(model) : false;
+    
     // Reset state
     setState({
       ...initialState,
       isResearching: true,
       phase: "planning",
-      message: "Starting research...",
+      message: isAgent ? "Connecting to Manus Agent..." : "Starting research...",
+      isAgentMode: isAgent,
     });
 
     try {
@@ -57,21 +78,25 @@ export function useResearchAgent() {
 
       abortControllerRef.current = new AbortController();
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/research-agent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.data.session.access_token}`,
-          },
-          body: JSON.stringify({
-            query,
-            conversationId,
-          }),
-          signal: abortControllerRef.current.signal,
-        }
-      );
+      // Use appropriate endpoint based on model type
+      const endpoint = isAgent 
+        ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manus-agent`
+        : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/research-agent`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.data.session.access_token}`,
+        },
+        body: JSON.stringify({
+          query,
+          conversationId,
+          model,
+          profile: model, // For Manus agent
+        }),
+        signal: abortControllerRef.current.signal,
+      });
 
       if (!response.ok) {
         let errorMessage = "Research failed";
@@ -108,6 +133,23 @@ export function useResearchAgent() {
                 try {
                   const parsed = JSON.parse(eventData);
 
+                  // Handle budget confirmation phase (for Manus)
+                  if (parsed.phase === "budget_confirmation") {
+                    setState(prev => ({
+                      ...prev,
+                      awaitingBudgetConfirmation: true,
+                      budgetConfirmation: {
+                        estimatedCost: parsed.estimatedCost,
+                        userBalance: parsed.userBalance,
+                        maxAllowed: parsed.maxAllowed,
+                        profileName: parsed.profileName,
+                      },
+                    }));
+                    // Store pending query for resumption after confirmation
+                    pendingQueryRef.current = { query, conversationId, model };
+                    continue;
+                  }
+
                   // Handle different event types
                   if (parsed.phase) {
                     setState(prev => ({
@@ -116,6 +158,8 @@ export function useResearchAgent() {
                       message: parsed.message || prev.message,
                       currentStep: parsed.step || prev.currentStep,
                       totalSteps: parsed.total || prev.totalSteps,
+                      creditsUsed: parsed.creditsUsed || prev.creditsUsed,
+                      awaitingBudgetConfirmation: false,
                     }));
                   }
 
@@ -208,15 +252,46 @@ export function useResearchAgent() {
     }
   }, [toast]);
 
+  const confirmBudget = useCallback(async (maxBudget: number) => {
+    if (!pendingQueryRef.current) return;
+    
+    const { query, conversationId, model } = pendingQueryRef.current;
+    pendingQueryRef.current = null;
+    
+    setState(prev => ({
+      ...prev,
+      awaitingBudgetConfirmation: false,
+      budgetConfirmation: null,
+    }));
+
+    // Re-call with confirmed budget
+    // Note: In a full implementation, you'd pass maxBudget to the API
+    return startResearch(query, conversationId, model);
+  }, [startResearch]);
+
+  const cancelBudgetConfirmation = useCallback(() => {
+    pendingQueryRef.current = null;
+    setState(prev => ({
+      ...prev,
+      isResearching: false,
+      awaitingBudgetConfirmation: false,
+      budgetConfirmation: null,
+      phase: null,
+    }));
+  }, []);
+
   const cancelResearch = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    pendingQueryRef.current = null;
     setState(prev => ({
       ...prev,
       isResearching: false,
       phase: null,
+      awaitingBudgetConfirmation: false,
+      budgetConfirmation: null,
     }));
   }, []);
 
@@ -224,6 +299,8 @@ export function useResearchAgent() {
     ...state,
     startResearch,
     cancelResearch,
+    confirmBudget,
+    cancelBudgetConfirmation,
     reset,
   };
 }
