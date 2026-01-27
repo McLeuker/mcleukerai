@@ -180,12 +180,12 @@ CRITICAL RULES:
 5. Be concise but comprehensive
 6. If uncertain, explicitly acknowledge limitations`;
 
-// Single Grok API call function - NO FALLBACKS
+// Single Grok API call function
 async function callGrok(
   apiKey: string,
   prompt: string,
   systemPrompt: string
-): Promise<{ success: boolean; content?: string; error?: string }> {
+): Promise<{ success: boolean; content?: string; error?: string; status?: number }> {
   try {
     const response = await fetch(GROK_CONFIG.endpoint, {
       method: "POST",
@@ -209,15 +209,16 @@ async function callGrok(
       console.error("Grok API error:", response.status, errorText);
       
       if (response.status === 429) {
-        return { success: false, error: "AI rate limit exceeded. Please try again shortly." };
+        return { success: false, status: 429, error: "AI rate limit exceeded. Please try again shortly." };
       }
       if (response.status === 402) {
-        return { success: false, error: "AI credits exhausted." };
+        return { success: false, status: 402, error: "AI credits exhausted." };
       }
       if (response.status === 401) {
-        return { success: false, error: "AI authentication failed." };
+        return { success: false, status: 401, error: "AI authentication failed." };
       }
-      return { success: false, error: `Grok API error: ${response.status}` };
+      // Surface status to allow upstream fallback handling
+      return { success: false, status: response.status, error: `Grok API error: ${response.status}` };
     }
 
     const data = await response.json();
@@ -231,6 +232,58 @@ async function callGrok(
   } catch (error) {
     console.error("Grok call error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Grok call failed" };
+  }
+}
+
+// Fallback: Lovable AI Gateway (no extra keys required)
+async function callLovableAI(
+  prompt: string,
+  systemPrompt: string
+): Promise<{ success: boolean; content?: string; error?: string }> {
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return { success: false, error: "AI fallback not configured." };
+    }
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+        stream: false,
+        temperature: 0.2,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Lovable AI gateway error:", response.status, errorText);
+
+      if (response.status === 429) {
+        return { success: false, error: "AI rate limit exceeded. Please try again shortly." };
+      }
+      if (response.status === 402) {
+        return { success: false, error: "AI credits exhausted." };
+      }
+
+      return { success: false, error: `AI gateway error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    if (!content) return { success: false, error: "Empty response from AI" };
+    return { success: true, content };
+  } catch (e) {
+    console.error("Lovable AI call error:", e);
+    return { success: false, error: e instanceof Error ? e.message : "AI call failed" };
   }
 }
 
@@ -371,7 +424,13 @@ serve(async (req) => {
     
     if (lowerPrompt.includes("market analysis") || lowerPrompt.includes("analyze the market") || lowerPrompt.includes("market intel")) {
       actionType = "market_analysis";
-    } else if (lowerPrompt.includes("trend") || lowerPrompt.includes("forecast")) {
+    } else if (
+      // IMPORTANT: Don't block normal "trends" questions on the free plan.
+      // Only treat it as the paid "trend_report" when the user explicitly asks for a report.
+      lowerPrompt.includes("trend report") ||
+      lowerPrompt.includes("trend forecast report") ||
+      (lowerPrompt.includes("forecast") && lowerPrompt.includes("report"))
+    ) {
       actionType = "trend_report";
     } else if (lowerPrompt.includes("supplier") || lowerPrompt.includes("sourcing") || (lowerPrompt.includes("find") && (lowerPrompt.includes("manufacturer") || lowerPrompt.includes("factory")))) {
       actionType = "supplier_search";
@@ -428,8 +487,19 @@ serve(async (req) => {
       }).eq("id", taskId);
     }
 
-    // Execute AI with Grok ONLY - NO FALLBACKS
-    const aiResult = await callGrok(GROK_API_KEY, trimmedPrompt, FASHION_SYSTEM_PROMPT);
+    // Execute AI (Grok primary, Lovable AI fallback if Grok model is unavailable)
+    let modelUsedLabel = "Grok";
+    let aiResult = await callGrok(GROK_API_KEY, trimmedPrompt, FASHION_SYSTEM_PROMPT);
+
+    // If Grok is unavailable for this account (404/403/5xx), fall back so the app still works.
+    if (!aiResult.success && (aiResult.status === 404 || aiResult.status === 403 || (aiResult.status && aiResult.status >= 500))) {
+      console.warn("Grok unavailable, falling back to Lovable AI.", { status: aiResult.status });
+      const fallback = await callLovableAI(trimmedPrompt, FASHION_SYSTEM_PROMPT);
+      if (fallback.success) {
+        aiResult = { success: true, content: fallback.content };
+        modelUsedLabel = "Lovable AI";
+      }
+    }
 
     if (!aiResult.success) {
       // Don't deduct credits on failure
@@ -453,7 +523,7 @@ serve(async (req) => {
     const { data: deductResult, error: deductError } = await supabase.rpc("deduct_credits", {
       p_user_id: user.id,
       p_amount: actualCreditCost,
-      p_description: `${actionType.replace(/_/g, " ")} - Grok-4${actualCreditCost > creditCost ? ' (2x penalty)' : ''}`
+      p_description: `${actionType.replace(/_/g, " ")} - ${modelUsedLabel}${actualCreditCost > creditCost ? ' (2x penalty)' : ''}`
     });
 
     if (deductError || !deductResult?.success) {
