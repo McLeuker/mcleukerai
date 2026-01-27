@@ -45,25 +45,17 @@ export function ChatView({
 
   if (messages.length === 0 && !isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 pb-8 animate-fade-in">
-        <div className="w-16 h-16 bg-muted/50 rounded-2xl flex items-center justify-center mb-6 transition-transform duration-300 hover:scale-105">
-          <MessageSquarePlus className="h-8 w-8 text-muted-foreground" />
+      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 pb-4 animate-fade-in">
+        <div className="w-12 h-12 bg-muted/50 rounded-2xl flex items-center justify-center mb-4 transition-transform duration-300 hover:scale-105">
+          <MessageSquarePlus className="h-6 w-6 text-muted-foreground" />
         </div>
-        <h2 className="text-xl font-editorial text-foreground mb-3">
+        <h2 className="text-xl font-editorial text-foreground mb-2">
           Start a conversation
         </h2>
-        <p className="text-muted-foreground max-w-md mb-8 leading-relaxed">
+        <p className="text-muted-foreground max-w-md text-sm leading-relaxed">
           Ask McLeuker AI to help with supplier research, trend analysis, market
           intelligence, or sustainability audits.
         </p>
-        <Button 
-          variant="outline" 
-          onClick={onNewChat}
-          className="transition-all duration-200 hover:scale-105"
-        >
-          <MessageSquarePlus className="h-4 w-4 mr-2" />
-          New Chat
-        </Button>
       </div>
     );
   }

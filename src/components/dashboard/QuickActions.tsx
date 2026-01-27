@@ -44,11 +44,11 @@ interface QuickActionsProps {
 
 export function QuickActions({ onAction, isLoading, className }: QuickActionsProps) {
   return (
-    <div className={cn("w-full space-y-3", className)}>
-      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+    <div className={cn("w-full space-y-2", className)}>
+      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
         Quick Actions
       </p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
         {QUICK_ACTIONS.map((action, index) => (
           <Button
             key={action.label}
@@ -57,20 +57,15 @@ export function QuickActions({ onAction, isLoading, className }: QuickActionsPro
             disabled={isLoading}
             onClick={() => onAction(action.prompt)}
             className={cn(
-              "h-auto py-3 px-3 flex flex-col items-start gap-2 w-full",
+              "h-auto py-2 px-2.5 flex items-center gap-1.5 w-full justify-start",
               "bg-card hover:bg-accent border-border hover:border-foreground/20",
               "transition-all duration-200 hover:scale-[1.02] hover:shadow-sm",
               "animate-fade-in"
             )}
             style={{ animationDelay: `${index * 50}ms` }}
           >
-            <div className="flex items-center justify-between w-full">
-              <action.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-              <span className="text-[10px] text-muted-foreground/70 font-normal">
-                {action.credits} cr
-              </span>
-            </div>
-            <span className="text-xs font-medium text-left">{action.label}</span>
+            <action.icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+            <span className="text-xs font-medium truncate">{action.label}</span>
           </Button>
         ))}
       </div>
