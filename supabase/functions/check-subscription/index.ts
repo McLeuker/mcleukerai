@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const allowedOrigins = [
   "https://mcleukerai.lovable.app",
+  "https://preview--mcleukerai.lovable.app",
   "https://www.mcleukerai.com",
   "https://mcleukerai.com",
   "http://localhost:5173",
@@ -15,7 +16,8 @@ function getCorsHeaders(req: Request) {
   const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
     "Access-Control-Allow-Credentials": "true",
   };
 }
@@ -46,7 +48,7 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   const supabaseClient = createClient(
