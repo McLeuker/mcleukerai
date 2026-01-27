@@ -114,6 +114,9 @@ export const CREDIT_COSTS = {
   supplier_search: { name: "Supplier Search", credits: 8 },
   pdf_export: { name: "PDF Export", credits: 3 },
   excel_export: { name: "Excel Export", credits: 4 },
+  // Manus Agent costs
+  manus_full: { name: "Manus Full Agent", credits: 15, maxCredits: 40 },
+  manus_light: { name: "Manus Light Agent", credits: 8, maxCredits: 25 },
 } as const;
 
 // For display in UI

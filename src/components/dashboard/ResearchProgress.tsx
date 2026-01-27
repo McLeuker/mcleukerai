@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
-import { Check, Search, Globe, Shield, Sparkles, Brain, Loader2, Zap } from "lucide-react";
+import { Check, Search, Globe, Shield, Sparkles, Brain, Loader2, Zap, Bot, Clock, Coins } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export type ResearchPhase = 
   | "planning" 
@@ -10,7 +11,9 @@ export type ResearchPhase =
   | "validating" 
   | "generating" 
   | "completed" 
-  | "failed";
+  | "failed"
+  | "budget_confirmation"
+  | "queued";
 
 export type QueryType = "supplier" | "trend" | "market" | "sustainability" | "general";
 
@@ -20,6 +23,9 @@ interface ResearchProgressProps {
   totalSteps?: number;
   message?: string;
   queryType?: QueryType;
+  creditsUsed?: number;
+  isAgentMode?: boolean;
+  onCancel?: () => void;
 }
 
 const phases = [
@@ -33,8 +39,10 @@ const phases = [
 function getPhaseIndex(phase: ResearchPhase): number {
   const index = phases.findIndex(p => p.key === phase);
   if (phase === "extracting") return 2; // Same as browsing
+  if (phase === "queued") return 0;
   if (phase === "completed") return phases.length;
   if (phase === "failed") return -1;
+  if (phase === "budget_confirmation") return -1;
   return index;
 }
 
@@ -49,7 +57,7 @@ function getQueryTypeLabel(type?: QueryType): { label: string; color: string } {
     case "sustainability":
       return { label: "Sustainability Audit", color: "bg-emerald-500/10 text-emerald-600" };
     default:
-      return { label: "General Research", color: "bg-gray-500/10 text-gray-600" };
+      return { label: "General Research", color: "bg-muted text-muted-foreground" };
   }
 }
 
@@ -58,7 +66,10 @@ export function ResearchProgress({
   currentStep, 
   totalSteps, 
   message,
-  queryType
+  queryType,
+  creditsUsed,
+  isAgentMode,
+  onCancel
 }: ResearchProgressProps) {
   const currentPhaseIndex = getPhaseIndex(phase);
   const queryTypeInfo = getQueryTypeLabel(queryType);
@@ -81,17 +92,34 @@ export function ResearchProgress({
 
   return (
     <div className="bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg p-4 space-y-4 border border-border/50">
-      {/* Header with query type */}
+      {/* Header with query type and agent badge */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Zap className="h-4 w-4 text-primary" />
-          <span className="font-medium text-sm">Deep Research Mode</span>
+          {isAgentMode ? (
+            <>
+              <Bot className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm">Manus Agent Mode</span>
+            </>
+          ) : (
+            <>
+              <Zap className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm">Deep Research Mode</span>
+            </>
+          )}
         </div>
-        {queryType && (
-          <Badge variant="secondary" className={cn("text-xs", queryTypeInfo.color)}>
-            {queryTypeInfo.label}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {queryType && (
+            <Badge variant="secondary" className={cn("text-xs", queryTypeInfo.color)}>
+              {queryTypeInfo.label}
+            </Badge>
+          )}
+          {isAgentMode && (
+            <Badge variant="outline" className="text-xs gap-1">
+              <Clock className="h-3 w-3" />
+              Long-running
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Phase Timeline */}
@@ -101,7 +129,7 @@ export function ResearchProgress({
         
         {phases.map((p, idx) => {
           const Icon = p.icon;
-          const isActive = p.key === phase || (phase === "extracting" && p.key === "browsing");
+          const isActive = p.key === phase || (phase === "extracting" && p.key === "browsing") || (phase === "queued" && p.key === "planning");
           const isCompleted = idx < currentPhaseIndex;
           const isPending = idx > currentPhaseIndex;
 
@@ -169,12 +197,34 @@ export function ResearchProgress({
             {message || phases.find(p => p.key === phase)?.description || "Processing..."}
           </span>
         </div>
-        {currentStep && totalSteps && (
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-            Step {currentStep} of {totalSteps}
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {creditsUsed !== undefined && creditsUsed > 0 && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Coins className="h-3 w-3" />
+              {creditsUsed} credits
+            </span>
+          )}
+          {currentStep && totalSteps && (
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              Step {currentStep} of {totalSteps}
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Cancel button for long-running tasks */}
+      {isAgentMode && onCancel && phase !== "completed" && (
+        <div className="flex justify-end pt-2 border-t border-border/50">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            Stop Research
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
