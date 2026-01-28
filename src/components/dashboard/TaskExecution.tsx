@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Task, TaskStep, TaskFile } from "@/hooks/useTasks";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -8,15 +7,12 @@ import {
   Search,
   LayoutList,
   FileOutput,
-  CheckCircle,
   Loader2,
   Download,
   FileText,
   Table,
   Presentation,
   AlertCircle,
-  Cpu,
-  Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -75,177 +71,229 @@ export function TaskExecution({ task, streamingContent, isLoading }: TaskExecuti
 
   return (
     <ScrollArea className="flex-1">
-      <div className="max-w-3xl mx-auto py-6 sm:py-8 px-4">
-        {/* Task Prompt - Luxury Card Style */}
-        <div className="mb-6 p-4 sm:p-5 rounded-xl bg-card border border-border shadow-premium">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">
-              Your request
-            </p>
+      <div className="max-w-2xl mx-auto py-6 sm:py-8 px-4">
+        {/* Task Prompt - Minimal, clean style */}
+        <div className="mb-6 pb-4 border-b border-border">
+          <div className="flex items-center gap-2 mb-2">
             {task.model_used && (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary/50">
-                <Cpu className="h-3 w-3 text-primary" />
-                <span className="text-[10px] font-medium text-foreground">
-                  {task.model_used}
+              <span className="text-[11px] font-medium text-muted-foreground">
+                {task.model_used}
+              </span>
+            )}
+            {task.credits_used && task.status === "completed" && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-[11px] text-muted-foreground">
+                  {task.credits_used} credits
                 </span>
-              </div>
+              </>
             )}
           </div>
-          <p className="text-base sm:text-lg text-foreground leading-relaxed">{task.prompt}</p>
-          {task.credits_used && task.status === "completed" && (
-            <div className="flex items-center gap-1 mt-2">
-              <Coins className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground">
-                {task.credits_used} credits used
-              </span>
-            </div>
-          )}
+          <p className="text-base text-foreground leading-relaxed">{task.prompt}</p>
         </div>
 
-        {/* Execution Pipeline - Mobile Responsive */}
-        <div className="mb-6 overflow-x-auto">
-          <div className="flex items-center gap-0 min-w-max px-1 py-2">
+        {/* Execution Pipeline - Minimal progress indicator */}
+        {task.status !== "completed" && (
+          <div className="mb-6 flex items-center gap-3 text-sm text-muted-foreground">
             {Object.entries(stepConfig).map(([key, config], index) => {
               const step = steps.find((s) => s.step === key);
               const status = step?.status || "pending";
-              const Icon = config.icon;
               const isLast = index === Object.keys(stepConfig).length - 1;
 
               return (
-                <div key={key} className="flex items-center">
-                  <div
+                <div key={key} className="flex items-center gap-3">
+                  <span
                     className={cn(
-                      "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-lg transition-all duration-300",
-                      status === "completed" && "bg-success/10 border border-success/20",
-                      status === "running" && "bg-accent border border-foreground/10",
-                      status === "pending" && "opacity-40"
+                      "transition-colors",
+                      status === "completed" && "text-foreground",
+                      status === "running" && "text-foreground font-medium",
+                      status === "pending" && "text-muted-foreground/50"
                     )}
                   >
-                    {status === "running" ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-foreground" />
-                    ) : status === "completed" ? (
-                      <CheckCircle className="h-3.5 w-3.5 text-success" />
-                    ) : (
-                      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                    {status === "running" && (
+                      <Loader2 className="h-3 w-3 animate-spin inline mr-1.5" />
                     )}
-                    <span className="text-[10px] sm:text-xs font-medium whitespace-nowrap">
-                      {config.label}
-                    </span>
-                  </div>
-                  {!isLast && (
-                    <div
-                      className={cn(
-                        "w-4 sm:w-6 h-px mx-0.5 sm:mx-1 transition-colors",
-                        status === "completed" ? "bg-success/40" : "bg-border/50"
-                      )}
-                    />
-                  )}
+                    {config.label}
+                  </span>
+                  {!isLast && <span className="text-border">→</span>}
                 </div>
               );
             })}
           </div>
-        </div>
+        )}
 
-        {/* Status indicator for running tasks */}
+        {/* Status indicator for running tasks - minimal */}
         {isLoading && !content && (
-          <div className="flex items-center gap-3 py-6 mb-6 border-y border-border">
-            <div className="status-dot status-dot-running" />
-            <p className="text-sm text-muted-foreground">Processing your request...</p>
+          <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Thinking...</span>
           </div>
         )}
 
         {/* Failed status */}
         {task.status === "failed" && (
-          <div className="flex items-center gap-3 py-4 px-4 mb-6 rounded-lg bg-destructive/10 border border-destructive/20">
-            <AlertCircle className="h-4 w-4 text-destructive" />
-            <p className="text-sm text-destructive">
-              Task execution failed. Please try again.
-            </p>
+          <div className="flex items-center gap-2 py-3 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            <span>Something went wrong. Please try again.</span>
           </div>
         )}
 
-        {/* Content */}
+        {/* Content - Clean ChatGPT/Perplexity-style output */}
         {content && (
-          <div className="prose prose-sm max-w-none mb-8">
+          <div className="ai-output mb-8">
             <ReactMarkdown
               components={{
+                // H1: Main title - clean, prominent
                 h1: ({ children }) => (
-                  <h1 className="font-editorial text-2xl text-foreground mt-8 mb-4 first:mt-0">
+                  <h1 className="text-xl sm:text-2xl font-semibold text-foreground mt-0 mb-2 leading-tight tracking-tight">
                     {children}
                   </h1>
                 ),
+                // H2: Section headers - clear hierarchy
                 h2: ({ children }) => (
-                  <h2 className="font-editorial text-xl text-foreground mt-6 mb-3">
+                  <h2 className="text-lg font-semibold text-foreground mt-8 mb-3 pb-2 border-b border-border first:mt-0">
                     {children}
                   </h2>
                 ),
+                // H3: Subsection - subtle emphasis
                 h3: ({ children }) => (
-                  <h3 className="text-base font-semibold text-foreground mt-5 mb-2">
+                  <h3 className="text-base font-medium text-foreground mt-5 mb-2">
                     {children}
                   </h3>
                 ),
+                // Paragraphs - comfortable reading
                 p: ({ children }) => (
-                  <p className="text-foreground leading-relaxed mb-4 text-[15px]">
+                  <p className="text-[15px] leading-relaxed text-foreground mb-4 last:mb-0">
                     {children}
                   </p>
                 ),
+                // Unordered lists - clean bullets
                 ul: ({ children }) => (
-                  <ul className="list-disc pl-5 mb-4 space-y-1.5">{children}</ul>
+                  <ul className="my-4 space-y-2">{children}</ul>
                 ),
+                // Ordered lists
                 ol: ({ children }) => (
-                  <ol className="list-decimal pl-5 mb-4 space-y-1.5">{children}</ol>
+                  <ol className="my-4 space-y-2 list-decimal list-outside pl-5">{children}</ol>
                 ),
+                // List items - minimal
                 li: ({ children }) => (
-                  <li className="text-foreground text-[15px]">{children}</li>
+                  <li className="text-[15px] leading-relaxed text-foreground pl-1 relative before:content-['•'] before:absolute before:-left-4 before:text-muted-foreground [ol_&]:before:content-none">
+                    {children}
+                  </li>
                 ),
+                // Strong text
                 strong: ({ children }) => (
                   <strong className="font-semibold text-foreground">{children}</strong>
                 ),
+                // Emphasis
+                em: ({ children }) => (
+                  <em className="italic text-foreground">{children}</em>
+                ),
+                // Blockquotes - elegant
                 blockquote: ({ children }) => (
-                  <blockquote className="border-l-2 border-border pl-4 italic text-muted-foreground my-4">
+                  <blockquote className="my-4 pl-4 border-l-2 border-muted-foreground/30 text-muted-foreground italic">
                     {children}
                   </blockquote>
+                ),
+                // Tables - clean, minimal
+                table: ({ children }) => (
+                  <div className="my-6 overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full text-sm">
+                      {children}
+                    </table>
+                  </div>
+                ),
+                thead: ({ children }) => (
+                  <thead className="bg-muted/50 border-b border-border">
+                    {children}
+                  </thead>
+                ),
+                tbody: ({ children }) => (
+                  <tbody className="divide-y divide-border">{children}</tbody>
+                ),
+                tr: ({ children }) => (
+                  <tr className="hover:bg-muted/30 transition-colors">{children}</tr>
+                ),
+                th: ({ children }) => (
+                  <th className="px-4 py-3 text-left font-medium text-foreground whitespace-nowrap">
+                    {children}
+                  </th>
+                ),
+                td: ({ children }) => (
+                  <td className="px-4 py-3 text-foreground">{children}</td>
+                ),
+                // Code blocks
+                code: ({ children, className }) => {
+                  const isInline = !className;
+                  if (isInline) {
+                    return (
+                      <code className="px-1.5 py-0.5 rounded bg-muted text-sm font-mono">
+                        {children}
+                      </code>
+                    );
+                  }
+                  return (
+                    <code className="block p-4 rounded-lg bg-muted text-sm font-mono overflow-x-auto">
+                      {children}
+                    </code>
+                  );
+                },
+                pre: ({ children }) => (
+                  <pre className="my-4">{children}</pre>
+                ),
+                // Horizontal rule
+                hr: () => (
+                  <hr className="my-6 border-t border-border" />
+                ),
+                // Links
+                a: ({ href, children }) => (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-foreground underline underline-offset-2 hover:text-muted-foreground transition-colors"
+                  >
+                    {children}
+                  </a>
                 ),
               }}
             >
               {content}
             </ReactMarkdown>
             {isLoading && (
-              <span className="inline-block w-1.5 h-5 bg-foreground animate-pulse-subtle ml-0.5 align-middle" />
+              <span className="inline-block w-0.5 h-5 bg-foreground animate-pulse ml-0.5 align-middle" />
             )}
           </div>
         )}
 
-        {/* Generated Files */}
+        {/* Generated Files - Clean list style */}
         {task.files && task.files.length > 0 && task.status === "completed" && (
           <div className="mt-8 pt-6 border-t border-border">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4">
-              Generated Deliverables
-            </h3>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <p className="text-sm font-medium text-foreground mb-3">Downloads</p>
+            <div className="space-y-2">
               {task.files.map((file, index) => {
                 const Icon = fileIcons[file.type as keyof typeof fileIcons] || FileText;
                 return (
-                  <Card key={index} className="shadow-premium hover:shadow-elevated transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-md bg-secondary flex items-center justify-center shrink-0">
-                          <Icon className="h-5 w-5 text-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {file.description}
-                          </p>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors group"
+                  >
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {file.name}
+                      </p>
+                      {file.description && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {file.description}
+                        </p>
+                      )}
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Download className="h-4 w-4 mr-1.5" />
+                      Download
+                    </Button>
+                  </div>
                 );
               })}
             </div>
