@@ -8,7 +8,6 @@ import { MobileChatSidebar } from "@/components/dashboard/MobileChatSidebar";
 import { ChatView } from "@/components/dashboard/ChatView";
 import { ChatInput } from "@/components/dashboard/ChatInput";
 import { DomainSelector } from "@/components/dashboard/DomainSelector";
-import { QuickActions } from "@/components/dashboard/QuickActions";
 import { CreditDisplay } from "@/components/dashboard/CreditDisplay";
 import { TopNavigation } from "@/components/layout/TopNavigation";
 import { Button } from "@/components/ui/button";
@@ -40,12 +39,33 @@ const Dashboard = () => {
     deleteConversation,
     cancelRequest,
   } = useConversations();
-  const { currentSector, getSectorConfig, getDomainSystemPrompt } = useSector();
+  const { currentSector, setSector, getSectorConfig, getDomainSystemPrompt } = useSector();
   const { content: domainSnapshot, loading: snapshotLoading, fetchSnapshot, clearSnapshot } = useDomainSnapshot();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
 
   const sectorConfig = getSectorConfig();
+
+  // Check for pre-filled prompt from domain page
+  useEffect(() => {
+    const domainPrompt = sessionStorage.getItem("domainPrompt");
+    const domainContext = sessionStorage.getItem("domainContext");
+    
+    if (domainPrompt) {
+      // Set domain context if provided
+      if (domainContext && domainContext !== "all") {
+        setSector(domainContext as Sector);
+      }
+      
+      // Clear session storage first
+      sessionStorage.removeItem("domainPrompt");
+      sessionStorage.removeItem("domainContext");
+      
+      // Send the message after a brief delay to let state settle
+      setTimeout(() => {
+        handleSendMessage(domainPrompt, "quick");
+      }, 100);
+    }
+  }, []);
 
   // Handle domain change - fetch snapshot for new domain
   const handleDomainChange = useCallback((sector: Sector) => {

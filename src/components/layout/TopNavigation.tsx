@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -36,6 +36,7 @@ interface UserProfile {
 
 export function TopNavigation({ showSectorTabs = true, showCredits = true }: TopNavigationProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { currentSector, setSector } = useSector();
   const { user, signOut } = useAuth();
   const { creditBalance, plan } = useSubscription();
@@ -69,6 +70,17 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
 
   const isAuthPage = ["/login", "/signup"].includes(location.pathname);
   const isDashboard = location.pathname === "/dashboard";
+  const isDomainPage = location.pathname.startsWith("/domain/");
+  const showTabs = showSectorTabs && (isDashboard || isDomainPage);
+
+  const handleSectorClick = (sector: Sector) => {
+    setSector(sector);
+    if (sector === "all") {
+      navigate("/dashboard");
+    } else {
+      navigate(`/domain/${sector}`);
+    }
+  };
 
   const getInitials = (name: string | null, email: string) => {
     if (name) {
@@ -97,12 +109,12 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
         </Link>
 
         {/* Sector Tabs - Center */}
-        {showSectorTabs && isDashboard && (
+        {showTabs && (
           <nav className="hidden lg:flex items-center gap-0.5 absolute left-1/2 -translate-x-1/2">
             {SECTORS.map((sector) => (
               <button
                 key={sector.id}
-                onClick={() => setSector(sector.id as Sector)}
+                onClick={() => handleSectorClick(sector.id as Sector)}
                 className={cn(
                   "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                   currentSector === sector.id
@@ -215,13 +227,13 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
       </div>
 
       {/* Mobile Sector Selector */}
-      {showSectorTabs && isDashboard && (
+      {showTabs && (
         <div className="lg:hidden border-t border-border px-4 py-2 overflow-x-auto">
           <div className="flex items-center gap-1 min-w-max">
             {SECTORS.map((sector) => (
               <button
                 key={sector.id}
-                onClick={() => setSector(sector.id as Sector)}
+                onClick={() => handleSectorClick(sector.id as Sector)}
                 className={cn(
                   "px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap",
                   currentSector === sector.id
