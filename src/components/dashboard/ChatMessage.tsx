@@ -67,7 +67,7 @@ export function ChatMessageComponent({
       className={cn(
         "group relative px-4 py-5 transition-colors",
         isUser ? "bg-background" : "bg-muted/30",
-        message.is_favorite && "ring-1 ring-inset ring-gold/30 bg-gold/5"
+        message.is_favorite && "ring-1 ring-inset ring-foreground/20 bg-secondary"
       )}
     >
       <div className="max-w-3xl mx-auto flex gap-4">
@@ -132,7 +132,7 @@ export function ChatMessageComponent({
                   ),
                   h2: ({ children }) => (
                     <h2 className="font-editorial text-xl text-foreground mt-6 mb-3 flex items-center gap-2">
-                      <span className="w-1 h-5 bg-gold rounded-full" />
+                      <span className="w-1 h-5 bg-foreground rounded-full" />
                       {children}
                     </h2>
                   ),
@@ -177,7 +177,7 @@ export function ChatMessageComponent({
                   ),
                   li: ({ children }) => (
                     <li className="text-foreground text-[15px] flex items-start gap-2">
-                      <span className="text-gold mt-1.5 text-xs">●</span>
+                      <span className="text-muted-foreground mt-1.5 text-xs">●</span>
                       <span className="flex-1">{children}</span>
                     </li>
                   ),
@@ -232,7 +232,7 @@ export function ChatMessageComponent({
                     );
                   },
                   blockquote: ({ children }) => (
-                    <blockquote className="border-l-3 border-gold pl-4 py-2 my-4 bg-gold/5 rounded-r-lg">
+                    <blockquote className="border-l-3 border-muted-foreground pl-4 py-2 my-4 bg-muted rounded-r-lg">
                       <span className="text-foreground italic">{children}</span>
                     </blockquote>
                   ),
@@ -249,7 +249,7 @@ export function ChatMessageComponent({
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-gold hover:text-gold/80 underline underline-offset-2 inline-flex items-center gap-1"
+                      className="text-foreground hover:text-muted-foreground underline underline-offset-2 inline-flex items-center gap-1"
                     >
                       {children}
                       <ExternalLink className="h-3 w-3" />
@@ -264,13 +264,13 @@ export function ChatMessageComponent({
               {message.sources && message.sources.length > 0 && (
                 <div className="mt-6 pt-4 border-t border-border">
                   <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <span className="w-1 h-4 bg-gold rounded-full" />
+                    <span className="w-1 h-4 bg-foreground rounded-full" />
                     Sources ({message.sources.length})
                   </h4>
                   <ol className="space-y-2">
                     {message.sources.map((source, index) => (
                       <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-gold font-medium">[{index + 1}]</span>
+                        <span className="text-foreground font-medium">[{index + 1}]</span>
                         <div className="flex-1">
                           <span className="text-foreground">{source.title || "Source"}</span>
                           {source.url && (
@@ -278,7 +278,7 @@ export function ChatMessageComponent({
                               href={source.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="ml-2 text-gold hover:underline inline-flex items-center gap-1"
+                              className="ml-2 text-muted-foreground hover:text-foreground hover:underline inline-flex items-center gap-1"
                             >
                               View
                               <ExternalLink className="h-3 w-3" />
@@ -333,7 +333,7 @@ export function ChatMessageComponent({
                     className={cn(
                       "h-4 w-4 transition-colors",
                       message.is_favorite
-                        ? "fill-gold text-gold"
+                        ? "fill-foreground text-foreground"
                         : "text-muted-foreground"
                     )}
                   />

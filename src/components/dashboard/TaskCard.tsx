@@ -48,9 +48,9 @@ export function TaskCard({ task, isActive, onClick }: TaskCardProps) {
       onClick={onClick}
       className={cn(
         "w-full text-left p-4 rounded-xl transition-all duration-300",
-        "border bg-card hover:shadow-premium group",
+        "border bg-card hover:shadow-subtle group",
         isActive
-          ? "border-foreground/20 shadow-premium"
+          ? "border-foreground/20 shadow-subtle"
           : "border-border hover:border-foreground/10"
       )}
     >

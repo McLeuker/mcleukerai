@@ -70,12 +70,13 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        olive: "hsl(var(--olive))",
-        sand: "hsl(var(--sand))",
-        stone: "hsl(var(--stone))",
-        gold: {
-          DEFAULT: "hsl(var(--gold))",
-          foreground: "hsl(var(--gold-foreground))",
+        // Grey scale for editorial design
+        grey: {
+          900: "hsl(var(--grey-900))",
+          700: "hsl(var(--grey-700))",
+          500: "hsl(var(--grey-500))",
+          300: "hsl(var(--grey-300))",
+          100: "hsl(var(--grey-100))",
         },
       },
       borderRadius: {

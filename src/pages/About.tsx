@@ -84,7 +84,7 @@ const About = () => {
                 </div>
                 
                 {/* Stats */}
-                <div className="bg-card rounded-lg border border-border p-10 lg:p-12 shadow-luxury">
+                <div className="bg-card rounded-lg border border-border p-10 lg:p-12 shadow-elevated">
                   <div className="space-y-10">
                     <div>
                       <p className="text-5xl lg:text-6xl font-luxury text-foreground mb-3">100+</p>
@@ -146,7 +146,7 @@ const About = () => {
             <div className="max-w-7xl mx-auto">
               <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
                 {/* Image */}
-                <div className="relative image-zoom rounded-lg overflow-hidden shadow-luxury">
+                <div className="relative image-zoom rounded-lg overflow-hidden shadow-elevated">
                   <img 
                     src={sustainableImage} 
                     alt="Sustainable fashion materials" 

@@ -75,7 +75,7 @@ export function ResearchModeToggle({
               <p className="text-xs text-muted-foreground mt-1">
                 Web search + validation • 8-25 credits
               </p>
-              <div className="flex items-center justify-center gap-1 mt-1 text-xs text-gold">
+              <div className="flex items-center justify-center gap-1 mt-1 text-xs text-muted-foreground">
                 <Coins className="h-3 w-3" />
                 <span>Uses Perplexity + Firecrawl</span>
               </div>

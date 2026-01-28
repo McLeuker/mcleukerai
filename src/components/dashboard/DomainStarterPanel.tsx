@@ -32,7 +32,7 @@ export function DomainStarterPanel({
         {(snapshotLoading || snapshot) && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4 text-gold" />
+              <Sparkles className="h-4 w-4 text-foreground" />
               <h2 className="text-sm font-medium text-foreground uppercase tracking-wide">
                 What's Happening Now
               </h2>

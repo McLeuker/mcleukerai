@@ -27,7 +27,7 @@ export function TaskInput({ onSubmit, isLoading, placeholder, className }: TaskI
       <div className={cn(
         "relative rounded-xl border bg-card transition-all duration-300",
         isFocused 
-          ? "border-foreground/20 shadow-premium" 
+          ? "border-foreground/20 shadow-subtle" 
           : "border-border shadow-sm",
       )}>
         <textarea

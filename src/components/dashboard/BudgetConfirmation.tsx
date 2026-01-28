@@ -73,11 +73,11 @@ export function BudgetConfirmation({
           </div>
 
           {/* Time Warning */}
-          <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-            <Clock className="h-4 w-4 text-amber-600 mt-0.5" />
+          <div className="flex items-start gap-3 p-3 bg-muted border border-border rounded-lg">
+            <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
             <div className="text-sm">
-              <p className="font-medium text-amber-700">This may take time</p>
-              <p className="text-amber-600/80">
+              <p className="font-medium text-foreground">This may take time</p>
+              <p className="text-muted-foreground">
                 Deep research tasks typically run 5-30 minutes. You can close this tab - 
                 results will be saved to your conversation.
               </p>
