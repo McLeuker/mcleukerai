@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useSector, Sector, SECTORS, DOMAIN_STARTERS } from "@/contexts/SectorContext";
-import { useDomainSnapshot } from "@/hooks/useDomainSnapshot";
+import { useSector, Sector, DOMAIN_STARTERS } from "@/contexts/SectorContext";
+import { useDomainIntelligence } from "@/hooks/useDomainIntelligence";
 import { TopNavigation } from "@/components/layout/TopNavigation";
 import { DomainHero } from "@/components/domain/DomainHero";
 import { DomainInsights } from "@/components/domain/DomainInsights";
@@ -26,7 +26,14 @@ const DomainLanding = () => {
   const { domain } = useParams<{ domain: string }>();
   const navigate = useNavigate();
   const { currentSector, setSector, getSectorConfig } = useSector();
-  const { content: snapshot, loading: snapshotLoading, fetchSnapshot } = useDomainSnapshot();
+  const { 
+    items: intelligenceItems, 
+    loading: intelligenceLoading, 
+    error: intelligenceError,
+    source: intelligenceSource,
+    fetchIntelligence,
+    refresh: refreshIntelligence,
+  } = useDomainIntelligence();
 
   // Resolve sector from URL
   const resolvedSector = domain ? slugToSector[domain] : undefined;
@@ -41,15 +48,22 @@ const DomainLanding = () => {
     }
   }, [resolvedSector, currentSector, setSector, domain, navigate]);
 
-  // Fetch snapshot on mount/domain change
+  // Fetch intelligence on mount/domain change
   useEffect(() => {
     if (resolvedSector) {
-      fetchSnapshot(resolvedSector);
+      fetchIntelligence(resolvedSector);
     }
-  }, [resolvedSector, fetchSnapshot]);
+  }, [resolvedSector, fetchIntelligence]);
 
   const sectorConfig = getSectorConfig();
   const starters = DOMAIN_STARTERS[currentSector] || [];
+
+  // Handle refresh
+  const handleRefresh = useCallback(() => {
+    if (resolvedSector) {
+      refreshIntelligence(resolvedSector);
+    }
+  }, [resolvedSector, refreshIntelligence]);
 
   // Handle module click - navigate to dashboard with pre-filled prompt
   const handleModuleClick = useCallback(
@@ -88,15 +102,18 @@ const DomainLanding = () => {
           <DomainHero
             sector={currentSector}
             config={sectorConfig}
-            snapshot={snapshot}
-            isLoading={snapshotLoading}
+            snapshot={null}
+            isLoading={false}
           />
 
-          {/* What's Happening Now */}
+          {/* What's Happening Now - Real-time Intelligence */}
           <DomainInsights
             sector={currentSector}
-            snapshot={snapshot}
-            isLoading={snapshotLoading}
+            items={intelligenceItems}
+            isLoading={intelligenceLoading}
+            error={intelligenceError}
+            source={intelligenceSource}
+            onRefresh={handleRefresh}
           />
 
           {/* Intelligence Modules */}
