@@ -245,8 +245,11 @@ export function SubscriptionCredits() {
             <>
               <Separator />
               <div className="text-center py-4">
+                <p className="text-sm text-muted-foreground mb-2">
+                  All features are available with your current credits.
+                </p>
                 <p className="text-muted-foreground mb-4">
-                  Upgrade to Pro or Studio to purchase additional credits
+                  Want more credits? Upgrade to Pro or Studio to purchase refills.
                 </p>
                 <Button asChild>
                   <Link to="/pricing">View Plans</Link>

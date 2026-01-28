@@ -22,6 +22,7 @@ interface SubscriptionContextType extends SubscriptionState {
   purchaseCredits: (packId: string) => Promise<void>;
   openCustomerPortal: () => Promise<void>;
   canRefill: () => boolean;
+  hasCreditsFor: (creditCost: number) => boolean;
   getPlanConfig: () => typeof SUBSCRIPTION_PLANS[keyof typeof SUBSCRIPTION_PLANS];
 }
 
@@ -243,6 +244,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Check if user can purchase refills (paid plans only)
   const canRefill = () => {
     if (!state.subscribed || state.plan === "free") return false;
     
@@ -251,6 +253,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     
     const maxRefills = planConfig.maxRefillsPerMonth as number;
     return state.refillsThisMonth < maxRefills;
+  };
+
+  // Check if user has credits for a specific action
+  const hasCreditsFor = (creditCost: number) => {
+    return state.creditBalance >= creditCost;
   };
 
   const getPlanConfig = () => {
@@ -266,6 +273,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         purchaseCredits,
         openCustomerPortal,
         canRefill,
+        hasCreditsFor,
         getPlanConfig,
       }}
     >

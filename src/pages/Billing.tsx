@@ -494,9 +494,12 @@ const Billing = () => {
             <Card className="border-border bg-card">
               <CardContent className="py-8 text-center">
                 <Coins className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Unlock Credit Refills</h3>
+                <h3 className="text-lg font-medium mb-2">Get More Credits</h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  All features are available with your current credits.
+                </p>
                 <p className="text-muted-foreground mb-4">
-                  Upgrade to Pro or Studio to purchase additional credits that never expire.
+                  Upgrade to Pro or Studio to purchase additional credit refills.
                 </p>
                 <Button asChild>
                   <Link to="/pricing">View Plans</Link>

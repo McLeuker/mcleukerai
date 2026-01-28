@@ -109,7 +109,7 @@ export function CreditDisplay({ variant = "default" }: { variant?: "default" | "
       {isLow && (
         <p className="text-xs text-warning flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
-          Low credits — consider a refill
+          Low credits — add more to continue using all features
         </p>
       )}
     </div>

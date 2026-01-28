@@ -74,10 +74,13 @@ const Pricing = () => {
           {/* Hero */}
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-serif font-light mb-4">
-              Choose Your Plan
+              Simple Credit-Based Pricing
             </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              Simple, transparent pricing designed for fashion professionals at every stage.
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-4">
+              All features available to everyone. Credits are the only gate.
+            </p>
+            <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-8">
+              Free, Pro, or Studio — every user gets full access to AI research, market analysis, trend reports, and exports. Plans only differ in credit allocation.
             </p>
 
             {/* Billing Toggle */}
@@ -291,7 +294,7 @@ const Pricing = () => {
               <div className="mt-4 text-center">
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   <AlertCircle className="h-4 w-4" />
-                  <span>Credit refills are only available for Pro and Studio subscribers</span>
+                  <span>Upgrade to Pro or Studio to purchase additional credit refills</span>
                 </div>
               </div>
             )}
@@ -302,7 +305,7 @@ const Pricing = () => {
             <div className="text-center mb-8">
               <h2 className="text-2xl font-serif font-light mb-2">How Credits Work</h2>
               <p className="text-muted-foreground">
-                Different actions consume different amounts of credits.
+                All actions available to all users. Credits are deducted per action.
               </p>
             </div>
 

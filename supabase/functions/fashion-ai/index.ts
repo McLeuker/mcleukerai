@@ -66,7 +66,8 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-// Credit costs per action type
+// Credit costs per action type - CREDITS ARE THE ONLY GATE
+// All users have equal access to all features as long as they have credits
 const CREDIT_COSTS = {
   ai_research_query: 4,
   market_analysis: 10,
@@ -74,39 +75,6 @@ const CREDIT_COSTS = {
   supplier_search: 8,
   pdf_export: 3,
   excel_export: 4,
-} as const;
-
-// Heavy actions that can trigger 2x cost for Studio beyond threshold
-const HEAVY_ACTIONS = ["market_analysis", "trend_report"];
-
-// Rate limits per plan
-const RATE_LIMITS = {
-  free: { 
-    maxQueriesPerDay: 5, 
-    maxQueriesPerMinute: 1,
-    maxHeavyQueriesPerDay: 0,
-    allowedActions: ["ai_research_query"],
-  },
-  pro: { 
-    maxQueriesPerDay: 100, 
-    maxQueriesPerMinute: null,
-    maxHeavyQueriesPerDay: 20, 
-    allowedActions: null,
-  },
-  studio: { 
-    maxQueriesPerDay: 500, 
-    maxQueriesPerMinute: null,
-    maxHeavyQueriesPerDay: null,
-    allowedActions: null,
-    heavyUsageThreshold: 1500,
-    heavyActionMultiplier: 2,
-  },
-  enterprise: { 
-    maxQueriesPerDay: null,
-    maxQueriesPerMinute: null,
-    maxHeavyQueriesPerDay: null, 
-    allowedActions: null,
-  },
 } as const;
 
 // ============ GROK MODEL CONFIGURATION ============
@@ -444,43 +412,9 @@ serve(async (req) => {
     
     const creditCost = CREDIT_COSTS[actionType];
 
-    // Get user data
-    const { data: userData, error: userDataError } = await supabase
-      .from("users")
-      .select("subscription_plan, monthly_credits, extra_credits")
-      .eq("user_id", user.id)
-      .single();
-    
-    if (userDataError) {
-      console.error("Error fetching user data:", userDataError);
-    }
-    
-    const userPlan = (userData?.subscription_plan || "free") as keyof typeof RATE_LIMITS;
-    const planLimits = RATE_LIMITS[userPlan];
-
-    // Check allowed actions
-    const allowedActions = planLimits.allowedActions as readonly string[] | null;
-    if (allowedActions && !allowedActions.includes(actionType)) {
-      return new Response(JSON.stringify({ 
-        error: `${actionType.replace(/_/g, " ")} is not available on your plan. Please upgrade to Pro or Studio.`,
-        upgradeRequired: true
-      }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Calculate credit cost
-    let actualCreditCost = creditCost;
-    if (userPlan === "studio" && HEAVY_ACTIONS.includes(actionType)) {
-      const originalMonthly = 1800;
-      const usedCredits = originalMonthly - (userData?.monthly_credits || 0);
-      
-      if (usedCredits >= 1500) {
-        actualCreditCost = creditCost * 2;
-        console.log(`Studio user beyond threshold, applying 2x cost: ${creditCost} -> ${actualCreditCost}`);
-      }
-    }
+    // CREDIT-BASED ACCESS: No plan restrictions, only credit balance matters
+    // All users (Free, Pro, Studio) have equal access to all features
+    const actualCreditCost = creditCost;
 
     // Update task to understanding status
     if (isLegacyMode) {
@@ -530,7 +464,7 @@ serve(async (req) => {
     const { data: deductResult, error: deductError } = await supabase.rpc("deduct_credits", {
       p_user_id: user.id,
       p_amount: actualCreditCost,
-      p_description: `${actionType.replace(/_/g, " ")} - ${modelUsedLabel}${actualCreditCost > creditCost ? ' (2x penalty)' : ''}`
+      p_description: `${actionType.replace(/_/g, " ")} - ${modelUsedLabel}`
     });
 
     if (deductError || !deductResult?.success) {
@@ -546,9 +480,11 @@ serve(async (req) => {
           }).eq("id", taskId);
         }
         
+        // CREDIT-BASED MESSAGING: Never mention plan restrictions
         return new Response(JSON.stringify({ 
-          error: "Insufficient credits. Please purchase more credits to continue.",
-          balance: deductResult?.balance || 0
+          error: "You're out of credits for this request. Add credits to continue searching and researching. All features remain available once credits are added.",
+          balance: deductResult?.balance || 0,
+          creditRequired: actualCreditCost
         }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
