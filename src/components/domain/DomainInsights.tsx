@@ -1,6 +1,5 @@
 import { Sector } from "@/contexts/SectorContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles } from "lucide-react";
 
 interface DomainInsightsProps {
   sector: Sector;
@@ -41,7 +40,7 @@ export function DomainInsights({ sector, snapshot, isLoading }: DomainInsightsPr
   return (
     <section className="w-full max-w-5xl mx-auto px-6 py-10 md:py-14">
       <div className="flex items-center gap-2 mb-6">
-        <Sparkles className="h-4 w-4 text-gold" />
+        <div className="w-1 h-1 rounded-full bg-foreground" />
         <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
           What's Happening Now
         </h2>
@@ -58,9 +57,9 @@ export function DomainInsights({ sector, snapshot, isLoading }: DomainInsightsPr
           {bullets.map((bullet, idx) => (
             <li
               key={idx}
-              className="text-[15px] text-foreground/90 leading-relaxed flex items-start gap-3"
+              className="text-[15px] text-foreground/80 leading-relaxed flex items-start gap-3"
             >
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-gold mt-2 flex-shrink-0" />
+              <span className="inline-block w-1 h-1 rounded-full bg-muted-foreground mt-2 flex-shrink-0" />
               <span>{bullet}</span>
             </li>
           ))}

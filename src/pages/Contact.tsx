@@ -107,7 +107,7 @@ const Contact = () => {
               <div className="grid lg:grid-cols-5 gap-12 lg:gap-16">
                 {/* Contact Form */}
                 <div className="lg:col-span-3">
-                  <div className="bg-card rounded-lg border border-border p-8 lg:p-12 shadow-luxury">
+                  <div className="bg-card rounded-lg border border-border p-8 lg:p-12 shadow-elevated">
                     {isSubmitted ? (
                       <div className="text-center py-16">
                         <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mx-auto mb-8">
@@ -219,7 +219,7 @@ const Contact = () => {
                     <a
                       key={i}
                       href={option.href}
-                      className="block p-8 rounded-lg bg-card border border-border shadow-premium hover-lift group"
+                      className="block p-8 rounded-lg bg-card border border-border shadow-subtle hover-lift group"
                     >
                       <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-6 group-hover:bg-accent transition-colors">
                         <option.icon className="w-5 h-5 text-foreground" />

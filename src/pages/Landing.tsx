@@ -175,7 +175,7 @@ const Landing = () => {
                   value={prompt} 
                   onChange={e => setPrompt(e.target.value)} 
                   placeholder="e.g., Analyze SS26 womenswear color trends from Milan and Paris..." 
-                  className="w-full h-28 sm:h-32 px-4 sm:px-6 py-4 sm:py-5 rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm sm:text-base shadow-luxury"
+                  className="w-full h-28 sm:h-32 px-4 sm:px-6 py-4 sm:py-5 rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm sm:text-base shadow-elevated"
                   onKeyDown={e => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -357,7 +357,7 @@ const Landing = () => {
           <div className="max-w-7xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
               {/* Image */}
-              <div className="relative image-zoom rounded-lg overflow-hidden shadow-luxury">
+              <div className="relative image-zoom rounded-lg overflow-hidden shadow-elevated">
                 <img 
                   src={atelierImage} 
                   alt="Fashion atelier workspace" 
@@ -442,7 +442,7 @@ const Landing = () => {
               </div>
 
               {/* Image - Right on desktop */}
-              <div className="relative image-zoom rounded-lg overflow-hidden shadow-luxury order-1 lg:order-2">
+              <div className="relative image-zoom rounded-lg overflow-hidden shadow-elevated order-1 lg:order-2">
                 <img 
                   src={sustainableImage} 
                   alt="Sustainable fashion materials" 

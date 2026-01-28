@@ -168,7 +168,7 @@ const Services = () => {
             <div className="max-w-6xl mx-auto">
               <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
                 {/* Image */}
-                <div className="relative image-zoom rounded-lg overflow-hidden shadow-luxury">
+                <div className="relative image-zoom rounded-lg overflow-hidden shadow-elevated">
                   <img 
                     src={atelierImage} 
                     alt="Fashion atelier workspace" 

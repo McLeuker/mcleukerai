@@ -153,11 +153,11 @@ export function EmptyState({ onSelectPrompt }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center px-4 animate-fade-in">
       <div className="text-center max-w-2xl">
-        {/* Icon with luxury treatment */}
+        {/* Icon with minimal treatment */}
         <div className="relative w-16 h-16 mx-auto mb-8">
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-gold/20 to-transparent" />
-          <div className="absolute inset-1 rounded-full bg-card border border-border flex items-center justify-center shadow-premium">
-            <Sparkles className="h-6 w-6 text-gold" />
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-foreground/5 to-transparent" />
+          <div className="absolute inset-1 rounded-full bg-card border border-border flex items-center justify-center shadow-subtle">
+            <Sparkles className="h-6 w-6 text-foreground" />
           </div>
         </div>
 
@@ -184,7 +184,7 @@ export function EmptyState({ onSelectPrompt }: EmptyStateProps) {
               className={cn(
                 "group p-4 rounded-xl transition-all duration-300",
                 "bg-card border border-border",
-                "hover:border-foreground/15 hover:shadow-premium",
+                "hover:border-foreground/15 hover:shadow-subtle",
                 "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               )}
             >

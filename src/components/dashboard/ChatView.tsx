@@ -78,7 +78,7 @@ export function ChatView({
               <Star
                 className={cn(
                   "h-3.5 w-3.5",
-                  showFavoritesOnly && "fill-gold text-gold"
+                  showFavoritesOnly && "fill-foreground text-foreground"
                 )}
               />
               Favorites

@@ -175,7 +175,7 @@ export function SubscriptionCredits() {
             />
             
             {usagePercentage < 20 && (
-              <p className="text-sm text-yellow-500 flex items-center gap-1">
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <Zap className="h-4 w-4" />
                 Low credits — consider a refill
               </p>
