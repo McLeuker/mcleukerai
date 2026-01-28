@@ -1,139 +1,72 @@
 
-# Quick Actions Size Reduction & First-View Optimization
+# Request Lovable Support Feature
 
-## Problem Analysis
+## Overview
+Add a support request feature that allows users to request security features (like Leaked Password Protection) to be enabled on their project. This will be integrated into the Security settings page and backed by a database table to track requests.
 
-The current layout on the empty dashboard state has these height consumers:
-1. **Top Navigation**: ~72px (desktop)
-2. **Domain Bar**: ~56px  
-3. **ChatView Empty State**: Takes `flex-1` with large padding, icon (64px), text, and button
-4. **Input Area**: Quick Actions + ChatInput + padding = ~200px+
+## Implementation Plan
 
-This causes the content to extend below the fold, requiring scrolling.
+### 1. Create Support Requests Database Table
+Create a new table to store feature requests from users:
+- **Table**: `support_requests`
+- **Columns**:
+  - `id` (uuid, primary key)
+  - `user_id` (uuid, references auth.users)
+  - `request_type` (text) - e.g., "leaked_password_protection", "2fa_enablement"
+  - `status` (text) - "pending", "in_progress", "completed", "declined"
+  - `message` (text, optional) - additional context from user
+  - `created_at` (timestamp)
+  - `updated_at` (timestamp)
+- **RLS Policies**:
+  - Users can insert their own requests
+  - Users can view their own requests
+  - Block anonymous access
 
-## Solution Overview
+### 2. Update Security Component
+Modify `src/components/profile/Security.tsx` to add a new "Request Security Feature" section:
+- Display a card explaining the Leaked Password Protection feature
+- Show current request status if one exists (pending/in progress/completed)
+- Add a "Request This Feature" button that:
+  - Opens a dialog/modal for confirmation
+  - Allows optional message input
+  - Submits request to database
+  - Shows success toast with expected response time
 
-Make Quick Actions more compact and optimize the empty state layout so everything fits in the viewport without scrolling.
+### 3. Create SupportRequest Component
+Create a reusable component `src/components/profile/SupportRequest.tsx`:
+- Props: `featureType`, `title`, `description`, `icon`
+- Handles the request submission logic
+- Shows different states: available to request, pending, completed
+- Includes email fallback link to contact@mcleuker.com
 
----
+### 4. Add Request Dialog Component
+Create `src/components/profile/RequestFeatureDialog.tsx`:
+- Dialog with feature description
+- Optional message textarea for user context
+- Submit and cancel buttons
+- Loading state during submission
 
-## Changes
+## File Changes Summary
 
-### 1. QuickActions.tsx - Make Buttons Smaller
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/migrations/` | Create | New migration for `support_requests` table |
+| `src/components/profile/Security.tsx` | Modify | Add Leaked Password Protection request card |
+| `src/components/profile/SupportRequest.tsx` | Create | Reusable support request component |
+| `src/components/profile/RequestFeatureDialog.tsx` | Create | Dialog for submitting requests |
 
-**Current Issues:**
-- Buttons have `py-3` (24px vertical padding)
-- `gap-3` between grid items
-- Two-line layout with icon row + label
+## User Experience Flow
+1. User navigates to Profile > Security tab
+2. User sees "Leaked Password Protection" card (currently showing it needs manual enablement)
+3. User clicks "Request This Feature" button
+4. Dialog opens explaining the feature and allowing optional message
+5. User submits request
+6. Toast shows confirmation: "Request submitted! We'll review and respond within 24-48 hours"
+7. Card updates to show "Request Pending" status
+8. (Future) Admin can update request status in database
 
-**Changes:**
-- Reduce padding: `py-3 px-3` → `py-2 px-2.5`
-- Reduce grid gap: `gap-3` → `gap-2`
-- Reduce icon size: `h-4 w-4` → `h-3.5 w-3.5`
-- Condense into single-row layout with icon + label inline
-- Remove vertical stacking of elements for a more compact horizontal layout
-
-### 2. ChatView.tsx - Compact Empty State
-
-**Current Issues:**
-- Large icon container (64px)
-- `mb-8` bottom margin on description (32px)
-- `pb-8` on container
-
-**Changes:**
-- Reduce icon container: `w-16 h-16` → `w-12 h-12`
-- Reduce icon size: `h-8 w-8` → `h-6 w-6`
-- Reduce margins: `mb-6` → `mb-4`, `mb-8` → `mb-6`
-- Reduce container padding: `pb-8` → `pb-4`
-- Remove the "New Chat" button from empty state (it's redundant - users can just type)
-
-### 3. Dashboard.tsx - Reduce Input Area Padding
-
-**Current Issues:**
-- `p-4 lg:p-6` padding on input container
-- `gap-5` between Quick Actions and ChatInput
-
-**Changes:**
-- Reduce padding: `lg:p-6` → `lg:p-4`
-- Reduce gap: `gap-5` → `gap-3`
-
----
-
-## Visual Comparison
-
-**Before:**
-```text
-┌──────────────────────────────────────┐
-│ Top Navigation (72px)                │
-├──────────────────────────────────────┤
-│ Domain Bar (56px)                    │
-├──────────────────────────────────────┤
-│                                      │
-│         [Large Icon 64px]            │
-│                                      │
-│      Start a conversation            │
-│                                      │
-│   Description text here...           │
-│                                      │
-│        [New Chat Button]             │ ← Below fold
-│                                      │
-├──────────────────────────────────────┤
-│ Quick Actions (tall buttons)         │ ← Below fold
-│ Chat Input                           │ ← Below fold
-└──────────────────────────────────────┘
-```
-
-**After:**
-```text
-┌──────────────────────────────────────┐
-│ Top Navigation (72px)                │
-├──────────────────────────────────────┤
-│ Domain Bar (56px)                    │
-├──────────────────────────────────────┤
-│                                      │
-│        [Icon 48px]                   │
-│    Start a conversation              │
-│    Description text...               │
-│                                      │
-├──────────────────────────────────────┤
-│ [⌕ Supplier] [↗ Trend] [📊 Market] [✨ AI] │ ← Compact inline
-│ Chat Input                           │ ← All visible
-└──────────────────────────────────────┘
-```
-
----
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/components/dashboard/QuickActions.tsx` | Compact single-row buttons, reduced padding/sizing |
-| `src/components/dashboard/ChatView.tsx` | Smaller icon, reduced margins, remove redundant button |
-| `src/pages/Dashboard.tsx` | Reduced input area padding and gap |
-
----
-
-## Technical Details
-
-### QuickActions.tsx
-- Change button layout from vertical stack to horizontal inline
-- Button padding: `py-2 px-2.5` (was `py-3 px-3`)
-- Grid gap: `gap-2` (was `gap-3`)
-- Remove the credit display from buttons (too small, cluttered)
-- Single line: `[icon] Label` format
-
-### ChatView.tsx  
-- Icon container: `w-12 h-12` (was `w-16 h-16`)
-- Icon: `h-6 w-6` (was `h-8 w-8`)
-- Remove the `<Button>New Chat</Button>` entirely
-- Reduce `pb-8` to `pb-4`
-
-### Dashboard.tsx
-- Input container: `p-4` for both mobile and desktop (was `p-4 lg:p-6`)
-- Inner gap: `gap-3` (was `gap-5`)
-
----
-
-## Expected Result
-
-The entire first-view experience—empty state message, Quick Actions, and Chat Input—will be visible without any scrolling on standard desktop viewports (1080p and above).
+## Technical Notes
+- The feature integrates with existing authentication hooks (`useAuth`)
+- Uses existing UI components (Card, Button, Dialog, Badge)
+- Request status is fetched on component mount and cached
+- Email fallback ensures users can still reach support directly
