@@ -1,14 +1,12 @@
 import { cn } from "@/lib/utils";
-import { ChevronDown, Cpu, Zap, Gauge, Bot, Brain } from "lucide-react";
+import { ChevronDown, Sparkles, Zap, Brain } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -16,15 +14,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export type ModelId = 
-  | "grok-4-latest" 
-  | "grok-4-mini" 
-  | "grok-4-fast"
-  | "manus-1-5"
-  | "manus-1-5-light";
-
-// Legacy type for backward compatibility
-export type GrokModel = "grok-4-latest" | "grok-4-mini" | "grok-4-fast";
+export type ModelId = "auto" | "grok-4-latest" | "gpt-4.1";
 
 interface ModelOption {
   id: ModelId;
@@ -32,57 +22,60 @@ interface ModelOption {
   description: string;
   icon: React.ReactNode;
   creditRange: string;
-  isAgent?: boolean;
 }
 
 const MODEL_OPTIONS: ModelOption[] = [
-  // Grok models (Quick Search)
+  {
+    id: "auto",
+    name: "Auto",
+    description: "Automatically selects the best model for your query",
+    icon: <Sparkles className="h-3.5 w-3.5" />,
+    creditRange: "4-18",
+  },
   {
     id: "grok-4-latest",
     name: "Grok-4",
-    description: "Most capable • Complex analysis",
-    icon: <Cpu className="h-3.5 w-3.5" />,
-    creditRange: "4-10",
-  },
-  {
-    id: "grok-4-fast",
-    name: "Grok-4 Fast",
-    description: "Optimized speed • Standard tasks",
+    description: "Real-time intelligence • Fashion expertise",
     icon: <Zap className="h-3.5 w-3.5" />,
-    creditRange: "4-8",
+    creditRange: "4-12",
   },
   {
-    id: "grok-4-mini",
-    name: "Grok-4 Mini",
-    description: "Efficient • Quick queries",
-    icon: <Gauge className="h-3.5 w-3.5" />,
-    creditRange: "2-5",
-  },
-  // Manus Agent models (Deep Research)
-  {
-    id: "manus-1-5",
-    name: "Manus Full",
-    description: "Deep autonomous research • 5-30 min",
+    id: "gpt-4.1",
+    name: "GPT-4.1",
+    description: "Advanced reasoning • Complex analysis",
     icon: <Brain className="h-3.5 w-3.5" />,
-    creditRange: "15-40",
-    isAgent: true,
-  },
-  {
-    id: "manus-1-5-light",
-    name: "Manus Light",
-    description: "Faster agent research • 2-15 min",
-    icon: <Bot className="h-3.5 w-3.5" />,
-    creditRange: "8-20",
-    isAgent: true,
+    creditRange: "6-18",
   },
 ];
 
-export function isManusModel(model: ModelId): boolean {
-  return model === "manus-1-5" || model === "manus-1-5-light";
-}
-
-export function isGrokModel(model: ModelId): boolean {
-  return model === "grok-4-latest" || model === "grok-4-fast" || model === "grok-4-mini";
+// Helper to check if auto mode should use GPT for complex queries
+export function selectModelForQuery(query: string, selectedModel: ModelId): "grok-4-latest" | "gpt-4.1" {
+  if (selectedModel !== "auto") {
+    return selectedModel === "gpt-4.1" ? "gpt-4.1" : "grok-4-latest";
+  }
+  
+  const lowerQuery = query.toLowerCase();
+  
+  // Use GPT-4.1 for complex analysis, multi-step reasoning, or detailed reports
+  const complexPatterns = [
+    /market analysis/i,
+    /comprehensive report/i,
+    /deep dive/i,
+    /strategic analysis/i,
+    /compare and contrast/i,
+    /trend forecast/i,
+    /sustainability audit/i,
+    /supply chain analysis/i,
+    /competitive landscape/i,
+    /investment thesis/i,
+  ];
+  
+  if (complexPatterns.some(pattern => pattern.test(lowerQuery))) {
+    return "gpt-4.1";
+  }
+  
+  // Default to Grok for real-time, quick queries
+  return "grok-4-latest";
 }
 
 interface ModelSelectorProps {
@@ -90,7 +83,7 @@ interface ModelSelectorProps {
   onModelChange: (model: ModelId) => void;
   disabled?: boolean;
   compact?: boolean;
-  showAgentModels?: boolean;
+  showAgentModels?: boolean; // Kept for backward compatibility, no longer used
 }
 
 export function ModelSelector({
@@ -98,15 +91,8 @@ export function ModelSelector({
   onModelChange,
   disabled = false,
   compact = false,
-  showAgentModels = true,
 }: ModelSelectorProps) {
   const selectedModel = MODEL_OPTIONS.find((m) => m.id === model) || MODEL_OPTIONS[0];
-  const displayOptions = showAgentModels 
-    ? MODEL_OPTIONS 
-    : MODEL_OPTIONS.filter(m => !m.isAgent);
-
-  const grokModels = displayOptions.filter(m => !m.isAgent);
-  const agentModels = displayOptions.filter(m => m.isAgent);
 
   if (compact) {
     return (
@@ -126,11 +112,6 @@ export function ModelSelector({
                 >
                   {selectedModel.icon}
                   <span className="hidden sm:inline">{selectedModel.name}</span>
-                  {selectedModel.isAgent && (
-                    <Badge variant="outline" className="h-4 px-1 text-[9px] ml-1">
-                      Agent
-                    </Badge>
-                  )}
                   <ChevronDown className="h-3 w-3 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
@@ -140,8 +121,7 @@ export function ModelSelector({
             </TooltipContent>
           </Tooltip>
           <DropdownMenuContent align="start" className="w-64">
-            {/* Grok Models */}
-            {grokModels.map((option) => (
+            {MODEL_OPTIONS.map((option) => (
               <DropdownMenuItem
                 key={option.id}
                 onClick={() => onModelChange(option.id)}
@@ -164,46 +144,6 @@ export function ModelSelector({
                 </div>
               </DropdownMenuItem>
             ))}
-
-            {/* Agent Models Section */}
-            {agentModels.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <div className="px-2 py-1.5">
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Agent Models (Long-running)
-                  </span>
-                </div>
-                {agentModels.map((option) => (
-                  <DropdownMenuItem
-                    key={option.id}
-                    onClick={() => onModelChange(option.id)}
-                    className={cn(
-                      "flex items-start gap-3 py-2.5",
-                      model === option.id && "bg-muted"
-                    )}
-                  >
-                    <div className="flex-shrink-0 mt-0.5">{option.icon}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-sm flex items-center gap-1.5">
-                          {option.name}
-                          <Badge variant="secondary" className="h-4 px-1 text-[9px]">
-                            Agent
-                          </Badge>
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {option.creditRange} cr
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {option.description}
-                      </p>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </>
-            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </TooltipProvider>
@@ -224,16 +164,11 @@ export function ModelSelector({
         >
           {selectedModel.icon}
           {selectedModel.name}
-          {selectedModel.isAgent && (
-            <Badge variant="secondary" className="h-4 px-1 text-[9px]">
-              Agent
-            </Badge>
-          )}
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        {grokModels.map((option) => (
+        {MODEL_OPTIONS.map((option) => (
           <DropdownMenuItem
             key={option.id}
             onClick={() => onModelChange(option.id)}
@@ -256,45 +191,6 @@ export function ModelSelector({
             </div>
           </DropdownMenuItem>
         ))}
-
-        {agentModels.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <div className="px-2 py-1.5">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                Agent Models
-              </span>
-            </div>
-            {agentModels.map((option) => (
-              <DropdownMenuItem
-                key={option.id}
-                onClick={() => onModelChange(option.id)}
-                className={cn(
-                  "flex items-start gap-3 py-2.5",
-                  model === option.id && "bg-muted"
-                )}
-              >
-                <div className="flex-shrink-0 mt-0.5">{option.icon}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-sm flex items-center gap-1.5">
-                      {option.name}
-                      <Badge variant="secondary" className="h-4 px-1 text-[9px]">
-                        Agent
-                      </Badge>
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {option.creditRange} cr
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {option.description}
-                  </p>
-                </div>
-              </DropdownMenuItem>
-            ))}
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

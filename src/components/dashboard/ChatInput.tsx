@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Send, Loader2, X, Bot } from "lucide-react";
+import { Send, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResearchModeToggle, ResearchMode } from "./ResearchModeToggle";
-import { ModelSelector, ModelId, isManusModel } from "./ModelSelector";
+import { ModelSelector, ModelId } from "./ModelSelector";
 
 interface ChatInputProps {
   onSubmit: (message: string, mode: ResearchMode, model?: ModelId) => void;
@@ -22,9 +21,7 @@ export function ChatInput({
 }: ChatInputProps) {
   const [message, setMessage] = useState("");
   const [researchMode, setResearchMode] = useState<ResearchMode>("quick");
-  const [selectedModel, setSelectedModel] = useState<ModelId>("grok-4-latest");
-
-  const isAgentMode = isManusModel(selectedModel);
+  const [selectedModel, setSelectedModel] = useState<ModelId>("auto");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,15 +38,15 @@ export function ChatInput({
     }
   };
 
-  // Get credit range based on selected model
+  // Get credit range based on selected model and mode
   const getCreditHint = () => {
-    if (isAgentMode) {
-      return selectedModel === "manus-1-5" ? "15-40 credits" : "8-25 credits";
-    }
     if (researchMode === "deep") {
       return "8-25 credits";
     }
-    return "4-18 credits";
+    if (selectedModel === "gpt-4.1") {
+      return "6-18 credits";
+    }
+    return "4-12 credits";
   };
 
   return (
@@ -68,16 +65,9 @@ export function ChatInput({
             onModelChange={setSelectedModel}
             disabled={isLoading}
             compact
-            showAgentModels
           />
         </div>
         <div className="flex items-center gap-2">
-          {isAgentMode && (
-            <Badge variant="secondary" className="gap-1 text-xs">
-              <Bot className="h-3 w-3" />
-              Agent Mode
-            </Badge>
-          )}
           {isLoading && onCancel && (
             <Button
               type="button"
@@ -100,9 +90,7 @@ export function ChatInput({
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
-            isAgentMode
-              ? "Describe your research task for the AI agent (may take 5-30 minutes)..."
-              : researchMode === "deep"
+            researchMode === "deep"
               ? "Describe your research task in detail for comprehensive web search and analysis..."
               : placeholder
           }
@@ -139,7 +127,6 @@ export function ChatInput({
       <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
         <span>
           {getCreditHint()} • Press Enter to send
-          {isAgentMode && " • May take 5-30 min"}
         </span>
         <span className="hidden sm:inline">Shift + Enter for new line</span>
       </div>

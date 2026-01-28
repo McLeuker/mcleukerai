@@ -100,18 +100,26 @@ const MAX_RETRIES = 2;
 const PERPLEXITY_TIMEOUT = 60000;
 const FIRECRAWL_TIMEOUT = 30000;
 
-// ============ GROK MODEL CONFIGURATION ============
-// Supported Grok model versions
-const GROK_MODELS = {
-  "grok-4-latest": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-latest" },
-  "grok-4-mini": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-mini" },
-  "grok-4-fast": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-fast" },
+// ============ MODEL CONFIGURATION ============
+// Supported models - Grok for real-time, GPT-4.1 for complex reasoning
+const SUPPORTED_MODELS = {
+  "grok-4-latest": { 
+    provider: "grok",
+    endpoint: "https://api.x.ai/v1/chat/completions", 
+    model: "grok-4-latest" 
+  },
+  "gpt-4.1": { 
+    provider: "lovable",
+    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions", 
+    model: "openai/gpt-5" // GPT-4.1 maps to gpt-5 in Lovable AI gateway
+  },
 } as const;
 
-type GrokModelId = keyof typeof GROK_MODELS;
+type SupportedModelId = keyof typeof SUPPORTED_MODELS;
 
-// Default configuration
-const GROK_CONFIG = {
+// Current model configuration (set per request)
+let CURRENT_MODEL_CONFIG = {
+  provider: "grok" as "grok" | "lovable",
   endpoint: "https://api.x.ai/v1/chat/completions",
   model: "grok-4-latest" as string,
   temperature: 0.2,
@@ -323,9 +331,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Pro
   ]);
 }
 
-// ============ GROK API CALL ============
-// Single unified function for all Grok calls
-async function callGrok(
+// ============ AI MODEL API CALL ============
+// Unified function for all AI calls (Grok or GPT-4.1 via Lovable AI)
+async function callAI(
   apiKey: string,
   systemPrompt: string,
   userPrompt: string,
@@ -333,12 +341,12 @@ async function callGrok(
 ): Promise<{ success: boolean; content?: string; error?: string }> {
   try {
     const body: Record<string, unknown> = {
-      model: GROK_CONFIG.model,
+      model: CURRENT_MODEL_CONFIG.model,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      temperature: GROK_CONFIG.temperature,
+      temperature: CURRENT_MODEL_CONFIG.temperature,
       stream: options?.stream ?? false,
     };
 
@@ -346,7 +354,7 @@ async function callGrok(
       body.response_format = { type: "json_object" };
     }
 
-    const response = await fetch(GROK_CONFIG.endpoint, {
+    const response = await fetch(CURRENT_MODEL_CONFIG.endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -357,7 +365,7 @@ async function callGrok(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Grok API error:", response.status, errorText);
+      console.error("AI API error:", response.status, errorText);
       
       if (response.status === 429) {
         return { success: false, error: "Rate limit exceeded. Please try again shortly." };
@@ -365,52 +373,52 @@ async function callGrok(
       if (response.status === 401) {
         return { success: false, error: "AI authentication failed." };
       }
-      return { success: false, error: `Grok API error: ${response.status}` };
+      return { success: false, error: `AI API error: ${response.status}` };
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim();
     
     if (!content) {
-      return { success: false, error: "Empty response from Grok" };
+      return { success: false, error: "Empty response from AI" };
     }
 
     return { success: true, content };
   } catch (error) {
-    console.error("Grok call error:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Grok call failed" };
+    console.error("AI call error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "AI call failed" };
   }
 }
 
-// Grok streaming call for final report generation
-async function callGrokStreaming(
+// Streaming call for final report generation (works with both Grok and GPT-4.1)
+async function callAIStreaming(
   apiKey: string,
   systemPrompt: string,
   userPrompt: string,
   onChunk: (chunk: string) => void
 ): Promise<{ success: boolean; content?: string; error?: string }> {
   try {
-    const response = await fetch(GROK_CONFIG.endpoint, {
+    const response = await fetch(CURRENT_MODEL_CONFIG.endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: GROK_CONFIG.model,
+        model: CURRENT_MODEL_CONFIG.model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
-        temperature: GROK_CONFIG.temperature,
+        temperature: CURRENT_MODEL_CONFIG.temperature,
         stream: true,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Grok streaming error:", response.status, errorText);
-      return { success: false, error: `Grok API error: ${response.status}` };
+      console.error("AI streaming error:", response.status, errorText);
+      return { success: false, error: `AI API error: ${response.status}` };
     }
 
     const reader = response.body?.getReader();
@@ -448,7 +456,7 @@ async function callGrokStreaming(
 
     return { success: true, content: fullContent };
   } catch (error) {
-    console.error("Grok streaming error:", error);
+    console.error("AI streaming error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Streaming failed" };
   }
 }
@@ -722,21 +730,31 @@ serve(async (req) => {
         return;
       }
 
-      // Validate and set model
-      const selectedModel = (requestedModel && GROK_MODELS[requestedModel as GrokModelId]) 
-        ? requestedModel as GrokModelId 
+      // Validate and set model - support grok-4-latest and gpt-4.1
+      const selectedModel: SupportedModelId = (requestedModel && SUPPORTED_MODELS[requestedModel as SupportedModelId]) 
+        ? requestedModel as SupportedModelId 
         : "grok-4-latest";
       
       // Update config for this request
-      GROK_CONFIG.model = GROK_MODELS[selectedModel].model;
+      const modelConfig = SUPPORTED_MODELS[selectedModel];
+      CURRENT_MODEL_CONFIG = {
+        provider: modelConfig.provider,
+        endpoint: modelConfig.endpoint,
+        model: modelConfig.model,
+        temperature: 0.2,
+      };
 
-      // Get API keys - GROK IS REQUIRED
+      // Get API keys based on selected model
       const GROK_API_KEY = Deno.env.get("Grok_API");
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
       const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
 
-      if (!GROK_API_KEY) {
-        send({ phase: "failed", error: "Grok AI service not configured" });
+      // Determine which API key to use
+      const AI_API_KEY = CURRENT_MODEL_CONFIG.provider === "lovable" ? LOVABLE_API_KEY : GROK_API_KEY;
+
+      if (!AI_API_KEY) {
+        send({ phase: "failed", error: `${CURRENT_MODEL_CONFIG.provider === "lovable" ? "Lovable" : "Grok"} AI service not configured` });
         close();
         return;
       }
@@ -796,8 +814,8 @@ serve(async (req) => {
       // ============ PHASE 1: PLANNING (Grok) ============
       send({ phase: "planning", message: "Analyzing your research request...", queryType });
 
-      const planResult = await callGrok(
-        GROK_API_KEY,
+      const planResult = await callAI(
+        AI_API_KEY,
         PLANNER_SYSTEM_PROMPT,
         `Research Query: ${trimmedQuery}\n\nCreate a detailed research plan optimized for this ${queryType} query. Output JSON only.`,
         { jsonMode: true }
@@ -970,9 +988,9 @@ serve(async (req) => {
         researchFindings = `Note: Limited data was retrieved from external sources. The following response is based on available information.\n\nQuery: ${trimmedQuery}`;
       }
 
-      // Validate findings with Grok
-      const validationResult = await callGrok(
-        GROK_API_KEY,
+      // Validate findings with AI
+      const validationResult = await callAI(
+        AI_API_KEY,
         VALIDATOR_SYSTEM_PROMPT,
         `Validate the following research findings for the query: "${trimmedQuery}"\n\nFINDINGS:\n${researchFindings.slice(0, 4000)}\n\nSOURCES: ${allSources.length} sources collected`,
         { jsonMode: true }
@@ -1033,23 +1051,23 @@ CRITICAL INSTRUCTIONS:
 8. For supplier queries, use table format with key details
 9. For trend queries, organize by category with confidence levels`;
 
-      // Stream the response from Grok
+      // Stream the response from AI
       let finalContent = "";
       
       const synthesizerPrompt = getSynthesizerPromptWithDomain(activeDomain);
-      const streamResult = await callGrokStreaming(
-        GROK_API_KEY,
+      const streamResult = await callAIStreaming(
+        AI_API_KEY,
         synthesizerPrompt,
         generationPrompt,
-        (chunk) => {
+        (chunk: string) => {
           send({ phase: "generating", content: chunk });
         }
       );
 
       if (!streamResult.success || !streamResult.content) {
         // Fallback to non-streaming if streaming fails
-        const fallbackResult = await callGrok(
-          GROK_API_KEY,
+        const fallbackResult = await callAI(
+          AI_API_KEY,
           synthesizerPrompt,
           generationPrompt
         );
