@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Sector } from "@/contexts/SectorContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ExternalLink, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { RefreshCw, ExternalLink, AlertCircle, ChevronDown, ChevronUp, Signal, TrendingUp, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { IntelligenceItem } from "@/hooks/useDomainIntelligence";
@@ -10,6 +10,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
 
 interface DomainInsightsProps {
   sector: Sector;
@@ -17,6 +18,7 @@ interface DomainInsightsProps {
   isLoading: boolean;
   error?: string | null;
   source?: 'perplexity' | 'grok' | 'fallback' | null;
+  seasonContext?: string | null;
   onRefresh?: () => void;
 }
 
@@ -84,12 +86,46 @@ function extractSourceName(sourceStr: string, url?: string): string {
   }
 }
 
+// Confidence level styling
+function getConfidenceBadge(confidence: 'high' | 'medium' | 'low') {
+  const styles = {
+    high: 'bg-foreground/10 text-foreground border-foreground/20',
+    medium: 'bg-muted text-muted-foreground border-muted-foreground/20',
+    low: 'bg-muted/50 text-muted-foreground/70 border-muted-foreground/10',
+  };
+  return styles[confidence] || styles.medium;
+}
+
+// Data type indicator
+function getDataTypeIcon(dataType: 'realtime' | 'curated' | 'predictive') {
+  switch (dataType) {
+    case 'realtime':
+      return <Signal className="h-3 w-3" />;
+    case 'predictive':
+      return <TrendingUp className="h-3 w-3" />;
+    default:
+      return <Clock className="h-3 w-3" />;
+  }
+}
+
+function getDataTypeLabel(dataType: 'realtime' | 'curated' | 'predictive') {
+  switch (dataType) {
+    case 'realtime':
+      return 'Real-time';
+    case 'predictive':
+      return 'Predictive';
+    default:
+      return 'Curated';
+  }
+}
+
 export function DomainInsights({ 
   sector, 
   items, 
   isLoading, 
   error,
   source,
+  seasonContext,
   onRefresh 
 }: DomainInsightsProps) {
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
@@ -133,15 +169,29 @@ export function DomainInsights({
   return (
     <section className="w-full max-w-5xl mx-auto px-6 py-10 md:py-14">
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <div className="w-1 h-1 rounded-full bg-foreground" />
-          <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            What's Happening Now
-          </h2>
-          {source === 'fallback' && !isLoading && items.length > 0 && (
-            <span className="text-[10px] text-muted-foreground/60 ml-2">
-              (curated summary)
-            </span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-1 rounded-full bg-foreground" />
+            <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              What's Happening Now
+            </h2>
+            {source === 'perplexity' && !isLoading && items.length > 0 && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-foreground/20">
+                <Signal className="h-2.5 w-2.5 mr-1" />
+                Live
+              </Badge>
+            )}
+            {source === 'fallback' && !isLoading && items.length > 0 && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground border-muted-foreground/20">
+                <TrendingUp className="h-2.5 w-2.5 mr-1" />
+                Predictive
+              </Badge>
+            )}
+          </div>
+          {seasonContext && !isLoading && (
+            <p className="text-[11px] text-muted-foreground/60 ml-3">
+              Season: {seasonContext}
+            </p>
           )}
         </div>
         
@@ -194,18 +244,43 @@ export function DomainInsights({
                   "bg-card hover:bg-accent/30 transition-colors duration-200"
                 )}
               >
-                <h3 className="text-[15px] font-medium text-foreground leading-snug mb-2">
-                  {item.title}
-                </h3>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className="text-[15px] font-medium text-foreground leading-snug flex-1">
+                    {item.title}
+                  </h3>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge 
+                      variant="outline" 
+                      className={cn(
+                        "text-[10px] px-1.5 py-0 h-4 flex items-center gap-1",
+                        getConfidenceBadge(item.confidence)
+                      )}
+                    >
+                      {getDataTypeIcon(item.dataType)}
+                      {item.confidence.charAt(0).toUpperCase() + item.confidence.slice(1)}
+                    </Badge>
+                  </div>
+                </div>
                 
                 <p className="text-sm text-foreground/70 leading-relaxed mb-3">
                   {item.description}
                 </p>
                 
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    {getDataTypeIcon(item.dataType)}
+                    {getDataTypeLabel(item.dataType)}
+                  </span>
+                  <span className="text-muted-foreground/40">•</span>
                   <span>{formatDate(item.date)}</span>
                   <span className="text-muted-foreground/40">•</span>
                   <span>{extractSourceName(item.source, item.sourceUrl)}</span>
+                  {item.category && (
+                    <>
+                      <span className="text-muted-foreground/40">•</span>
+                      <span className="capitalize">{item.category}</span>
+                    </>
+                  )}
                 </div>
               </article>
             ))}

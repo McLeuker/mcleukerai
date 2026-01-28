@@ -31,6 +31,7 @@ const DomainLanding = () => {
     loading: intelligenceLoading, 
     error: intelligenceError,
     source: intelligenceSource,
+    seasonContext: intelligenceSeasonContext,
     fetchIntelligence,
     refresh: refreshIntelligence,
   } = useDomainIntelligence();
@@ -113,6 +114,7 @@ const DomainLanding = () => {
             isLoading={intelligenceLoading}
             error={intelligenceError}
             source={intelligenceSource}
+            seasonContext={intelligenceSeasonContext}
             onRefresh={handleRefresh}
           />
 
