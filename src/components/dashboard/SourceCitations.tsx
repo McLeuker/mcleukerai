@@ -62,7 +62,8 @@ function getRelevanceBadge(score?: number) {
 }
 
 export function SourceCitations({ sources, className }: SourceCitationsProps) {
-  const [isOpen, setIsOpen] = useState(true);
+  // Default to collapsed for cleaner UI - users can expand to see details
+  const [isOpen, setIsOpen] = useState(false);
   const [filterType, setFilterType] = useState<"all" | "search" | "scrape">("all");
   const [sortBy, setSortBy] = useState<"order" | "relevance">("order");
 
