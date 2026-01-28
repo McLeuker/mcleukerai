@@ -97,11 +97,13 @@ export function SourceCitations({ sources, className }: SourceCitationsProps) {
     return acc;
   }, [] as (Source & { name: string })[]);
 
-  // Compact one-line view text
+  // Compact one-line view: just source names separated by ·
   const compactSourceList = uniqueSources
-    .slice(0, 5)
-    .map((s, i) => `${i + 1}. ${s.name}`)
-    .join(' ');
+    .slice(0, 6)
+    .map(s => s.name)
+    .join(' · ');
+
+  const remainingCount = uniqueSources.length > 6 ? uniqueSources.length - 6 : 0;
 
   return (
     <Collapsible
@@ -109,18 +111,18 @@ export function SourceCitations({ sources, className }: SourceCitationsProps) {
       onOpenChange={setIsExpanded}
       className={cn("mt-4", className)}
     >
-      {/* Compact View - One Line */}
+      {/* Compact View - One Line with · separator */}
       <CollapsibleTrigger asChild>
         <button
           className="w-full flex items-center justify-between text-left py-2 group"
         >
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            <span className="text-xs font-semibold text-foreground">
               Sources:
             </span>
             <span className="text-xs text-muted-foreground">
               {compactSourceList}
-              {uniqueSources.length > 5 && ` +${uniqueSources.length - 5} more`}
+              {remainingCount > 0 && ` · +${remainingCount} more`}
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-3 shrink-0">
@@ -136,24 +138,19 @@ export function SourceCitations({ sources, className }: SourceCitationsProps) {
         </button>
       </CollapsibleTrigger>
 
-      {/* Expanded View - Title + Subtitle */}
+      {/* Expanded View - Title + Subtitle only, clickable */}
       <CollapsibleContent>
-        <div className="pt-3 pb-1 border-t border-border space-y-3">
+        <div className="pt-3 pb-1 border-t border-border space-y-2">
           {uniqueSources.map((source, index) => (
             <a
               key={`${source.url}-${index}`}
               href={source.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block group/item hover:bg-muted/30 rounded-md p-2 -mx-2 transition-colors"
+              className="block group/item hover:bg-muted/30 rounded-md py-1.5 px-2 -mx-2 transition-colors"
             >
               <div className="flex items-start gap-2">
-                {/* Number */}
-                <span className="text-xs text-muted-foreground font-medium shrink-0 mt-0.5">
-                  {index + 1}.
-                </span>
-                
-                {/* Content */}
+                {/* Content - Title + Subtitle only */}
                 <div className="flex-1 min-w-0">
                   {/* Source Name as Title */}
                   <div className="flex items-center gap-1.5">
@@ -167,13 +164,6 @@ export function SourceCitations({ sources, className }: SourceCitationsProps) {
                   {source.title && source.title !== source.name && (
                     <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                       {source.title}
-                    </p>
-                  )}
-                  
-                  {/* Snippet if available */}
-                  {source.snippet && (
-                    <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-1">
-                      {source.snippet}
                     </p>
                   )}
                 </div>
