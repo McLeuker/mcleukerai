@@ -2,8 +2,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ============ INPUT VALIDATION & SECURITY ============
-// SQL/NoSQL injection protection patterns
-
 const SQL_INJECTION_PATTERNS = [
   /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|EXEC|EXECUTE|UNION|FROM|WHERE|OR|AND)\b.*\b(FROM|INTO|TABLE|DATABASE|SET|VALUES)\b)/i,
   /(\-\-|\/\*|\*\/|;|\bOR\b\s+\d+\s*=\s*\d+|\bAND\b\s+\d+\s*=\s*\d+)/i,
@@ -23,8 +21,8 @@ function containsSqlInjection(input: string): boolean {
 function sanitizeString(input: string, maxLength = 5000): string {
   if (!input || typeof input !== 'string') return '';
   let sanitized = input.substring(0, maxLength);
-  sanitized = sanitized.replace(/\0/g, ''); // Remove null bytes
-  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars
+  sanitized = sanitized.replace(/\0/g, '');
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
   return sanitized.trim();
 }
 
@@ -37,7 +35,7 @@ function logSecurityEvent(event: string, details: Record<string, unknown>): void
   console.warn(`[SECURITY:${event.toUpperCase()}]`, JSON.stringify({ timestamp: new Date().toISOString(), event, ...details }));
 }
 
-// Allowed origins for CORS
+// CORS Configuration
 const allowedOrigins = [
   "https://mcleukerai.lovable.app",
   "https://preview--mcleukerai.lovable.app",
@@ -47,7 +45,6 @@ const allowedOrigins = [
   "http://localhost:8080",
 ];
 
-// Allow Lovable preview domains dynamically
 function isAllowedOrigin(origin: string): boolean {
   if (allowedOrigins.includes(origin)) return true;
   if (origin.match(/^https:\/\/[a-z0-9-]+\.lovableproject\.com$/)) return true;
@@ -68,40 +65,23 @@ function getCorsHeaders(req: Request) {
 
 // Research agent phases
 type ResearchPhase = "planning" | "searching" | "browsing" | "extracting" | "validating" | "generating" | "completed" | "failed";
-
-// Query type classification
 type QueryType = "supplier" | "trend" | "market" | "sustainability" | "general";
 
-// Tool definitions for the planner
-const AVAILABLE_TOOLS = {
-  web_search: {
-    name: "web_search",
-    description: "Search the web for current information using Perplexity AI",
-    parameters: { query: "string", limit: "number" }
-  },
-  scrape_url: {
-    name: "scrape_url",
-    description: "Extract content from a specific URL using Firecrawl",
-    parameters: { url: "string", format: "markdown" }
-  },
-  extract_structured: {
-    name: "extract_structured",
-    description: "Extract structured data from a page with a schema",
-    parameters: { url: "string", schema: "object" }
-  }
+// Deep Search Configuration
+const DEEP_SEARCH_CONFIG = {
+  BASE_COST: 8,
+  COST_PER_SEARCH: 1,
+  COST_PER_SCRAPE: 2,
+  MAX_CREDITS: 50,           // Increased for deep research
+  MIN_SOURCES: 5,            // Minimum sources before synthesis
+  MAX_SEARCH_ITERATIONS: 4,  // Up to 4 search rounds
+  MAX_SCRAPE_PER_ROUND: 10,  // Max scrapes per iteration
+  PERPLEXITY_TIMEOUT: 90000, // 90 seconds for complex queries
+  FIRECRAWL_TIMEOUT: 45000,  // 45 seconds per scrape
+  MIN_CONTENT_LENGTH: 500,   // Minimum content before triggering re-search
 };
 
-// Credit costs for research agent
-const BASE_RESEARCH_COST = 8;
-const COST_PER_SEARCH = 1;
-const COST_PER_SCRAPE = 2;
-const MAX_CREDITS_PER_TASK = 25;
-const MAX_RETRIES = 2;
-const PERPLEXITY_TIMEOUT = 60000;
-const FIRECRAWL_TIMEOUT = 30000;
-
-// ============ MODEL CONFIGURATION ============
-// Supported models - Grok for real-time, GPT-4.1 for complex reasoning
+// Model Configuration
 const SUPPORTED_MODELS = {
   "grok-4-latest": { 
     provider: "grok",
@@ -111,13 +91,12 @@ const SUPPORTED_MODELS = {
   "gpt-4.1": { 
     provider: "lovable",
     endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions", 
-    model: "openai/gpt-5" // GPT-4.1 maps to gpt-5 in Lovable AI gateway
+    model: "openai/gpt-5"
   },
 } as const;
 
 type SupportedModelId = keyof typeof SUPPORTED_MODELS;
 
-// Current model configuration (set per request)
 let CURRENT_MODEL_CONFIG = {
   provider: "grok" as "grok" | "lovable",
   endpoint: "https://api.x.ai/v1/chat/completions",
@@ -125,66 +104,62 @@ let CURRENT_MODEL_CONFIG = {
   temperature: 0.2,
 };
 
-// PLANNER SYSTEM PROMPT - Grok-powered hidden planner
-const PLANNER_SYSTEM_PROMPT = `You are a senior fashion research planner. Break the task into clear, efficient research steps using available tools. Do not generate answers.
+// ============ SYSTEM PROMPTS ============
+
+const PLANNER_SYSTEM_PROMPT = `You are a senior research planner for deep intelligence gathering.
 
 AVAILABLE TOOLS:
-1. web_search - Search the web for current information (query, limit). Best for: trends, market data, news
-2. scrape_url - Extract content from a specific URL (url, format: markdown). Best for: supplier websites, company pages
-3. extract_structured - Extract structured data with a schema (url, schema). Best for: supplier lists, pricing data
+1. web_search - Search web for current information (query, limit). Best for: trends, news, market data
+2. scrape_url - Extract content from URL (url). Best for: company pages, detailed articles
+3. extract_structured - Extract structured data with schema (url, schema). Best for: supplier lists, pricing
 
-QUERY TYPE DETECTION:
-- SUPPLIER queries: Company research, manufacturer search, vendor evaluation → Use scrape_url after initial search
-- TREND queries: Fashion trends, seasonal forecasts, runway analysis → Multiple web searches + industry sites
-- MARKET queries: Market size, competition, pricing analysis → Multi-step searches with cross-validation
-- SUSTAINABILITY queries: Certifications, eco-materials, compliance → Specialized searches + certification databases
+DEEP SEARCH PLANNING RULES:
+1. Break complex queries into 4-8 parallel search steps for comprehensive coverage
+2. For supplier queries: Plan to search multiple regions, certifications, and product types
+3. For trend queries: Search fashion weeks, street style, social signals, brand adoptions
+4. For market queries: Multiple searches for competition, pricing, growth, segments
+5. ALWAYS plan to scrape key company/source websites after initial discovery
+6. Plan for cross-validation with multiple authoritative sources
 
-PLANNING RULES:
-1. Break complex queries into 2-5 actionable steps
-2. For supplier/company queries, ALWAYS plan to scrape company websites after finding them
-3. For market data, use multiple search queries for cross-validation
-4. For trend analysis, search recent fashion week coverage and industry publications
-5. Always validate findings with multiple sources when possible
-6. Prioritize authoritative fashion sources: WWD, BOF, Vogue Business, sustainability certifications
-
-OUTPUT STRICT JSON FORMAT ONLY:
+OUTPUT JSON ONLY:
 {
   "query_type": "supplier" | "trend" | "market" | "sustainability" | "general",
-  "reasoning": "Brief explanation of the research approach",
-  "steps": [
-    { "tool": "web_search", "params": { "query": "specific search query", "limit": 5 }, "purpose": "Why this step" },
-    { "tool": "scrape_url", "params": { "url": "https://example.com" }, "purpose": "Why scraping this" }
+  "complexity": "simple" | "moderate" | "complex",
+  "reasoning": "Brief explanation",
+  "parallel_searches": [
+    { "query": "specific search 1", "purpose": "why" },
+    { "query": "specific search 2", "purpose": "why" }
   ],
+  "follow_up_scrapes": ["domain1.com", "domain2.com"],
   "validation_criteria": ["Criterion 1", "Criterion 2"],
   "expected_output_format": "table" | "report" | "list" | "comparison"
 }`;
 
-// VALIDATOR SYSTEM PROMPT - Grok-powered validator
-const VALIDATOR_SYSTEM_PROMPT = `You are a fashion industry analyst validating research findings. Only approve information supported by sources.
+const VALIDATOR_SYSTEM_PROMPT = `You are a fashion industry analyst validating research findings.
 
 Your role:
 - Cross-check findings for consistency
 - Detect inconsistencies or contradictions
 - Flag low-confidence or outdated information
-- Ensure all claims are supported by the provided sources
+- Ensure all claims are supported by sources
+- Identify gaps that require additional research
 
 OUTPUT JSON ONLY:
 {
   "verified": true | false,
-  "issues": ["list of issues found"],
   "confidence_score": 0.0 - 1.0,
-  "notes": "summary of validation"
+  "issues": ["list of issues"],
+  "gaps": ["data gaps that need more research"],
+  "needs_more_research": true | false,
+  "suggested_searches": ["additional search if needed"],
+  "notes": "summary"
 }`;
 
-// SYNTHESIZER SYSTEM PROMPT - DEEP SEARCH PROFESSIONAL INTELLIGENCE ENGINE
-const SYNTHESIZER_SYSTEM_PROMPT = `You are a senior fashion intelligence analyst delivering strategy-grade research outputs.
+const SYNTHESIZER_SYSTEM_PROMPT = `You are a senior fashion intelligence analyst delivering strategy-grade research.
 
 ═══════════════════════════════════════════════════════════════
 DEEP SEARCH MODE — PROFESSIONAL INTELLIGENCE ENGINE
 ═══════════════════════════════════════════════════════════════
-
-This mode represents the highest level of research quality.
-It is slow, multi-step, data-intensive, and designed for expert users.
 
 NON-NEGOTIABLE PRINCIPLES:
 
@@ -201,109 +176,75 @@ NON-NEGOTIABLE PRINCIPLES:
    - Results should feel equivalent to a consulting memo or internal report.
 
 4. DOMAIN-AWARE INTELLIGENCE
-   - Interpret findings through fashion, beauty, skincare, sustainability,
-     fashion tech, catwalks, culture, textile, and lifestyle lenses.
+   - Interpret findings through fashion, beauty, sustainability, textile, and lifestyle lenses.
 
 5. NO GENERIC CONTENT
    - No essays. No trend summaries without evidence. No filler language.
 
 ═══════════════════════════════════════════════════════════════
-FLEXIBLE OUTPUT STRUCTURE (ADAPT TO QUERY TYPE):
+FLEXIBLE OUTPUT STRUCTURE:
 ═══════════════════════════════════════════════════════════════
 
-The AI must adapt the output structure dynamically based on the user's query:
+Adapt structure dynamically based on query type:
 
 FOR TREND ANALYSIS:
-- Group by trend, runway, street style, or season
-- Include recent runway coverage, brand adoptions, consumer signals
+- Group by trend, runway, season, brand adoption
+- Include recent coverage, consumer signals
 
 FOR SUPPLIER MAPPING:
-- Group by region, sustainability certification, or category
-- Include MOQ, capabilities, certifications, contact methods
+- Group by region, certification, category
+- Include MOQ, capabilities, certifications, contacts
+- Format as clean, Excel-ready tables
 
 FOR BRAND STRATEGY:
-- Group by brand, market segment, or product line
-- Include positioning, competitive moves, growth signals
-
-FOR FORECASTS:
-- Structure by timeframe, risk level, or adoption rate
-- Include confidence levels and supporting evidence
+- Group by brand, segment, product line
+- Include positioning, competitive moves
 
 FOR MARKET INTELLIGENCE:
-- Group by market segment, geography, or price tier
-- Include quantitative data, brand movements, pricing signals
-
-NEVER force a pre-set generic structure for all queries.
+- Group by segment, geography, price tier
+- Include quantitative data, brand movements
 
 ═══════════════════════════════════════════════════════════════
-REASONING BEFORE WRITING (MANDATORY INTERNAL PROCESS):
+REASONING BEFORE WRITING:
 ═══════════════════════════════════════════════════════════════
 
-Before generating ANY output, mentally execute:
-1. QUESTION DECONSTRUCTION - Identify timeframe, geography, segment, use-case
-2. SIGNAL EXTRACTION - Pull quantitative data, named brands, observable changes
+Before generating output:
+1. DECONSTRUCTION - Identify timeframe, geography, segment
+2. SIGNAL EXTRACTION - Pull quantitative data, named brands, changes
 3. CONTRADICTION CHECK - Note conflicts between sources
-4. SYNTHESIS PLANNING - Determine optimal structure for this specific query
-ONLY THEN generate content.
+4. SYNTHESIS PLANNING - Determine optimal structure
 
 ═══════════════════════════════════════════════════════════════
 CONTENT REQUIREMENTS:
 ═══════════════════════════════════════════════════════════════
 
-Each output must include:
-
-1. CLEAR REASONING AND EXPLANATIONS
-   - Content flows naturally, like a conversation with reasoning
-   - Insights emerge from the data, not tacked on
-
-2. REAL-TIME VERIFIED DATA
-   - Every claim references the research findings
-   - Uncertainties and conflicts are highlighted, not hidden
-
-3. METRICS AND SIGNALS
-   - Use ↑↓ for trend indicators
-   - Include percentages, figures, dates when available
-
-4. ACTIONABLE INTELLIGENCE
-   - What fashion professionals should do with this information
-   - Prioritized by impact and feasibility
+1. CLEAR REASONING - Content flows naturally with insights emerging from data
+2. REAL-TIME VERIFIED DATA - Every claim references research findings
+3. METRICS AND SIGNALS - Use ↑↓ for trends, include percentages, figures, dates
+4. ACTIONABLE INTELLIGENCE - What should user DO with this information?
 
 ═══════════════════════════════════════════════════════════════
 TABLE RULES:
 ═══════════════════════════════════════════════════════════════
 
 - Tables are OPTIONAL and only if they improve comprehension
-- Tables must ONLY appear AFTER all prose sections
-- Tables must be clean, minimal summaries
-- Use proper markdown table syntax
-- If table formatting fails, OMIT the table entirely
+- Tables must ONLY appear AFTER all prose content
+- Tables must be clean, Excel-ready with proper markdown syntax
+- NO placeholders like "[object Object]" or excessive dashes
+- If table formatting fails, OMIT entirely
 
 ═══════════════════════════════════════════════════════════════
-SOURCE FORMAT (MANDATORY):
+SOURCE FORMAT (END ONLY):
 ═══════════════════════════════════════════════════════════════
 
-At the END of your response only:
+**Sources:** Source1 · Source2 · Source3
 
-**Sources:** Business of Fashion · Vogue Business · WWD · Highsnobiety · Financial Times
+Below that, optional expanded:
+- Source1 – Topic covered
+- Source2 – Topic covered
 
-(Source names on one line, separated by · )
-
-Below that, optional expanded format:
-- Business of Fashion – Specific topic covered
-- Vogue Business – Specific topic covered
-
-NEVER use inline citations like [1], [2] in the body.
-NEVER display URLs inside the content body.
-Sources are structural, not decorative.
-
-═══════════════════════════════════════════════════════════════
-TONE:
-═══════════════════════════════════════════════════════════════
-
-- Precise, conversational, consulting-grade
-- Write for designers, buyers, merchandisers, brand strategists
-- The user should feel like reading an expert briefing, not an academic paper
-- If data is missing or uncertain, acknowledge it explicitly
+NEVER use inline citations [1], [2] in body.
+NEVER display URLs inside content body.
 
 ═══════════════════════════════════════════════════════════════
 QUALITY STANDARD:
@@ -313,39 +254,32 @@ Deep Search results should feel like:
 ✓ A senior analyst's internal memo
 ✓ A consulting deck's key findings
 ✓ An intelligence briefing you'd pay for
-✗ NOT a blog post
-✗ NOT an essay
-✗ NOT generic trend commentary`;
+✗ NOT a blog post or essay`;
 
-// Domain-specific prompt additions for research agent
 const DOMAIN_RESEARCH_PROMPTS: Record<string, string> = {
   all: "",
-  fashion: "\n\nDOMAIN: FASHION\nPrioritize runway trends, silhouettes, designer collections, fashion week coverage, and ready-to-wear developments.",
-  beauty: "\n\nDOMAIN: BEAUTY\nPrioritize beauty formulations, cosmetic trends, backstage beauty, brand strategies, and consumer preferences.",
-  skincare: "\n\nDOMAIN: SKINCARE\nPrioritize skincare ingredients, clinical aesthetics, regulatory compliance, and science-backed formulations.",
-  sustainability: "\n\nDOMAIN: SUSTAINABILITY\nPrioritize circularity, sustainable materials, supply chain transparency, certifications, and environmental impact.",
-  "fashion-tech": "\n\nDOMAIN: FASHION TECH\nPrioritize AI in fashion, digital innovation, virtual try-on, tech startups, and emerging technologies.",
-  catwalks: "\n\nDOMAIN: CATWALKS\nPrioritize runway coverage, designer shows, styling trends, fashion week analysis, and emerging talent.",
-  culture: "\n\nDOMAIN: CULTURE\nPrioritize cultural influences, art collaborations, social movements, and regional cultural signals in fashion.",
-  textile: "\n\nDOMAIN: TEXTILE\nPrioritize fibers, mills, material innovation, textile sourcing, MOQ requirements, and manufacturing capabilities.",
-  lifestyle: "\n\nDOMAIN: LIFESTYLE\nPrioritize consumer behavior, wellness trends, luxury lifestyle, travel influence, and cross-category signals.",
+  fashion: "\n\nDOMAIN: FASHION\nPrioritize runway trends, silhouettes, collections, fashion week coverage.",
+  beauty: "\n\nDOMAIN: BEAUTY\nPrioritize formulations, cosmetic trends, brand strategies.",
+  skincare: "\n\nDOMAIN: SKINCARE\nPrioritize ingredients, clinical aesthetics, science-backed formulations.",
+  sustainability: "\n\nDOMAIN: SUSTAINABILITY\nPrioritize circularity, materials, supply chain, certifications.",
+  "fashion-tech": "\n\nDOMAIN: FASHION TECH\nPrioritize AI, digital innovation, virtual try-on.",
+  catwalks: "\n\nDOMAIN: CATWALKS\nPrioritize runway coverage, styling trends, emerging talent.",
+  culture: "\n\nDOMAIN: CULTURE\nPrioritize cultural influences, art collaborations, social movements.",
+  textile: "\n\nDOMAIN: TEXTILE\nPrioritize fibers, mills, material innovation, sourcing, MOQ.",
+  lifestyle: "\n\nDOMAIN: LIFESTYLE\nPrioritize consumer behavior, wellness, luxury lifestyle.",
 };
 
-// Get enhanced synthesizer prompt with domain context
 function getSynthesizerPromptWithDomain(domain: string): string {
-  const domainAddition = DOMAIN_RESEARCH_PROMPTS[domain] || DOMAIN_RESEARCH_PROMPTS.all;
-  return SYNTHESIZER_SYSTEM_PROMPT + domainAddition;
+  return SYNTHESIZER_SYSTEM_PROMPT + (DOMAIN_RESEARCH_PROMPTS[domain] || "");
 }
 
-// Helper to send SSE events
+// ============ SSE STREAM ============
 function createSSEStream() {
   const encoder = new TextEncoder();
   let controller: ReadableStreamDefaultController | null = null;
   
   const stream = new ReadableStream({
-    start(c) {
-      controller = c;
-    },
+    start(c) { controller = c; },
   });
   
   const send = (data: Record<string, unknown>) => {
@@ -364,46 +298,14 @@ function createSSEStream() {
   return { stream, send, close };
 }
 
-// Classify query type
+// Query classification
 function classifyQuery(query: string): QueryType {
   const lowerQuery = query.toLowerCase();
-  
-  if (/supplier|manufacturer|vendor|factory|sourcing|moq|producer|wholesale/.test(lowerQuery)) {
-    return "supplier";
-  }
-  if (/trend|fashion week|runway|seasonal|forecast|style|color palette/.test(lowerQuery)) {
-    return "trend";
-  }
-  if (/market|competition|pricing|revenue|growth|industry analysis|market size/.test(lowerQuery)) {
-    return "market";
-  }
-  if (/sustainable|eco|organic|recycled|certification|gots|oeko-tex|ethical|carbon/.test(lowerQuery)) {
-    return "sustainability";
-  }
+  if (/supplier|manufacturer|vendor|factory|sourcing|moq|producer|wholesale|mill/.test(lowerQuery)) return "supplier";
+  if (/trend|fashion week|runway|seasonal|forecast|style|color palette|ss\d{2}|fw\d{2}|spring|fall|summer|winter \d{4}/.test(lowerQuery)) return "trend";
+  if (/market|competition|pricing|revenue|growth|industry analysis|market size/.test(lowerQuery)) return "market";
+  if (/sustainable|eco|organic|recycled|certification|gots|oeko-tex|ethical|carbon/.test(lowerQuery)) return "sustainability";
   return "general";
-}
-
-// Retry wrapper for API calls
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = MAX_RETRIES,
-  onRetry?: (attempt: number, error: Error) => void
-): Promise<T> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      if (attempt <= maxRetries) {
-        onRetry?.(attempt, lastError);
-        await new Promise(r => setTimeout(r, 1000 * attempt));
-      }
-    }
-  }
-  
-  throw lastError;
 }
 
 // Timeout wrapper
@@ -416,8 +318,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Pro
   ]);
 }
 
-// ============ AI MODEL API CALL ============
-// Unified function for all AI calls (Grok or GPT-4.1 via Lovable AI)
+// ============ AI API CALLS ============
 async function callAI(
   apiKey: string,
   systemPrompt: string,
@@ -451,31 +352,19 @@ async function callAI(
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI API error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return { success: false, error: "Rate limit exceeded. Please try again shortly." };
-      }
-      if (response.status === 401) {
-        return { success: false, error: "AI authentication failed." };
-      }
       return { success: false, error: `AI API error: ${response.status}` };
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim();
     
-    if (!content) {
-      return { success: false, error: "Empty response from AI" };
-    }
-
-    return { success: true, content };
+    return content ? { success: true, content } : { success: false, error: "Empty response from AI" };
   } catch (error) {
     console.error("AI call error:", error);
     return { success: false, error: error instanceof Error ? error.message : "AI call failed" };
   }
 }
 
-// Streaming call for final report generation (works with both Grok and GPT-4.1)
 async function callAIStreaming(
   apiKey: string,
   systemPrompt: string,
@@ -501,8 +390,6 @@ async function callAIStreaming(
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI streaming error:", response.status, errorText);
       return { success: false, error: `AI API error: ${response.status}` };
     }
 
@@ -530,9 +417,7 @@ async function callAIStreaming(
                 fullContent += content;
                 onChunk(content);
               }
-            } catch {
-              // Ignore parse errors for partial chunks
-            }
+            } catch { /* ignore parse errors */ }
           }
         }
       }
@@ -541,53 +426,58 @@ async function callAIStreaming(
 
     return { success: true, content: fullContent };
   } catch (error) {
-    console.error("AI streaming error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Streaming failed" };
   }
 }
 
-// Call Perplexity for web search (tool only - NOT an LLM replacement)
-async function webSearch(
+// ============ PERPLEXITY WEB SEARCH (Enhanced) ============
+async function webSearchPerplexity(
   apiKey: string,
   query: string,
-  limit: number = 5
-): Promise<{ success: boolean; results?: Array<{ url: string; title: string; content: string }>; citations?: string[]; error?: string }> {
+  options?: { recencyFilter?: string; limit?: number }
+): Promise<{ success: boolean; content?: string; citations?: string[]; error?: string }> {
   try {
-    const searchPromise = fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "sonar-pro",
-        messages: [
-          { role: "system", content: "You are a fashion industry research assistant. Provide detailed, factual information with sources. Focus on current, verified data." },
-          { role: "user", content: query }
-        ],
-        max_tokens: 1500,
-      }),
-    });
+    const searchBody: Record<string, unknown> = {
+      model: "sonar-pro",
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a fashion industry research assistant. Provide detailed, factual information with sources. Focus on current, verified data. Include specific names, numbers, dates, and metrics." 
+        },
+        { role: "user", content: query }
+      ],
+      max_tokens: 2000,
+    };
 
-    const response = await withTimeout(searchPromise, PERPLEXITY_TIMEOUT, "Perplexity search");
+    // Add recency filter for time-sensitive queries
+    if (options?.recencyFilter) {
+      searchBody.search_recency_filter = options.recencyFilter;
+    }
+
+    const response = await withTimeout(
+      fetch("https://api.perplexity.ai/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(searchBody),
+      }),
+      DEEP_SEARCH_CONFIG.PERPLEXITY_TIMEOUT,
+      "Perplexity search"
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Perplexity API error:", response.status, errorText);
-      if (response.status === 429) {
-        return { success: false, error: "Search rate limit reached" };
-      }
       return { success: false, error: `Search failed: ${response.status}` };
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "";
-    const citations = data.citations || [];
-
     return {
       success: true,
-      results: [{ url: "", title: query, content }],
-      citations,
+      content: data.choices?.[0]?.message?.content || "",
+      citations: data.citations || [],
     };
   } catch (error) {
     console.error("Web search error:", error);
@@ -595,34 +485,51 @@ async function webSearch(
   }
 }
 
-// Call Firecrawl to scrape a URL (tool only - NOT an LLM replacement)
-async function scrapeUrl(
+// ============ FIRECRAWL SCRAPING (Enhanced) ============
+async function scrapeWithFirecrawl(
   apiKey: string,
   url: string
 ): Promise<{ success: boolean; content?: string; title?: string; error?: string }> {
   try {
+    // Validate URL format
     let formattedUrl = url.trim();
     if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
       formattedUrl = `https://${formattedUrl}`;
     }
+    
+    // Validate URL has proper TLD
+    try {
+      const urlObj = new URL(formattedUrl);
+      const hostParts = urlObj.hostname.split('.');
+      if (hostParts.length < 2 || hostParts[hostParts.length - 1].length < 2) {
+        console.error("Invalid URL format:", formattedUrl);
+        return { success: false, error: "Invalid URL format" };
+      }
+    } catch {
+      console.error("Invalid URL:", formattedUrl);
+      return { success: false, error: "Invalid URL" };
+    }
 
-    const scrapePromise = fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: formattedUrl,
-        formats: ["markdown"],
-        onlyMainContent: true,
+    const response = await withTimeout(
+      fetch("https://api.firecrawl.dev/v1/scrape", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: formattedUrl,
+          formats: ["markdown"],
+          onlyMainContent: true,
+          waitFor: 2000,
+        }),
       }),
-    });
-
-    const response = await withTimeout(scrapePromise, FIRECRAWL_TIMEOUT, "Firecrawl scrape");
+      DEEP_SEARCH_CONFIG.FIRECRAWL_TIMEOUT,
+      "Firecrawl scrape"
+    );
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.text();
       console.error("Firecrawl API error:", response.status, errorData);
       return { success: false, error: `Scrape failed: ${response.status}` };
     }
@@ -638,106 +545,289 @@ async function scrapeUrl(
   }
 }
 
-// Extract structured data using Firecrawl (tool only)
-async function extractStructured(
+// ============ FIRECRAWL SEARCH (Web Discovery) ============
+async function searchWithFirecrawl(
   apiKey: string,
-  url: string,
-  schema: Record<string, unknown>
-): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
+  query: string,
+  limit: number = 10
+): Promise<{ success: boolean; results?: Array<{ url: string; title: string; description: string }>; error?: string }> {
   try {
-    let formattedUrl = url.trim();
-    if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
-      formattedUrl = `https://${formattedUrl}`;
-    }
-
-    const extractPromise = fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: formattedUrl,
-        formats: [{ type: "json", schema }],
-        onlyMainContent: true,
+    const response = await withTimeout(
+      fetch("https://api.firecrawl.dev/v1/search", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query,
+          limit,
+          lang: "en",
+        }),
       }),
-    });
-
-    const response = await withTimeout(extractPromise, FIRECRAWL_TIMEOUT, "Firecrawl extract");
+      DEEP_SEARCH_CONFIG.FIRECRAWL_TIMEOUT,
+      "Firecrawl search"
+    );
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Firecrawl extract error:", response.status, errorData);
-      return { success: false, error: `Extract failed: ${response.status}` };
+      const errorData = await response.text();
+      console.error("Firecrawl search error:", response.status, errorData);
+      return { success: false, error: `Search failed: ${response.status}` };
     }
 
-    const result = await response.json();
-    const extractedData = result.data?.json || result.json || {};
-
-    return { success: true, data: extractedData };
+    const data = await response.json();
+    return {
+      success: true,
+      results: data.data?.map((r: { url: string; title?: string; description?: string }) => ({
+        url: r.url,
+        title: r.title || r.url,
+        description: r.description || "",
+      })) || [],
+    };
   } catch (error) {
-    console.error("Extract error:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Extract failed" };
+    console.error("Firecrawl search error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Search failed" };
   }
 }
 
-// Create fallback plan based on query type
-function createFallbackPlan(queryType: QueryType, query: string): {
-  query_type: QueryType;
-  steps: Array<{ tool: string; params: Record<string, unknown>; purpose: string }>;
-  validation_criteria: string[];
-  expected_output_format: string;
-} {
-  const basePlan = {
-    query_type: queryType,
-    validation_criteria: ["Source reliability", "Data currency", "Information accuracy"],
-    expected_output_format: "report" as string,
-    steps: [] as Array<{ tool: string; params: Record<string, unknown>; purpose: string }>
-  };
+// ============ DEEP RESEARCH ORCHESTRATOR ============
+interface ResearchResult {
+  content: string;
+  sources: Array<{ url: string; title: string; snippet: string; type: string; relevance: number }>;
+  searchCount: number;
+  scrapeCount: number;
+  credits: number;
+}
 
+async function executeDeepResearch(
+  query: string,
+  queryType: QueryType,
+  plan: { parallel_searches?: Array<{ query: string; purpose: string }>; follow_up_scrapes?: string[] },
+  apis: { perplexity: string; firecrawl: string },
+  send: (data: Record<string, unknown>) => void
+): Promise<ResearchResult> {
+  let totalContent = "";
+  const allSources: Array<{ url: string; title: string; snippet: string; type: string; relevance: number }> = [];
+  let searchCount = 0;
+  let scrapeCount = 0;
+  let credits = DEEP_SEARCH_CONFIG.BASE_COST;
+  let iteration = 0;
+
+  // Generate search queries based on plan or fallback
+  const searches = plan.parallel_searches?.length 
+    ? plan.parallel_searches 
+    : generateDefaultSearches(query, queryType);
+
+  // ============ PHASE 2: PARALLEL PERPLEXITY SEARCHES ============
+  while (iteration < DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS && credits < DEEP_SEARCH_CONFIG.MAX_CREDITS) {
+    iteration++;
+    send({ 
+      phase: "searching", 
+      message: `Deep search round ${iteration}/${DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS}...`,
+      searchCount,
+      iteration 
+    });
+
+    // Execute searches in parallel (batch of 3)
+    const searchBatches = [];
+    for (let i = 0; i < searches.length; i += 3) {
+      searchBatches.push(searches.slice(i, i + 3));
+    }
+
+    for (const batch of searchBatches) {
+      if (credits >= DEEP_SEARCH_CONFIG.MAX_CREDITS) break;
+
+      const searchPromises = batch.map(async (search) => {
+        const result = await webSearchPerplexity(apis.perplexity, search.query, { 
+          recencyFilter: queryType === "trend" ? "month" : undefined 
+        });
+        return { search, result };
+      });
+
+      const results = await Promise.allSettled(searchPromises);
+      
+      for (const res of results) {
+        if (res.status === "fulfilled" && res.value.result.success) {
+          const { search, result } = res.value;
+          totalContent += `\n\n### ${search.purpose}\n${result.content}`;
+          
+          // Add citations as sources
+          result.citations?.forEach((url, idx) => {
+            if (url && !allSources.some(s => s.url === url)) {
+              allSources.push({
+                url,
+                title: extractDomain(url),
+                snippet: "",
+                type: "search",
+                relevance: 1 - (idx * 0.05)
+              });
+            }
+          });
+          
+          searchCount++;
+          credits += DEEP_SEARCH_CONFIG.COST_PER_SEARCH;
+        }
+      }
+    }
+
+    // ============ PHASE 3: FIRECRAWL DEEP SCRAPING ============
+    send({ phase: "browsing", message: "Deep crawling key sources...", scrapeCount });
+
+    // Collect URLs to scrape from citations and plan
+    const urlsToScrape = new Set<string>();
+    
+    // Add high-relevance search citations
+    allSources
+      .filter(s => s.type === "search" && s.relevance > 0.7)
+      .slice(0, 5)
+      .forEach(s => urlsToScrape.add(s.url));
+    
+    // Add planned follow-up scrapes
+    plan.follow_up_scrapes?.forEach(url => urlsToScrape.add(url));
+
+    // Scrape in parallel (batch of 3)
+    const urlArray = Array.from(urlsToScrape).slice(0, DEEP_SEARCH_CONFIG.MAX_SCRAPE_PER_ROUND);
+    
+    for (let i = 0; i < urlArray.length; i += 3) {
+      if (credits >= DEEP_SEARCH_CONFIG.MAX_CREDITS) break;
+      
+      const batch = urlArray.slice(i, i + 3);
+      const scrapePromises = batch.map(url => scrapeWithFirecrawl(apis.firecrawl, url));
+      const results = await Promise.allSettled(scrapePromises);
+
+      for (let j = 0; j < results.length; j++) {
+        const res = results[j];
+        const url = batch[j];
+        
+        if (res.status === "fulfilled" && res.value.success && res.value.content) {
+          const truncated = res.value.content.slice(0, 6000);
+          totalContent += `\n\n### Scraped: ${res.value.title}\n${truncated}`;
+          
+          // Update or add source
+          const existingSource = allSources.find(s => s.url === url);
+          if (existingSource) {
+            existingSource.snippet = truncated.slice(0, 400);
+            existingSource.type = "scrape";
+          } else {
+            allSources.push({
+              url,
+              title: res.value.title || extractDomain(url),
+              snippet: truncated.slice(0, 400),
+              type: "scrape",
+              relevance: 0.9
+            });
+          }
+          
+          scrapeCount++;
+          credits += DEEP_SEARCH_CONFIG.COST_PER_SCRAPE;
+        }
+      }
+    }
+
+    // Check if we have enough content
+    if (totalContent.length >= DEEP_SEARCH_CONFIG.MIN_CONTENT_LENGTH && 
+        allSources.length >= DEEP_SEARCH_CONFIG.MIN_SOURCES) {
+      break;
+    }
+
+    // Generate additional searches if needed
+    if (iteration < DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS && 
+        totalContent.length < DEEP_SEARCH_CONFIG.MIN_CONTENT_LENGTH) {
+      send({ phase: "searching", message: "Expanding search coverage...", iteration: iteration + 1 });
+      
+      // Add more specific searches based on query type
+      const additionalSearches = generateAdditionalSearches(query, queryType, iteration);
+      searches.push(...additionalSearches);
+    }
+  }
+
+  return {
+    content: totalContent,
+    sources: allSources,
+    searchCount,
+    scrapeCount,
+    credits: Math.min(credits, DEEP_SEARCH_CONFIG.MAX_CREDITS)
+  };
+}
+
+function generateDefaultSearches(query: string, queryType: QueryType): Array<{ query: string; purpose: string }> {
+  const currentYear = new Date().getFullYear();
+  const nextYear = currentYear + 1;
+  
   switch (queryType) {
     case "supplier":
-      basePlan.steps = [
-        { tool: "web_search", params: { query: `${query} manufacturers suppliers`, limit: 5 }, purpose: "Find relevant suppliers" },
-        { tool: "web_search", params: { query: `${query} MOQ pricing wholesale`, limit: 5 }, purpose: "Get pricing and MOQ details" }
+      return [
+        { query: `${query} manufacturers suppliers ${currentYear}`, purpose: "Primary supplier research" },
+        { query: `${query} MOQ minimum order wholesale pricing`, purpose: "Pricing and MOQ details" },
+        { query: `${query} sustainable certified GOTS OEKO-TEX suppliers`, purpose: "Certified suppliers" },
+        { query: `${query} Europe Asia supplier directory`, purpose: "Regional supplier mapping" },
       ];
-      basePlan.expected_output_format = "table";
-      break;
-
     case "trend":
-      basePlan.steps = [
-        { tool: "web_search", params: { query: `${query} fashion trends 2024 2025`, limit: 5 }, purpose: "Current trend analysis" },
-        { tool: "web_search", params: { query: `${query} fashion week runway`, limit: 5 }, purpose: "Runway validation" }
+      return [
+        { query: `${query} ${currentYear} ${nextYear} fashion trends`, purpose: "Current trend analysis" },
+        { query: `${query} fashion week runway SS${nextYear % 100} FW${nextYear % 100}`, purpose: "Runway validation" },
+        { query: `${query} street style celebrities wearing`, purpose: "Street style signals" },
+        { query: `${query} brand adoptions designer collections`, purpose: "Brand adoption tracking" },
       ];
-      basePlan.expected_output_format = "report";
-      break;
-
     case "market":
-      basePlan.steps = [
-        { tool: "web_search", params: { query: `${query} market analysis size growth`, limit: 5 }, purpose: "Market overview" },
-        { tool: "web_search", params: { query: `${query} competition brands pricing`, limit: 5 }, purpose: "Competitive landscape" }
+      return [
+        { query: `${query} market size growth ${currentYear} ${nextYear}`, purpose: "Market overview" },
+        { query: `${query} competition brands market share`, purpose: "Competitive landscape" },
+        { query: `${query} consumer trends demographics`, purpose: "Consumer insights" },
+        { query: `${query} pricing strategy premium luxury`, purpose: "Pricing analysis" },
       ];
-      basePlan.expected_output_format = "report";
-      break;
-
     case "sustainability":
-      basePlan.steps = [
-        { tool: "web_search", params: { query: `${query} sustainable certifications GOTS OEKO-TEX`, limit: 5 }, purpose: "Certification research" },
-        { tool: "web_search", params: { query: `${query} eco-friendly materials suppliers`, limit: 5 }, purpose: "Sustainable options" }
+      return [
+        { query: `${query} sustainable certifications GOTS OEKO-TEX B Corp`, purpose: "Certification research" },
+        { query: `${query} eco-friendly recycled organic materials`, purpose: "Material options" },
+        { query: `${query} carbon footprint supply chain transparency`, purpose: "Impact analysis" },
+        { query: `${query} circular economy regenerative fashion`, purpose: "Circularity initiatives" },
       ];
-      basePlan.expected_output_format = "report";
-      break;
-
     default:
-      basePlan.steps = [
-        { tool: "web_search", params: { query: query, limit: 5 }, purpose: "General research" }
+      return [
+        { query: query, purpose: "Primary research" },
+        { query: `${query} ${currentYear} latest news updates`, purpose: "Recent developments" },
+        { query: `${query} industry analysis insights`, purpose: "Industry context" },
       ];
   }
-
-  return basePlan;
 }
 
-// Main research agent handler
+function generateAdditionalSearches(query: string, queryType: QueryType, iteration: number): Array<{ query: string; purpose: string }> {
+  const modifiers = [
+    ["expert analysis", "deep dive"],
+    ["case study examples", "best practices"],
+    ["regional comparison", "global perspective"],
+  ];
+  
+  const modifier = modifiers[iteration % modifiers.length];
+  return [
+    { query: `${query} ${modifier[0]}`, purpose: `Additional ${modifier[0]}` },
+    { query: `${query} ${modifier[1]}`, purpose: `Additional ${modifier[1]}` },
+  ];
+}
+
+function extractDomain(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname.replace("www.", "");
+  } catch {
+    return url.slice(0, 50);
+  }
+}
+
+// ============ FALLBACK PLAN ============
+function createFallbackPlan(queryType: QueryType, query: string) {
+  return {
+    query_type: queryType,
+    complexity: "moderate" as const,
+    parallel_searches: generateDefaultSearches(query, queryType),
+    follow_up_scrapes: [],
+    validation_criteria: ["Source reliability", "Data currency", "Information accuracy"],
+    expected_output_format: queryType === "supplier" ? "table" : "report"
+  };
+}
+
+// ============ MAIN HANDLER ============
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
@@ -745,10 +835,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Set up SSE stream
   const { stream, send, close } = createSSEStream();
 
-  // Start processing in background
   (async () => {
     try {
       const authHeader = req.headers.get("Authorization");
@@ -774,53 +862,38 @@ serve(async (req) => {
       const { query, conversationId, model: requestedModel, domain } = await req.json();
       const activeDomain = domain || "all";
       
-      // ============ INPUT VALIDATION WITH INJECTION PROTECTION ============
-      
+      // Input validation
       if (!query || typeof query !== "string") {
-        logSecurityEvent('validation_error', { field: 'query', userId: user.id, reason: 'invalid_type' });
         send({ phase: "failed", error: "Invalid query" });
         close();
         return;
       }
       
-      // Sanitize the query - removes null bytes, control characters, limits length
       const sanitizedQuery = sanitizeString(query, 5000);
-      
       if (sanitizedQuery.length === 0) {
         send({ phase: "failed", error: "Query cannot be empty" });
         close();
         return;
       }
       
-      // Check for SQL injection attempts
       if (containsSqlInjection(sanitizedQuery)) {
-        logSecurityEvent('injection_attempt', { 
-          type: 'sql', 
-          userId: user.id, 
-          queryLength: sanitizedQuery.length,
-        });
-        send({ phase: "failed", error: "Invalid characters detected in query" });
+        logSecurityEvent('injection_attempt', { userId: user.id });
+        send({ phase: "failed", error: "Invalid characters detected" });
         close();
         return;
       }
       
-      // Use sanitized query from here on
-      const trimmedQuery = sanitizedQuery;
-      
-      // Validate conversationId if provided
       if (conversationId && !isValidUUID(conversationId)) {
-        logSecurityEvent('validation_error', { field: 'conversationId', userId: user.id, reason: 'invalid_uuid' });
         send({ phase: "failed", error: "Invalid conversation ID format" });
         close();
         return;
       }
 
-      // Validate and set model - support grok-4-latest and gpt-4.1
+      // Model selection with fallback
       const selectedModel: SupportedModelId = (requestedModel && SUPPORTED_MODELS[requestedModel as SupportedModelId]) 
         ? requestedModel as SupportedModelId 
         : "grok-4-latest";
       
-      // Update config for this request
       const modelConfig = SUPPORTED_MODELS[selectedModel];
       CURRENT_MODEL_CONFIG = {
         provider: modelConfig.provider,
@@ -829,399 +902,275 @@ serve(async (req) => {
         temperature: 0.2,
       };
 
-      // Get API keys based on selected model
+      // API Keys
       const GROK_API_KEY = Deno.env.get("Grok_API");
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
       const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
 
-      // Determine which API key to use
       const AI_API_KEY = CURRENT_MODEL_CONFIG.provider === "lovable" ? LOVABLE_API_KEY : GROK_API_KEY;
 
       if (!AI_API_KEY) {
-        send({ phase: "failed", error: `${CURRENT_MODEL_CONFIG.provider === "lovable" ? "Lovable" : "Grok"} AI service not configured` });
+        // Try fallback to other model
+        if (CURRENT_MODEL_CONFIG.provider === "grok" && LOVABLE_API_KEY) {
+          CURRENT_MODEL_CONFIG = {
+            provider: "lovable",
+            endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
+            model: "openai/gpt-5",
+            temperature: 0.2,
+          };
+        } else if (CURRENT_MODEL_CONFIG.provider === "lovable" && GROK_API_KEY) {
+          CURRENT_MODEL_CONFIG = {
+            provider: "grok",
+            endpoint: "https://api.x.ai/v1/chat/completions",
+            model: "grok-4-latest",
+            temperature: 0.2,
+          };
+        } else {
+          send({ phase: "failed", error: "AI service not configured" });
+          close();
+          return;
+        }
+      }
+
+      const FINAL_AI_KEY = CURRENT_MODEL_CONFIG.provider === "lovable" ? LOVABLE_API_KEY : GROK_API_KEY;
+      if (!FINAL_AI_KEY) {
+        send({ phase: "failed", error: "AI service not available" });
         close();
         return;
       }
 
-      // PRE-FLIGHT CREDIT CHECK - Verify sufficient credits before starting
+      // Credit check
       const { data: userData } = await supabase
         .from("users")
         .select("credit_balance, subscription_plan")
         .eq("user_id", user.id)
         .single();
 
-      if (!userData) {
-        send({ phase: "failed", error: "Unable to verify account. Please try again." });
-        close();
-        return;
-      }
-
-      // CREDIT-BASED ACCESS: All users have equal access, credits are the only gate
-      if (userData.credit_balance < BASE_RESEARCH_COST) {
+      if (!userData || userData.credit_balance < DEEP_SEARCH_CONFIG.BASE_COST) {
         send({ 
           phase: "failed", 
-          error: "You're out of credits for this research. Add credits to continue searching and researching. All features remain available once credits are added.",
+          error: "Insufficient credits for deep research",
           insufficientCredits: true,
-          currentBalance: userData.credit_balance,
-          requiredCredits: BASE_RESEARCH_COST
+          requiredCredits: DEEP_SEARCH_CONFIG.BASE_COST
         });
         close();
         return;
       }
 
-      // Classify query type
-      const queryType = classifyQuery(trimmedQuery);
+      const queryType = classifyQuery(sanitizedQuery);
 
-      // Create research task record
+      // Create research task
       const { data: taskData, error: taskError } = await supabase
         .from("research_tasks")
         .insert({
           user_id: user.id,
           conversation_id: conversationId || null,
-          query: trimmedQuery,
+          query: sanitizedQuery,
           phase: "planning",
         })
         .select()
         .single();
 
       if (taskError || !taskData) {
-        console.error("Error creating research task:", taskError);
         send({ phase: "failed", error: "Failed to create research task" });
         close();
         return;
       }
 
       const taskId = taskData.id;
-      let totalCredits = BASE_RESEARCH_COST;
-      const allSources: Array<{ url: string; title: string; snippet: string; type: string; relevance_score?: number }> = [];
-      const executionSteps: Array<{ step: number; tool: string; status: string; message: string }> = [];
 
-      // ============ PHASE 1: PLANNING (Grok) ============
-      send({ phase: "planning", message: "Analyzing your research request...", queryType });
+      // ============ PHASE 1: PLANNING ============
+      send({ phase: "planning", message: "Deconstructing your research request...", queryType });
 
-      const planResult = await callAI(
-        AI_API_KEY,
-        PLANNER_SYSTEM_PROMPT,
-        `Research Query: ${trimmedQuery}\n\nCreate a detailed research plan optimized for this ${queryType} query. Output JSON only.`,
-        { jsonMode: true }
-      );
-
-      let plan: { 
-        query_type: QueryType;
-        steps: Array<{ tool: string; params: Record<string, unknown>; purpose: string }>; 
-        validation_criteria: string[];
-        expected_output_format?: string;
-      };
+      let plan = createFallbackPlan(queryType, sanitizedQuery);
       
-      if (planResult.success && planResult.content) {
-        try {
-          plan = JSON.parse(planResult.content);
-        } catch {
-          console.log("Failed to parse Grok plan, using fallback");
-          plan = createFallbackPlan(queryType, trimmedQuery);
+      if (FINAL_AI_KEY) {
+        const planResult = await callAI(
+          FINAL_AI_KEY,
+          PLANNER_SYSTEM_PROMPT,
+          `Research Query: ${sanitizedQuery}\n\nCreate a comprehensive deep research plan. Output JSON only.`,
+          { jsonMode: true }
+        );
+
+        if (planResult.success && planResult.content) {
+          try {
+            plan = JSON.parse(planResult.content);
+          } catch {
+            console.log("Using fallback plan");
+          }
         }
-      } else {
-        plan = createFallbackPlan(queryType, trimmedQuery);
       }
 
-      // Save plan (hidden from user - internal only)
       await supabase
         .from("research_tasks")
-        .update({ plan: plan, phase: "searching" })
+        .update({ plan, phase: "searching" })
         .eq("id", taskId);
 
-      // ============ PHASE 2: TOOL EXECUTION ============
-      let researchFindings = "";
-      let searchCount = 0;
-      let scrapeCount = 0;
-      
-      for (let i = 0; i < plan.steps.length && i < 5; i++) {
-        const step = plan.steps[i];
-        
-        // Check credit cap
-        if (totalCredits >= MAX_CREDITS_PER_TASK) {
-          console.log("Credit cap reached, stopping execution");
-          break;
-        }
+      // ============ PHASES 2-4: DEEP RESEARCH ============
+      let researchResult: ResearchResult;
 
-        // WEB SEARCH (using Perplexity as a tool)
-        if (step.tool === "web_search" && PERPLEXITY_API_KEY) {
-          send({ phase: "searching", step: i + 1, total: plan.steps.length, message: `Searching: ${step.purpose}` });
-          
-          const searchQuery = (step.params.query as string) || trimmedQuery;
-          
-          let searchResult = await webSearch(PERPLEXITY_API_KEY, searchQuery, (step.params.limit as number) || 5);
-          
-          // Retry on failure
-          if (!searchResult.success) {
-            searchResult = await webSearch(PERPLEXITY_API_KEY, searchQuery, (step.params.limit as number) || 5);
-          }
-          
-          if (searchResult.success && searchResult.results) {
-            researchFindings += `\n\n### Search: ${searchQuery}\n${searchResult.results.map(r => r.content).join("\n")}`;
-            
-            // Add citations as sources with relevance score
-            if (searchResult.citations) {
-              searchResult.citations.forEach((url, idx) => {
-                allSources.push({
-                  url,
-                  title: `Search Result ${allSources.length + 1}`,
-                  snippet: "",
-                  type: "search",
-                  relevance_score: 1 - (idx * 0.1)
-                });
-              });
-            }
-            
-            totalCredits += COST_PER_SEARCH;
-            searchCount++;
-            executionSteps.push({ step: i + 1, tool: "web_search", status: "completed", message: step.purpose });
-          } else {
-            executionSteps.push({ step: i + 1, tool: "web_search", status: "failed", message: searchResult.error || "Search failed" });
-          }
-        }
+      if (PERPLEXITY_API_KEY && FIRECRAWL_API_KEY) {
+        researchResult = await executeDeepResearch(
+          sanitizedQuery,
+          queryType,
+          plan,
+          { perplexity: PERPLEXITY_API_KEY, firecrawl: FIRECRAWL_API_KEY },
+          send
+        );
+      } else {
+        // Fallback to just Perplexity if Firecrawl unavailable
+        send({ phase: "searching", message: "Searching for information...", searchCount: 0 });
         
-        // SCRAPE URL (using Firecrawl as a tool)
-        if (step.tool === "scrape_url" && FIRECRAWL_API_KEY) {
-          const url = step.params.url as string;
-          if (url) {
-            send({ phase: "browsing", step: i + 1, total: plan.steps.length, message: `Browsing: ${url}` });
-            
-            let scrapeResult = await scrapeUrl(FIRECRAWL_API_KEY, url);
-            
-            // Retry on failure
-            if (!scrapeResult.success) {
-              scrapeResult = await scrapeUrl(FIRECRAWL_API_KEY, url);
-            }
-            
-            if (scrapeResult.success && scrapeResult.content) {
-              // Limit content length
-              const truncatedContent = scrapeResult.content.slice(0, 4000);
-              researchFindings += `\n\n### Scraped: ${scrapeResult.title || url}\n${truncatedContent}`;
-              
-              allSources.push({
-                url,
-                title: scrapeResult.title || url,
-                snippet: truncatedContent.slice(0, 300),
-                type: "scrape",
-                relevance_score: 0.9
+        const searches = plan.parallel_searches || generateDefaultSearches(sanitizedQuery, queryType);
+        let content = "";
+        const sources: Array<{ url: string; title: string; snippet: string; type: string; relevance: number }> = [];
+        let searchCount = 0;
+
+        for (const search of searches.slice(0, 4)) {
+          if (PERPLEXITY_API_KEY) {
+            const result = await webSearchPerplexity(PERPLEXITY_API_KEY, search.query);
+            if (result.success && result.content) {
+              content += `\n\n### ${search.purpose}\n${result.content}`;
+              result.citations?.forEach((url, idx) => {
+                if (url && !sources.some(s => s.url === url)) {
+                  sources.push({ url, title: extractDomain(url), snippet: "", type: "search", relevance: 1 - idx * 0.1 });
+                }
               });
-              
-              totalCredits += COST_PER_SCRAPE;
-              scrapeCount++;
-              executionSteps.push({ step: i + 1, tool: "scrape_url", status: "completed", message: step.purpose });
-            } else {
-              executionSteps.push({ step: i + 1, tool: "scrape_url", status: "failed", message: scrapeResult.error || "Scrape failed" });
+              searchCount++;
             }
           }
         }
 
-        // EXTRACT STRUCTURED (using Firecrawl as a tool)
-        if (step.tool === "extract_structured" && FIRECRAWL_API_KEY) {
-          const url = step.params.url as string;
-          const schema = step.params.schema as Record<string, unknown>;
-          
-          if (url && schema) {
-            send({ phase: "extracting", step: i + 1, total: plan.steps.length, message: `Extracting data from: ${url}` });
-            
-            const extractResult = await extractStructured(FIRECRAWL_API_KEY, url, schema);
-            
-            if (extractResult.success && extractResult.data) {
-              researchFindings += `\n\n### Extracted Data: ${url}\n\`\`\`json\n${JSON.stringify(extractResult.data, null, 2)}\n\`\`\``;
-              
-              allSources.push({
-                url,
-                title: `Structured Data: ${url}`,
-                snippet: JSON.stringify(extractResult.data).slice(0, 200),
-                type: "scrape",
-                relevance_score: 0.95
-              });
-              
-              totalCredits += COST_PER_SCRAPE;
-              executionSteps.push({ step: i + 1, tool: "extract_structured", status: "completed", message: step.purpose });
-            } else {
-              executionSteps.push({ step: i + 1, tool: "extract_structured", status: "failed", message: extractResult.error || "Extract failed" });
-            }
-          }
-        }
+        researchResult = {
+          content,
+          sources,
+          searchCount,
+          scrapeCount: 0,
+          credits: DEEP_SEARCH_CONFIG.BASE_COST + searchCount * DEEP_SEARCH_CONFIG.COST_PER_SEARCH
+        };
       }
 
-      // Save sources to database
-      for (const source of allSources) {
+      // Save sources
+      for (const source of researchResult.sources) {
         await supabase.from("research_sources").insert({
           task_id: taskId,
           url: source.url,
           title: source.title,
           snippet: source.snippet,
           source_type: source.type,
-          relevance_score: source.relevance_score,
+          relevance_score: source.relevance,
         });
       }
 
-      // Update execution steps
+      // ============ PHASE 5: VALIDATION ============
+      send({ phase: "validating", message: "Cross-referencing and validating findings...", sourceCount: researchResult.sources.length });
+
       await supabase
         .from("research_tasks")
-        .update({ execution_steps: executionSteps, sources: allSources, phase: "validating" })
+        .update({ execution_steps: [], sources: researchResult.sources, phase: "validating" })
         .eq("id", taskId);
-
-      // ============ PHASE 3: VALIDATION (Grok) ============
-      send({ phase: "validating", message: "Cross-referencing and verifying findings..." });
-
-      // Handle case with no findings
-      if (!researchFindings || researchFindings.length < 100) {
-        // Return partial results with disclaimer
-        researchFindings = `Note: Limited data was retrieved from external sources. The following response is based on available information.\n\nQuery: ${trimmedQuery}`;
-      }
-
-      // Validate findings with AI
-      const validationResult = await callAI(
-        AI_API_KEY,
-        VALIDATOR_SYSTEM_PROMPT,
-        `Validate the following research findings for the query: "${trimmedQuery}"\n\nFINDINGS:\n${researchFindings.slice(0, 4000)}\n\nSOURCES: ${allSources.length} sources collected`,
-        { jsonMode: true }
-      );
 
       let validationNotes: string[] = [];
-      if (validationResult.success && validationResult.content) {
-        try {
-          const validation = JSON.parse(validationResult.content);
-          if (validation.issues && validation.issues.length > 0) {
-            validationNotes = validation.issues;
-          }
-          if (validation.confidence_score && validation.confidence_score < 0.7) {
-            validationNotes.push("Confidence level moderate - recommend verification");
-          }
-        } catch {
-          console.log("Failed to parse validation result");
+      
+      if (researchResult.content.length < 200) {
+        validationNotes.push("Limited data retrieved - findings should be verified independently");
+      }
+      
+      if (researchResult.sources.length < 3) {
+        validationNotes.push("Fewer sources than optimal - recommend additional verification");
+      }
+
+      // AI validation
+      if (FINAL_AI_KEY && researchResult.content.length > 100) {
+        const validationResult = await callAI(
+          FINAL_AI_KEY,
+          VALIDATOR_SYSTEM_PROMPT,
+          `Validate findings for: "${sanitizedQuery}"\n\nFINDINGS:\n${researchResult.content.slice(0, 6000)}\n\nSOURCES: ${researchResult.sources.length}`,
+          { jsonMode: true }
+        );
+
+        if (validationResult.success && validationResult.content) {
+          try {
+            const validation = JSON.parse(validationResult.content);
+            if (validation.issues?.length) validationNotes.push(...validation.issues);
+            if (validation.confidence_score < 0.7) validationNotes.push("Moderate confidence - verify key findings");
+          } catch { /* ignore */ }
         }
       }
 
-      if (allSources.length < 2) {
-        validationNotes.push("Limited sources available - findings should be verified independently");
-      }
+      // ============ PHASE 6: SYNTHESIS ============
+      send({ phase: "generating", message: "Synthesizing intelligence report..." });
 
-      // ============ PHASE 4: GENERATION (Grok with Streaming) ============
-      send({ phase: "generating", message: "Synthesizing research findings..." });
+      await supabase.from("research_tasks").update({ phase: "generating" }).eq("id", taskId);
 
-      await supabase
-        .from("research_tasks")
-        .update({ phase: "generating" })
-        .eq("id", taskId);
-
-      const sourceList = allSources.map((s, i) => `[${i + 1}] ${s.title}: ${s.url}`).join("\n");
+      const sourceList = researchResult.sources.map((s, i) => `[${i + 1}] ${s.title}: ${s.url}`).join("\n");
       
-      const generationPrompt = `Transform the following research findings into a strategy-grade intelligence output.
+      const generationPrompt = `Transform research findings into strategy-grade intelligence.
 
 ═══════════════════════════════════════════════════════════════
-USER QUERY: ${trimmedQuery}
-QUERY TYPE: ${plan.query_type}
-EXPECTED FORMAT: ${plan.expected_output_format || "report"}
+USER QUERY: ${sanitizedQuery}
+QUERY TYPE: ${queryType}
+FORMAT: ${plan.expected_output_format || "report"}
 ═══════════════════════════════════════════════════════════════
 
-PHASE 1 — QUESTION DECONSTRUCTION (complete this mentally):
-- What is the specific timeframe requested?
-- What geography or market segment is relevant?
-- What is the professional use-case?
+RESEARCH FINDINGS:
+${researchResult.content || "Limited data available."}
 
-PHASE 2 — RESEARCH FINDINGS:
-${researchFindings}
+SOURCES (${researchResult.sources.length} total):
+${sourceList || "Limited sources."}
 
-PHASE 3 — AVAILABLE SOURCES:
-${sourceList || "Limited external sources - acknowledge data constraints clearly."}
-
-PHASE 4 — VALIDATION NOTES:
-${validationNotes.join("\n") || "Findings cross-validated across sources."}
+VALIDATION NOTES:
+${validationNotes.join("\n") || "Findings validated."}
 
 ═══════════════════════════════════════════════════════════════
-CRITICAL OUTPUT REQUIREMENTS:
-═══════════════════════════════════════════════════════════════
+OUTPUT REQUIREMENTS:
+1. ADAPT structure to query type
+2. Include REASONING and INTERPRETATION
+3. Use ONLY data from research findings
+4. Make ACTIONABLE recommendations
+5. Format sources at END only: **Sources:** Name1 · Name2 · Name3
+6. Tables OPTIONAL, must be clean and Excel-ready
+═══════════════════════════════════════════════════════════════`;
 
-1. ADAPT STRUCTURE TO QUERY TYPE
-   - Trend queries: Group by trend/season/brand adoption
-   - Supplier queries: Use structured tables with key metrics
-   - Market queries: Lead with quantitative signals, then implications
-   - Strategy queries: Focus on actionable recommendations
-
-2. REASONING FIRST, CONTENT SECOND
-   - Show how you're interpreting the data
-   - Surface contradictions and uncertainties
-   - Let insights emerge from evidence
-
-3. REAL-TIME SIGNALS ONLY
-   - Only reference data from the research findings
-   - No historical examples unless in the data
-   - No fabricated statistics or claims
-
-4. ACTIONABLE INTELLIGENCE
-   - What should the user DO with this information?
-   - Prioritize recommendations by impact
-
-5. SOURCE FORMAT (END ONLY)
-   - **Sources:** Name1 · Name2 · Name3
-   - No inline citations [1], [2] in body
-   - Optional expanded list below
-
-6. TABLE RULES
-   - Tables are optional summaries
-   - Only after all prose content
-   - Clean markdown syntax only
-
-DELIVER a consulting-grade intelligence briefing, not an essay.`;
-
-      // Stream the response from AI
       let finalContent = "";
-      
       const synthesizerPrompt = getSynthesizerPromptWithDomain(activeDomain);
+      
       const streamResult = await callAIStreaming(
-        AI_API_KEY,
+        FINAL_AI_KEY,
         synthesizerPrompt,
         generationPrompt,
-        (chunk: string) => {
-          send({ phase: "generating", content: chunk });
-        }
+        (chunk: string) => { send({ phase: "generating", content: chunk }); }
       );
 
       if (!streamResult.success || !streamResult.content) {
-        // Fallback to non-streaming if streaming fails
-        const fallbackResult = await callAI(
-          AI_API_KEY,
-          synthesizerPrompt,
-          generationPrompt
-        );
+        const fallbackResult = await callAI(FINAL_AI_KEY, synthesizerPrompt, generationPrompt);
         
-        if (!fallbackResult.success || !fallbackResult.content) {
-          send({ phase: "failed", error: fallbackResult.error || "Failed to generate response" });
+        if (!fallbackResult.success) {
+          send({ phase: "failed", error: "Failed to generate response" });
           await supabase.from("research_tasks").update({ phase: "failed", error_message: fallbackResult.error }).eq("id", taskId);
           close();
           return;
         }
         
-        finalContent = fallbackResult.content;
-        // Stream the fallback content
-        const chunkSize = 50;
-        for (let i = 0; i < finalContent.length; i += chunkSize) {
-          const chunk = finalContent.slice(i, i + chunkSize);
-          send({ phase: "generating", content: chunk });
-          await new Promise(r => setTimeout(r, 15));
+        finalContent = fallbackResult.content || "";
+        for (let i = 0; i < finalContent.length; i += 50) {
+          send({ phase: "generating", content: finalContent.slice(i, i + 50) });
+          await new Promise(r => setTimeout(r, 10));
         }
       } else {
         finalContent = streamResult.content;
       }
 
-      // Deduct credits only on success
-      const finalCredits = Math.min(totalCredits, MAX_CREDITS_PER_TASK);
-      const { error: deductError } = await supabase.rpc("deduct_credits", {
+      // Deduct credits
+      const finalCredits = Math.min(researchResult.credits, DEEP_SEARCH_CONFIG.MAX_CREDITS);
+      await supabase.rpc("deduct_credits", {
         p_user_id: user.id,
         p_amount: finalCredits,
-        p_description: `Deep Research - ${queryType} (${searchCount} searches, ${scrapeCount} scrapes)`
+        p_description: `Deep Research - ${queryType} (${researchResult.searchCount} searches, ${researchResult.scrapeCount} scrapes)`
       });
 
-      if (deductError) {
-        console.error("Credit deduction error:", deductError);
-      }
-
-      // Mark task as completed
+      // Complete task
       await supabase
         .from("research_tasks")
         .update({
@@ -1232,30 +1181,26 @@ DELIVER a consulting-grade intelligence briefing, not an essay.`;
         })
         .eq("id", taskId);
 
-      // Send completion event with all metadata
       send({
         phase: "completed",
-        sources: allSources,
+        sources: researchResult.sources,
         creditsUsed: finalCredits,
         taskId,
         queryType,
-        modelUsed: "Grok-4"
+        modelUsed: CURRENT_MODEL_CONFIG.provider === "lovable" ? "GPT-4.1" : "Grok-4",
+        searchCount: researchResult.searchCount,
+        scrapeCount: researchResult.scrapeCount
       });
 
       close();
     } catch (error) {
       console.error("Research agent error:", error);
-      send({ phase: "failed", error: "An unexpected error occurred" });
+      send({ phase: "failed", error: error instanceof Error ? error.message : "Research failed" });
       close();
     }
   })();
 
   return new Response(stream, {
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
+    headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
   });
 });

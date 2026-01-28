@@ -26,6 +26,10 @@ interface ResearchProgressProps {
   creditsUsed?: number;
   isAgentMode?: boolean;
   onCancel?: () => void;
+  searchCount?: number;
+  scrapeCount?: number;
+  sourceCount?: number;
+  iteration?: number;
 }
 
 const phases = [
@@ -69,7 +73,11 @@ export function ResearchProgress({
   queryType,
   creditsUsed,
   isAgentMode,
-  onCancel
+  onCancel,
+  searchCount,
+  scrapeCount,
+  sourceCount,
+  iteration
 }: ResearchProgressProps) {
   const currentPhaseIndex = getPhaseIndex(phase);
   const queryTypeInfo = getQueryTypeLabel(queryType);
@@ -197,7 +205,24 @@ export function ResearchProgress({
             {message || phases.find(p => p.key === phase)?.description || "Processing..."}
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {searchCount !== undefined && searchCount > 0 && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Search className="h-3 w-3" />
+              {searchCount} searches
+            </span>
+          )}
+          {scrapeCount !== undefined && scrapeCount > 0 && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Globe className="h-3 w-3" />
+              {scrapeCount} crawled
+            </span>
+          )}
+          {iteration !== undefined && iteration > 1 && (
+            <span className="text-xs text-muted-foreground">
+              Round {iteration}
+            </span>
+          )}
           {creditsUsed !== undefined && creditsUsed > 0 && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Coins className="h-3 w-3" />
