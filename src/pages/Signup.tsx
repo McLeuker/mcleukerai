@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +13,16 @@ const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp, signInWithGoogle, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
 
   const validatePassword = (pwd: string): string | null => {
     if (pwd.length < 8) {
@@ -33,6 +40,31 @@ const Signup = () => {
     return null;
   };
 
+  const getReadableErrorMessage = (error: Error): string => {
+    const message = error.message.toLowerCase();
+    
+    if (message.includes("user already registered") || message.includes("already exists")) {
+      return "An account with this email already exists. Please sign in instead.";
+    }
+    if (message.includes("invalid email")) {
+      return "Please enter a valid email address.";
+    }
+    if (message.includes("password") && message.includes("weak")) {
+      return "Password is too weak. Please use a stronger password.";
+    }
+    if (message.includes("database error saving new user")) {
+      return "We're experiencing a temporary issue. Please try again in a moment.";
+    }
+    if (message.includes("network") || message.includes("fetch")) {
+      return "Network error. Please check your connection and try again.";
+    }
+    if (message.includes("rate limit") || message.includes("too many")) {
+      return "Too many signup attempts. Please wait a moment and try again.";
+    }
+    
+    return "Something went wrong. Please try again or contact support.";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -48,33 +80,52 @@ const Signup = () => {
       return;
     }
 
-    const { error } = await signUp(email, password, fullName);
+    try {
+      const { error } = await signUp(email, password, fullName);
 
-    if (error) {
+      if (error) {
+        toast({
+          title: "Sign up failed",
+          description: getReadableErrorMessage(error),
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      toast({
+        title: "Account created",
+        description: "Welcome to McLeuker AI. You're now signed in.",
+      });
+
+      navigate("/dashboard");
+    } catch (err) {
       toast({
         title: "Sign up failed",
-        description: error.message,
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
       setLoading(false);
-      return;
     }
-
-    toast({
-      title: "Account created",
-      description: "Welcome to McLeuker AI. You're now signed in.",
-    });
-
-    navigate("/dashboard");
   };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    const { error } = await signInWithGoogle();
-    if (error) {
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        toast({
+          title: "Sign up failed",
+          description: getReadableErrorMessage(error),
+          variant: "destructive",
+        });
+        setLoading(false);
+      }
+      // Note: On success, user will be redirected by OAuth flow
+    } catch (err) {
       toast({
         title: "Sign up failed",
-        description: error.message,
+        description: "Unable to connect to Google. Please try again.",
         variant: "destructive",
       });
       setLoading(false);
