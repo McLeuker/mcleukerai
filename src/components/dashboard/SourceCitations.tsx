@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
@@ -97,77 +97,63 @@ export function SourceCitations({ sources, className }: SourceCitationsProps) {
     return acc;
   }, [] as (Source & { name: string })[]);
 
-  // Compact one-line view: just source names separated by ·
-  const compactSourceList = uniqueSources
-    .slice(0, 6)
-    .map(s => s.name)
-    .join(' · ');
-
-  const remainingCount = uniqueSources.length > 6 ? uniqueSources.length - 6 : 0;
+  // Compact one-line view: just source names
+  const sourceNames = uniqueSources.map(s => s.name).join(', ');
 
   return (
     <Collapsible
       open={isExpanded}
       onOpenChange={setIsExpanded}
-      className={cn("mt-4", className)}
+      className={cn("mt-3", className)}
     >
-      {/* Compact View - One Line with · separator */}
+      {/* Compact View - Source names only in one line */}
       <CollapsibleTrigger asChild>
         <button
-          className="w-full flex items-center justify-between text-left py-2 group"
+          className="w-full flex items-center justify-between text-left py-1.5 group"
         >
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-semibold text-foreground">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-xs font-medium text-muted-foreground shrink-0">
               Sources:
             </span>
-            <span className="text-xs text-muted-foreground">
-              {compactSourceList}
-              {remainingCount > 0 && ` · +${remainingCount} more`}
+            <span className="text-xs text-muted-foreground/80 truncate">
+              {sourceNames}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-3 shrink-0">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground ml-2 shrink-0">
             <span className="group-hover:text-foreground transition-colors">
-              {isExpanded ? 'Collapse' : 'Expand'}
+              {isExpanded ? 'Less' : 'More'}
             </span>
             {isExpanded ? (
-              <ChevronUp className="h-3.5 w-3.5" />
+              <ChevronUp className="h-3 w-3" />
             ) : (
-              <ChevronDown className="h-3.5 w-3.5" />
+              <ChevronDown className="h-3 w-3" />
             )}
           </div>
         </button>
       </CollapsibleTrigger>
 
-      {/* Expanded View - Title + Subtitle only, clickable */}
+      {/* Expanded View - Title + Subtitle, clickable */}
       <CollapsibleContent>
-        <div className="pt-3 pb-1 border-t border-border space-y-2">
+        <div className="pt-2 pb-1 border-t border-border/50 space-y-1.5">
           {uniqueSources.map((source, index) => (
             <a
               key={`${source.url}-${index}`}
               href={source.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block group/item hover:bg-muted/30 rounded-md py-1.5 px-2 -mx-2 transition-colors"
+              className="block group/item hover:bg-muted/40 rounded py-1.5 px-2 -mx-2 transition-colors cursor-pointer"
             >
-              <div className="flex items-start gap-2">
-                {/* Content - Title + Subtitle only */}
-                <div className="flex-1 min-w-0">
-                  {/* Source Name as Title */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-foreground group-hover/item:underline">
-                      {source.name}
-                    </span>
-                    <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                  </div>
-                  
-                  {/* Article Title as Subtitle */}
-                  {source.title && source.title !== source.name && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                      {source.title}
-                    </p>
-                  )}
-                </div>
-              </div>
+              {/* Source Name (Title) */}
+              <span className="text-sm font-medium text-foreground group-hover/item:underline">
+                {source.name}
+              </span>
+              
+              {/* Article Title (Subtitle) */}
+              {source.title && source.title !== source.name && (
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                  {source.title}
+                </p>
+              )}
             </a>
           ))}
         </div>

@@ -294,19 +294,18 @@ export function DomainInsights({
               className="mt-6 pt-4 border-t border-border"
             >
               <CollapsibleTrigger asChild>
-                <button className="w-full flex items-center justify-between text-left py-2 group">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                <button className="w-full flex items-center justify-between text-left py-1.5 group">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-xs font-medium text-muted-foreground shrink-0">
                       Sources:
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      {compactSourceList}
-                      {uniqueSources.length > 5 && ` +${uniqueSources.length - 5} more`}
+                    <span className="text-xs text-muted-foreground/80 truncate">
+                      {uniqueSources.map(s => s.name).join(', ')}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-3 shrink-0">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground ml-2 shrink-0">
                     <span className="group-hover:text-foreground transition-colors">
-                      {sourcesExpanded ? 'Collapse' : 'Expand'}
+                      {sourcesExpanded ? 'Less' : 'More'}
                     </span>
                     {sourcesExpanded ? (
                       <ChevronUp className="h-3.5 w-3.5" />
@@ -318,7 +317,7 @@ export function DomainInsights({
               </CollapsibleTrigger>
 
               <CollapsibleContent>
-                <div className="pt-3 pb-1 space-y-3">
+                <div className="pt-2 pb-1 space-y-1.5">
                   {uniqueSources.map((src, index) => (
                     <a
                       key={`${src.url}-${index}`}
@@ -326,41 +325,24 @@ export function DomainInsights({
                       target="_blank"
                       rel="noopener noreferrer"
                       className={cn(
-                        "block group/item rounded-md p-2 -mx-2 transition-colors",
-                        src.url ? "hover:bg-muted/30 cursor-pointer" : "cursor-default"
+                        "block rounded py-1.5 px-2 -mx-2 transition-colors",
+                        src.url ? "hover:bg-muted/40 cursor-pointer" : "cursor-default"
                       )}
                     >
-                      <div className="flex items-start gap-2">
-                        <span className="text-xs text-muted-foreground font-medium shrink-0 mt-0.5">
-                          {index + 1}.
-                        </span>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className={cn(
-                              "text-sm font-medium text-foreground",
-                              src.url && "group-hover/item:underline"
-                            )}>
-                              {src.name}
-                            </span>
-                            {src.url && (
-                              <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                            )}
-                          </div>
-                          
-                          {src.title && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                              {src.title}
-                            </p>
-                          )}
-                          
-                          {src.description && (
-                            <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-1">
-                              {src.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                      {/* Source Name (Title) */}
+                      <span className={cn(
+                        "text-sm font-medium text-foreground",
+                        src.url && "group-hover:underline"
+                      )}>
+                        {src.name}
+                      </span>
+                      
+                      {/* Article Title (Subtitle) */}
+                      {src.title && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                          {src.title}
+                        </p>
+                      )}
                     </a>
                   ))}
                 </div>
