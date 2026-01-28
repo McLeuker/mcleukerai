@@ -67,22 +67,37 @@ function getCorsHeaders(req: Request) {
 type ResearchPhase = "planning" | "searching" | "browsing" | "extracting" | "validating" | "generating" | "completed" | "failed";
 type QueryType = "supplier" | "trend" | "market" | "sustainability" | "general";
 
-// Deep Search Configuration - TRUE DEEP RESEARCH MODE
+// ═══════════════════════════════════════════════════════════════
+// TRUE DEEP SEARCH CONFIGURATION - MANUS AI LEVEL
+// ═══════════════════════════════════════════════════════════════
 const DEEP_SEARCH_CONFIG = {
+  // Credit management
   BASE_COST: 10,
   COST_PER_SEARCH: 1,
   COST_PER_SCRAPE: 2,
-  MAX_CREDITS: 80,              // High budget for comprehensive research
-  MIN_SOURCES: 10,              // Require more sources before synthesis
-  TARGET_SOURCES: 50,           // Aim for 50+ sources for complex queries
-  MAX_SEARCH_ITERATIONS: 8,     // Up to 8 search rounds for deep coverage
-  SEARCHES_PER_ITERATION: 6,    // More parallel searches per round
-  MAX_SCRAPE_PER_ROUND: 15,     // More scrapes per iteration
-  PERPLEXITY_TIMEOUT: 120000,   // 2 minutes for complex queries
-  FIRECRAWL_TIMEOUT: 60000,     // 60 seconds per scrape
-  MIN_CONTENT_LENGTH: 2000,     // Require substantial content before synthesis
-  CONFIDENCE_THRESHOLD: 0.75,   // Minimum confidence to stop iterating
-  MAX_EXECUTION_TIME: 300000,   // 5 minute max execution time
+  MAX_CREDITS: 100,              // Higher budget for comprehensive research
+  
+  // NO HARD LIMITS - Continue until confident
+  MIN_SOURCES: 15,               // Minimum before even considering stopping
+  TARGET_SOURCES: 100,           // Aim for 100+ sources for complex queries
+  
+  // Iteration control - based on confidence, not fixed counts
+  MAX_SEARCH_ITERATIONS: 15,     // Safety limit only
+  SEARCHES_PER_ITERATION: 8,     // More parallel searches per round
+  MAX_SCRAPE_PER_ROUND: 20,      // More scrapes per iteration
+  
+  // Timeouts
+  PERPLEXITY_TIMEOUT: 180000,    // 3 minutes for complex queries
+  FIRECRAWL_TIMEOUT: 90000,      // 90 seconds per scrape
+  
+  // Quality thresholds
+  MIN_CONTENT_LENGTH: 5000,      // Require substantial content before synthesis
+  CONFIDENCE_THRESHOLD: 0.85,    // High confidence required to stop
+  COVERAGE_THRESHOLD: 0.80,      // Data coverage threshold
+  
+  // Execution control
+  MAX_EXECUTION_TIME: 600000,    // 10 minute max execution time
+  PROGRESS_CHECK_INTERVAL: 30000, // Check progress every 30 seconds
 };
 
 // Model Configuration
@@ -108,15 +123,97 @@ let CURRENT_MODEL_CONFIG = {
   temperature: 0.2,
 };
 
-// ============ SYSTEM PROMPTS ============
+// ═══════════════════════════════════════════════════════════════
+// QUERY DECONSTRUCTION PROMPT - MANUS AI STYLE
+// ═══════════════════════════════════════════════════════════════
+const DECONSTRUCTOR_SYSTEM_PROMPT = `You are an elite research strategist performing QUERY DECONSTRUCTION for deep intelligence gathering.
 
+═══════════════════════════════════════════════════════════════
+MISSION: Analyze the user's query to understand EXACTLY what they need
+═══════════════════════════════════════════════════════════════
+
+Your job is to DECONSTRUCT the query into:
+
+1. INTENT ANALYSIS
+   - What is the user ultimately trying to achieve?
+   - What decisions will this research inform?
+   - What would constitute a "complete" answer?
+
+2. SCOPE DEFINITION
+   - Geographic scope (global, regional, specific countries)
+   - Temporal scope (current, historical, forecast)
+   - Industry segment scope (specific categories, price tiers)
+
+3. REQUIRED DATA POINTS
+   - What SPECIFIC information must be found?
+   - What metrics, numbers, or facts are essential?
+   - What certifications, standards, or qualifications matter?
+
+4. OUTPUT REQUIREMENTS
+   - What format best serves the user's needs?
+   - Should output be list-based, narrative, tabular, comparative?
+   - What level of detail is appropriate?
+
+5. VALIDATION CRITERIA
+   - What makes a source authoritative for this query?
+   - What freshness is required (days, weeks, months)?
+   - What cross-validation is needed?
+
+6. SEARCH STRATEGY
+   - What search angles will maximize coverage?
+   - What domains/sources are authoritative?
+   - What regional/temporal variations should be explored?
+
+OUTPUT JSON ONLY:
+{
+  "intent": {
+    "primary_goal": "What the user wants to achieve",
+    "decision_context": "What decisions this informs",
+    "success_criteria": ["What makes this research complete"]
+  },
+  "scope": {
+    "geographic": ["regions/countries to cover"],
+    "temporal": {"start": "earliest relevant date", "end": "latest/forecast", "focus": "primary timeframe"},
+    "segments": ["specific industry segments"],
+    "constraints": ["any limitations mentioned"]
+  },
+  "required_data": {
+    "essential": ["must-have data points"],
+    "desirable": ["nice-to-have data points"],
+    "metrics": ["specific numbers/metrics needed"],
+    "qualifications": ["certifications, standards to verify"]
+  },
+  "output_format": {
+    "structure": "table | report | comparison | list | narrative",
+    "detail_level": "executive | detailed | comprehensive",
+    "exportable": true | false
+  },
+  "validation": {
+    "source_authority": ["what makes sources credible"],
+    "freshness_required": "days | weeks | months | years",
+    "cross_validation_needed": ["what needs verification from multiple sources"]
+  },
+  "search_strategy": {
+    "primary_searches": [
+      {"query": "...", "purpose": "...", "priority": 1-5}
+    ],
+    "authority_domains": ["authoritative websites for this topic"],
+    "regional_variations": ["regional search modifications"],
+    "temporal_queries": ["time-specific search modifications"]
+  }
+}`;
+
+// ═══════════════════════════════════════════════════════════════
+// RESEARCH PLANNER PROMPT
+// ═══════════════════════════════════════════════════════════════
 const PLANNER_SYSTEM_PROMPT = `You are a senior research planner for TRUE DEEP SEARCH intelligence gathering.
 
 ═══════════════════════════════════════════════════════════════
-DEEP SEARCH MODE - NOT A SIMPLE QUERY
+DEEP SEARCH MODE - MANUS AI LEVEL RESEARCH
 ═══════════════════════════════════════════════════════════════
 
 This is credit-intensive, time-intensive research aiming for 100+ website coverage.
+Continue crawling until ALL gaps are addressed and confidence is HIGH.
 
 AVAILABLE TOOLS:
 1. web_search - Perplexity-powered search with real-time citations
@@ -124,32 +221,35 @@ AVAILABLE TOOLS:
 3. search_discover - Firecrawl search to discover new relevant URLs
 
 DEEP PLANNING RULES:
-1. Plan 8-12 parallel searches for maximum coverage
+1. Plan 10-15 parallel searches for maximum coverage
 2. Each search should target a DIFFERENT aspect of the query
 3. Include time-specific queries (e.g., "2024", "2025", "SS26", "FW25")
-4. Plan regional diversity (Europe, Asia, Americas)
+4. Plan regional diversity (Europe, Asia, Americas, specific countries)
 5. Include comparison searches (competitors, alternatives)
 6. Plan structured data extraction for lists/tables
-7. Identify 10+ authoritative domains for deep scraping
+7. Identify 15+ authoritative domains for deep scraping
+8. Consider edge cases and alternative interpretations
 
 FOR SUPPLIER QUERIES:
 - Regional searches (Europe, Asia, Americas, specific countries)
-- Certification-specific searches (GOTS, OEKO-TEX, B Corp)
+- Certification-specific searches (GOTS, OEKO-TEX, B Corp, GRS, FSC)
 - Product category searches
 - MOQ and pricing searches
-- Trade directory searches
+- Trade directory searches (Alibaba, Maker's Row, Kompass)
+- Industry association member lists
 
 FOR TREND QUERIES:
-- Fashion week coverage (Paris, Milan, London, NY)
+- Fashion week coverage (Paris, Milan, London, NY, Tokyo, Seoul)
 - Street style and influencer signals
 - Brand adoption and runway analysis
 - Consumer behavior shifts
 - Seasonal forecasts
+- Trade publication analysis (WWD, Vogue, BoF)
 
 OUTPUT JSON ONLY:
 {
   "query_type": "supplier" | "trend" | "market" | "sustainability" | "general",
-  "complexity": "complex",
+  "complexity": "high",
   "time_frame": "requested season/year or current",
   "reasoning": "Deep analysis of what needs to be researched",
   "parallel_searches": [
@@ -158,54 +258,79 @@ OUTPUT JSON ONLY:
   "follow_up_scrapes": ["domain1.com", "domain2.com"],
   "required_data_points": ["What specific data must be found"],
   "validation_criteria": ["How to verify accuracy"],
-  "expected_output_format": "table" | "report" | "list" | "comparison"
+  "expected_output_format": "table" | "report" | "list" | "comparison",
+  "gap_detection_queries": ["searches to find missing data"]
 }`;
 
-const VALIDATOR_SYSTEM_PROMPT = `You are a senior fashion industry analyst performing DEEP VALIDATION.
+// ═══════════════════════════════════════════════════════════════
+// VALIDATOR PROMPT - ENHANCED WITH CONFIDENCE SCORING
+// ═══════════════════════════════════════════════════════════════
+const VALIDATOR_SYSTEM_PROMPT = `You are a senior research analyst performing RIGOROUS VALIDATION.
 
 ═══════════════════════════════════════════════════════════════
-VALIDATION FOR TRUE DEEP SEARCH
+VALIDATION FOR TRUE DEEP SEARCH - MANUS AI LEVEL
 ═══════════════════════════════════════════════════════════════
 
-Your role is to rigorously validate research findings:
+Your role is to rigorously validate research findings and identify gaps:
 
 1. DATA FRESHNESS CHECK
    - Are dates/timestamps current for the requested timeframe?
-   - Flag any data that appears outdated (>6 months for trends, >1 year for suppliers)
+   - Flag any data that appears outdated (>3 months for trends, >6 months for suppliers)
+   - Timestamp each data point
    
 2. CROSS-SOURCE VALIDATION
    - Do multiple sources agree on key facts?
-   - Identify contradictions between sources
+   - Identify and document ALL contradictions
+   - Note which claims have single vs multiple source backing
    
 3. COMPLETENESS ASSESSMENT
-   - What data points are missing?
+   - What data points are MISSING?
    - What regions/segments are under-represented?
+   - What questions remain unanswered?
    
-4. CONFIDENCE SCORING
-   - High (>0.85): Multiple sources agree, recent data, specific metrics
-   - Medium (0.6-0.85): Some verification, some gaps
-   - Low (<0.6): Limited sources, potential outdated data
+4. CONFIDENCE SCORING PER CLAIM
+   - High (>0.9): 3+ sources agree, recent data, specific metrics
+   - Medium (0.7-0.9): 2 sources agree, some verification
+   - Low (<0.7): Single source, potential outdated data
+   - Uncertain: Conflicting sources, needs more research
 
 5. GAP IDENTIFICATION
-   - What additional searches would improve coverage?
+   - What additional searches would fill gaps?
    - What specific domains should be scraped?
+   - What data is STILL needed?
+
+6. CONTRADICTION RESOLUTION
+   - Document all conflicting data points
+   - Recommend which source to trust and why
+   - Flag unresolvable contradictions
 
 OUTPUT JSON ONLY:
 {
   "verified": true | false,
-  "confidence_score": 0.0 - 1.0,
-  "data_freshness": "current" | "acceptable" | "outdated",
+  "overall_confidence": 0.0 - 1.0,
+  "data_freshness": "current" | "acceptable" | "mixed" | "outdated",
   "coverage_score": 0.0 - 1.0,
-  "issues": ["specific issues found"],
-  "contradictions": ["conflicting data points"],
-  "gaps": ["missing data that needs more research"],
+  "claim_confidence": [
+    {"claim": "specific claim", "confidence": 0.0-1.0, "sources": 1-10, "freshness": "current|acceptable|outdated"}
+  ],
+  "contradictions": [
+    {"topic": "what conflicts", "source_a": "says X", "source_b": "says Y", "resolution": "recommendation"}
+  ],
+  "gaps": [
+    {"missing_data": "what's missing", "importance": "critical|high|medium|low", "suggested_search": "query to fill gap"}
+  ],
   "needs_more_research": true | false,
   "suggested_searches": ["additional search queries"],
   "suggested_scrapes": ["specific URLs to scrape"],
-  "notes": "summary of validation"
+  "quality_notes": ["observations about data quality"],
+  "stop_criteria_met": true | false,
+  "reasoning": "Explanation of validation decision"
 }`;
 
-const SYNTHESIZER_SYSTEM_PROMPT = `You are a senior fashion intelligence analyst delivering strategy-grade research.
+// ═══════════════════════════════════════════════════════════════
+// SYNTHESIZER PROMPT - MANUS AI LEVEL OUTPUT
+// ═══════════════════════════════════════════════════════════════
+const SYNTHESIZER_SYSTEM_PROMPT = `You are a senior intelligence analyst delivering MANUS AI-LEVEL research output.
 
 ═══════════════════════════════════════════════════════════════
 DEEP SEARCH MODE — PROFESSIONAL INTELLIGENCE ENGINE
@@ -213,65 +338,64 @@ DEEP SEARCH MODE — PROFESSIONAL INTELLIGENCE ENGINE
 
 NON-NEGOTIABLE PRINCIPLES:
 
-1. DEEP SEARCH ≠ LONG ANSWER
-   - Multi-phase research with reasoning, validation, and synthesis.
-   - Must feel fundamentally different from Quick Search.
+1. REASONING BEFORE WRITING
+   - Deconstruct the query: timeframe, geography, segment, intent
+   - Extract signals: quantitative data, named entities, changes
+   - Check contradictions: note conflicts between sources
+   - Plan synthesis: determine optimal structure
 
-2. REAL-TIME DATA IS MANDATORY
-   - Every claim must be grounded in the provided research findings.
-   - Historical knowledge is context only, never primary evidence.
+2. ADAPTIVE OUTPUT STRUCTURE
+   Structure output based on CONTENT LOGIC, not templates:
+   - Use TABLES only when data is truly tabular (suppliers, comparisons)
+   - Use BULLETS for insights, trends, recommendations
+   - Use NARRATIVE for context, analysis, implications
+   - Use CHARTS/METRICS when quantitative data is central
+   
+3. CONFIDENCE ANNOTATION
+   - Mark uncertain claims explicitly
+   - Note when data is from single vs multiple sources
+   - Flag contradictions that couldn't be resolved
 
-3. CREDIT USAGE IS JUSTIFIED
-   - Outputs must be strategy-grade and reusable.
-   - Results should feel equivalent to a consulting memo or internal report.
+4. REAL-TIME DATA IS MANDATORY
+   - Every claim must be grounded in the provided research findings
+   - Historical knowledge is context only, never primary evidence
+   - Include timestamps where relevant
 
-4. DOMAIN-AWARE INTELLIGENCE
-   - Interpret findings through fashion, beauty, sustainability, textile, and lifestyle lenses.
-
-5. NO GENERIC CONTENT
-   - No essays. No trend summaries without evidence. No filler language.
-
-═══════════════════════════════════════════════════════════════
-FLEXIBLE OUTPUT STRUCTURE:
-═══════════════════════════════════════════════════════════════
-
-Adapt structure dynamically based on query type:
-
-FOR TREND ANALYSIS:
-- Group by trend, runway, season, brand adoption
-- Include recent coverage, consumer signals
-
-FOR SUPPLIER MAPPING:
-- Group by region, certification, category
-- Include MOQ, capabilities, certifications, contacts
-- Format as clean, Excel-ready tables
-
-FOR BRAND STRATEGY:
-- Group by brand, segment, product line
-- Include positioning, competitive moves
-
-FOR MARKET INTELLIGENCE:
-- Group by segment, geography, price tier
-- Include quantitative data, brand movements
+5. ACTIONABLE INTELLIGENCE
+   - What should the user DO with this information?
+   - Strategic recommendations based on findings
+   - Risk assessment and opportunity identification
 
 ═══════════════════════════════════════════════════════════════
-REASONING BEFORE WRITING:
+CONTENT STRUCTURE (ADAPT BASED ON QUERY TYPE):
 ═══════════════════════════════════════════════════════════════
 
-Before generating output:
-1. DECONSTRUCTION - Identify timeframe, geography, segment
-2. SIGNAL EXTRACTION - Pull quantitative data, named brands, changes
-3. CONTRADICTION CHECK - Note conflicts between sources
-4. SYNTHESIS PLANNING - Determine optimal structure
+FOR SUPPLIER QUERIES:
+1. Context & Market Overview
+2. Supplier Mapping by Region/Category
+3. Certification & Compliance Status
+4. MOQ, Pricing & Capability Matrix (if data available)
+5. Strategic Recommendations
+6. Risk Assessment
+7. Sources
 
-═══════════════════════════════════════════════════════════════
-CONTENT REQUIREMENTS:
-═══════════════════════════════════════════════════════════════
+FOR TREND QUERIES:
+1. Trend Context & Evolution
+2. Key Signals by Category (Runway, Street, Consumer)
+3. Brand Adoption Analysis
+4. Regional Variations
+5. Commercial Implications
+6. Forecast & Timing
+7. Sources
 
-1. CLEAR REASONING - Content flows naturally with insights emerging from data
-2. REAL-TIME VERIFIED DATA - Every claim references research findings
-3. METRICS AND SIGNALS - Use ↑↓ for trends, include percentages, figures, dates
-4. ACTIONABLE INTELLIGENCE - What should user DO with this information?
+FOR MARKET QUERIES:
+1. Market Landscape Overview
+2. Key Players & Positioning
+3. Growth Drivers & Barriers
+4. Competitive Dynamics
+5. Opportunity Assessment
+6. Strategic Recommendations
+7. Sources
 
 ═══════════════════════════════════════════════════════════════
 TABLE RULES:
@@ -280,18 +404,19 @@ TABLE RULES:
 - Tables are OPTIONAL and only if they improve comprehension
 - Tables must ONLY appear AFTER all prose content
 - Tables must be clean, Excel-ready with proper markdown syntax
-- NO placeholders like "[object Object]" or excessive dashes
+- Include ONLY columns with actual verified data
+- NO placeholders like "N/A" or "[object Object]"
 - If table formatting fails, OMIT entirely
 
 ═══════════════════════════════════════════════════════════════
 SOURCE FORMAT (END ONLY):
 ═══════════════════════════════════════════════════════════════
 
-**Sources:** Source1 · Source2 · Source3
+**Sources:** Source1 · Source2 · Source3 · Source4 · Source5
 
-Below that, optional expanded:
-- Source1 – Topic covered
-- Source2 – Topic covered
+Below that, expandable detail:
+- Source1 – Topic/claim supported
+- Source2 – Topic/claim supported
 
 NEVER use inline citations [1], [2] in body.
 NEVER display URLs inside content body.
@@ -304,7 +429,9 @@ Deep Search results should feel like:
 ✓ A senior analyst's internal memo
 ✓ A consulting deck's key findings
 ✓ An intelligence briefing you'd pay for
-✗ NOT a blog post or essay`;
+✓ Actionable, not just informational
+✗ NOT a blog post or essay
+✗ NOT a data dump without interpretation`;
 
 const DOMAIN_RESEARCH_PROMPTS: Record<string, string> = {
   all: "",
@@ -492,14 +619,13 @@ async function webSearchPerplexity(
       messages: [
         { 
           role: "system", 
-          content: "You are a fashion industry research assistant. Provide detailed, factual information with sources. Focus on current, verified data. Include specific names, numbers, dates, and metrics." 
+          content: "You are a fashion industry research assistant. Provide detailed, factual information with sources. Focus on current, verified data. Include specific names, numbers, dates, and metrics. Be comprehensive." 
         },
         { role: "user", content: query }
       ],
-      max_tokens: 2000,
+      max_tokens: 3000,
     };
 
-    // Add recency filter for time-sensitive queries
     if (options?.recencyFilter) {
       searchBody.search_recency_filter = options.recencyFilter;
     }
@@ -541,13 +667,11 @@ async function scrapeWithFirecrawl(
   url: string
 ): Promise<{ success: boolean; content?: string; title?: string; error?: string }> {
   try {
-    // Validate URL format
     let formattedUrl = url.trim();
     if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
       formattedUrl = `https://${formattedUrl}`;
     }
     
-    // Validate URL has proper TLD
     try {
       const urlObj = new URL(formattedUrl);
       const hostParts = urlObj.hostname.split('.');
@@ -571,7 +695,8 @@ async function scrapeWithFirecrawl(
           url: formattedUrl,
           formats: ["markdown"],
           onlyMainContent: true,
-          waitFor: 2000,
+          waitFor: 3000,
+          timeout: 60000,
         }),
       }),
       DEEP_SEARCH_CONFIG.FIRECRAWL_TIMEOUT,
@@ -599,7 +724,7 @@ async function scrapeWithFirecrawl(
 async function searchWithFirecrawl(
   apiKey: string,
   query: string,
-  limit: number = 10
+  limit: number = 15
 ): Promise<{ success: boolean; results?: Array<{ url: string; title: string; description: string }>; error?: string }> {
   try {
     const response = await withTimeout(
@@ -640,151 +765,230 @@ async function searchWithFirecrawl(
   }
 }
 
-// ============ DEEP RESEARCH ORCHESTRATOR ============
+// ═══════════════════════════════════════════════════════════════
+// DEEP RESEARCH ORCHESTRATOR - MANUS AI LEVEL
+// ═══════════════════════════════════════════════════════════════
+interface ResearchSource {
+  url: string;
+  title: string;
+  snippet: string;
+  type: "search" | "scrape" | "discovery";
+  relevance: number;
+  timestamp: string;
+  confidence?: number;
+}
+
 interface ResearchResult {
   content: string;
-  sources: Array<{ url: string; title: string; snippet: string; type: string; relevance: number; timestamp?: string }>;
+  sources: ResearchSource[];
   searchCount: number;
   scrapeCount: number;
   credits: number;
   confidence: number;
+  coverage: number;
   iterations: number;
+  gaps: string[];
+  contradictions: string[];
+}
+
+interface QueryDeconstruction {
+  intent: {
+    primary_goal: string;
+    decision_context: string;
+    success_criteria: string[];
+  };
+  scope: {
+    geographic: string[];
+    temporal: { start: string; end: string; focus: string };
+    segments: string[];
+  };
+  required_data: {
+    essential: string[];
+    desirable: string[];
+    metrics: string[];
+  };
+  output_format: {
+    structure: string;
+    detail_level: string;
+    exportable: boolean;
+  };
+  search_strategy: {
+    primary_searches: Array<{ query: string; purpose: string; priority: number }>;
+    authority_domains: string[];
+  };
 }
 
 interface ValidationResult {
   verified: boolean;
-  confidence_score: number;
+  overall_confidence: number;
+  coverage_score: number;
   needs_more_research: boolean;
-  suggested_searches?: string[];
-  suggested_scrapes?: string[];
-  gaps?: string[];
+  gaps: Array<{ missing_data: string; importance: string; suggested_search: string }>;
+  contradictions: Array<{ topic: string; source_a: string; source_b: string }>;
+  suggested_searches: string[];
+  suggested_scrapes: string[];
+  stop_criteria_met: boolean;
 }
 
 async function executeDeepResearch(
   query: string,
   queryType: QueryType,
-  plan: { parallel_searches?: Array<{ query: string; purpose: string; priority?: number }>; follow_up_scrapes?: string[]; required_data_points?: string[] },
-  apis: { perplexity: string; firecrawl: string; ai?: string },
+  deconstruction: QueryDeconstruction | null,
+  plan: { parallel_searches?: Array<{ query: string; purpose: string; priority?: number }>; follow_up_scrapes?: string[] },
+  apis: { perplexity: string; firecrawl: string; ai: string },
   send: (data: Record<string, unknown>) => void
 ): Promise<ResearchResult> {
   const startTime = Date.now();
   let totalContent = "";
-  const allSources: Array<{ url: string; title: string; snippet: string; type: string; relevance: number; timestamp?: string }> = [];
+  const allSources: ResearchSource[] = [];
   const scrapedUrls = new Set<string>();
   let searchCount = 0;
   let scrapeCount = 0;
   let credits = DEEP_SEARCH_CONFIG.BASE_COST;
   let iteration = 0;
   let confidence = 0;
+  let coverage = 0;
+  const allGaps: string[] = [];
+  const allContradictions: string[] = [];
 
-  // Generate comprehensive search queries based on plan or enhanced fallback
-  let searches = plan.parallel_searches?.length 
-    ? [...plan.parallel_searches] 
-    : generateComprehensiveSearches(query, queryType);
+  // Build comprehensive search queue from deconstruction and plan
+  let searchQueue: Array<{ query: string; purpose: string; priority: number }> = [];
+  
+  if (deconstruction?.search_strategy?.primary_searches?.length) {
+    searchQueue.push(...deconstruction.search_strategy.primary_searches);
+  }
+  
+  if (plan.parallel_searches?.length) {
+    for (const search of plan.parallel_searches) {
+      if (!searchQueue.some(s => s.query === search.query)) {
+        searchQueue.push({ ...search, priority: search.priority || 5 });
+      }
+    }
+  }
+  
+  // If no searches planned, generate comprehensive ones
+  if (searchQueue.length === 0) {
+    searchQueue = generateComprehensiveSearches(query, queryType);
+  }
+  
+  // Sort by priority
+  searchQueue.sort((a, b) => a.priority - b.priority);
 
-  // ============ ITERATIVE DEEP RESEARCH LOOP ============
+  // ═══════════════════════════════════════════════════════════════
+  // ITERATIVE DEEP RESEARCH LOOP - CONTINUE UNTIL CONFIDENT
+  // ═══════════════════════════════════════════════════════════════
+  let stopCriteriaMet = false;
+  
   while (
+    !stopCriteriaMet &&
     iteration < DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS && 
     credits < DEEP_SEARCH_CONFIG.MAX_CREDITS &&
-    (Date.now() - startTime) < DEEP_SEARCH_CONFIG.MAX_EXECUTION_TIME &&
-    (confidence < DEEP_SEARCH_CONFIG.CONFIDENCE_THRESHOLD || allSources.length < DEEP_SEARCH_CONFIG.MIN_SOURCES)
+    (Date.now() - startTime) < DEEP_SEARCH_CONFIG.MAX_EXECUTION_TIME
   ) {
     iteration++;
-    const targetSources = Math.min(DEEP_SEARCH_CONFIG.TARGET_SOURCES, 20 + iteration * 15);
     
     send({ 
       phase: "searching", 
-      message: `Deep search round ${iteration}/${DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS} — targeting ${targetSources}+ sources...`,
+      message: `Deep research round ${iteration} — ${allSources.length} sources, ${Math.round(confidence * 100)}% confidence...`,
       searchCount,
       scrapeCount,
       sourceCount: allSources.length,
-      iteration 
+      iteration,
+      confidence: Math.round(confidence * 100)
     });
 
-    // ============ PHASE 2: PARALLEL PERPLEXITY SEARCHES ============
-    // Execute searches in larger parallel batches for speed
-    const searchesThisRound = searches.slice(0, DEEP_SEARCH_CONFIG.SEARCHES_PER_ITERATION);
-    searches = searches.slice(DEEP_SEARCH_CONFIG.SEARCHES_PER_ITERATION); // Remove processed
+    // ============ PARALLEL PERPLEXITY SEARCHES ============
+    const searchesThisRound = searchQueue.splice(0, DEEP_SEARCH_CONFIG.SEARCHES_PER_ITERATION);
     
-    const searchBatches = [];
-    for (let i = 0; i < searchesThisRound.length; i += 4) {
-      searchBatches.push(searchesThisRound.slice(i, i + 4));
-    }
-
-    for (const batch of searchBatches) {
-      if (credits >= DEEP_SEARCH_CONFIG.MAX_CREDITS) break;
-
-      const searchPromises = batch.map(async (search) => {
-        const result = await webSearchPerplexity(apis.perplexity, search.query, { 
-          recencyFilter: queryType === "trend" ? "week" : "month",
-          limit: 10
-        });
-        return { search, result };
-      });
-
-      const results = await Promise.allSettled(searchPromises);
-      
-      for (const res of results) {
-        if (res.status === "fulfilled" && res.value.result.success) {
-          const { search, result } = res.value;
-          totalContent += `\n\n### ${search.purpose} [${new Date().toISOString().split('T')[0]}]\n${result.content}`;
-          
-          // Add citations as sources with timestamps
-          result.citations?.forEach((url, idx) => {
-            if (url && !allSources.some(s => s.url === url)) {
-              allSources.push({
-                url,
-                title: extractDomain(url),
-                snippet: "",
-                type: "search",
-                relevance: 1 - (idx * 0.03),
-                timestamp: new Date().toISOString()
-              });
-            }
-          });
-          
-          searchCount++;
-          credits += DEEP_SEARCH_CONFIG.COST_PER_SEARCH;
-        }
+    if (searchesThisRound.length > 0) {
+      const searchBatches = [];
+      for (let i = 0; i < searchesThisRound.length; i += 4) {
+        searchBatches.push(searchesThisRound.slice(i, i + 4));
       }
-    }
 
-    // ============ PHASE 3: FIRECRAWL DISCOVERY + DEEP SCRAPING ============
-    send({ 
-      phase: "browsing", 
-      message: `Deep crawling sources (${scrapeCount} crawled, ${allSources.length} discovered)...`, 
-      scrapeCount,
-      sourceCount: allSources.length,
-      iteration
-    });
+      for (const batch of searchBatches) {
+        if (credits >= DEEP_SEARCH_CONFIG.MAX_CREDITS) break;
 
-    // Also use Firecrawl search for additional URL discovery
-    if (iteration <= 2 && credits < DEEP_SEARCH_CONFIG.MAX_CREDITS - 10) {
-      const discoveryResult = await searchWithFirecrawl(apis.firecrawl, query, 20);
-      if (discoveryResult.success && discoveryResult.results) {
-        for (const result of discoveryResult.results) {
-          if (!allSources.some(s => s.url === result.url)) {
-            allSources.push({
-              url: result.url,
-              title: result.title,
-              snippet: result.description,
-              type: "discovery",
-              relevance: 0.75,
-              timestamp: new Date().toISOString()
+        const searchPromises = batch.map(async (search) => {
+          const result = await webSearchPerplexity(apis.perplexity, search.query, { 
+            recencyFilter: queryType === "trend" ? "week" : "month",
+          });
+          return { search, result };
+        });
+
+        const results = await Promise.allSettled(searchPromises);
+        
+        for (const res of results) {
+          if (res.status === "fulfilled" && res.value.result.success) {
+            const { search, result } = res.value;
+            const timestamp = new Date().toISOString();
+            totalContent += `\n\n### ${search.purpose} [${timestamp.split('T')[0]}]\n${result.content}`;
+            
+            result.citations?.forEach((url, idx) => {
+              if (url && !allSources.some(s => s.url === url)) {
+                allSources.push({
+                  url,
+                  title: extractDomain(url),
+                  snippet: "",
+                  type: "search",
+                  relevance: 1 - (idx * 0.02),
+                  timestamp,
+                  confidence: 0.8
+                });
+              }
             });
+            
+            searchCount++;
+            credits += DEEP_SEARCH_CONFIG.COST_PER_SEARCH;
           }
         }
       }
     }
 
-    // Collect URLs to scrape - prioritize high-relevance and unscraped
+    // ============ FIRECRAWL DISCOVERY ============
+    send({ 
+      phase: "browsing", 
+      message: `Discovering and crawling sources (${scrapeCount} scraped)...`, 
+      scrapeCount,
+      sourceCount: allSources.length,
+      iteration
+    });
+
+    // Discover new URLs via Firecrawl search
+    if (iteration <= 3 && credits < DEEP_SEARCH_CONFIG.MAX_CREDITS - 10) {
+      const discoveryQueries = [
+        query,
+        `${query} ${new Date().getFullYear()}`,
+        `${query} industry report analysis`
+      ];
+      
+      for (const dq of discoveryQueries.slice(0, 2)) {
+        const discoveryResult = await searchWithFirecrawl(apis.firecrawl, dq, 20);
+        if (discoveryResult.success && discoveryResult.results) {
+          for (const result of discoveryResult.results) {
+            if (!allSources.some(s => s.url === result.url)) {
+              allSources.push({
+                url: result.url,
+                title: result.title,
+                snippet: result.description,
+                type: "discovery",
+                relevance: 0.7,
+                timestamp: new Date().toISOString()
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // ============ DEEP SCRAPING ============
     const urlsToScrape: string[] = [];
     
-    // Add high-relevance search citations not yet scraped
+    // Prioritize high-relevance, unscraped sources
     allSources
-      .filter(s => s.relevance > 0.6 && !scrapedUrls.has(s.url))
+      .filter(s => s.relevance > 0.5 && !scrapedUrls.has(s.url))
       .sort((a, b) => b.relevance - a.relevance)
-      .slice(0, 10)
+      .slice(0, 15)
       .forEach(s => urlsToScrape.push(s.url));
     
     // Add planned follow-up scrapes
@@ -793,32 +997,41 @@ async function executeDeepResearch(
         urlsToScrape.push(url);
       }
     });
-
-    // Scrape in parallel (batch of 4 for speed)
-    const urlArray = urlsToScrape.slice(0, DEEP_SEARCH_CONFIG.MAX_SCRAPE_PER_ROUND);
     
-    for (let i = 0; i < urlArray.length; i += 4) {
+    // Add authority domains from deconstruction
+    deconstruction?.search_strategy?.authority_domains?.forEach(domain => {
+      const fullUrl = domain.startsWith('http') ? domain : `https://${domain}`;
+      if (!scrapedUrls.has(fullUrl) && !urlsToScrape.includes(fullUrl)) {
+        urlsToScrape.push(fullUrl);
+      }
+    });
+
+    // Scrape in parallel batches
+    const scrapeUrls = urlsToScrape.slice(0, DEEP_SEARCH_CONFIG.MAX_SCRAPE_PER_ROUND);
+    
+    for (let i = 0; i < scrapeUrls.length; i += 5) {
       if (credits >= DEEP_SEARCH_CONFIG.MAX_CREDITS) break;
       
-      const batch = urlArray.slice(i, i + 4);
+      const batch = scrapeUrls.slice(i, i + 5);
       const scrapePromises = batch.map(url => scrapeWithFirecrawl(apis.firecrawl, url));
       const results = await Promise.allSettled(scrapePromises);
 
       for (let j = 0; j < results.length; j++) {
         const res = results[j];
         const url = batch[j];
-        scrapedUrls.add(url); // Mark as attempted
+        scrapedUrls.add(url);
         
         if (res.status === "fulfilled" && res.value.success && res.value.content) {
-          const truncated = res.value.content.slice(0, 8000); // More content per scrape
-          totalContent += `\n\n### Scraped: ${res.value.title} [${new Date().toISOString().split('T')[0]}]\n${truncated}`;
+          const truncated = res.value.content.slice(0, 10000);
+          const timestamp = new Date().toISOString();
+          totalContent += `\n\n### Scraped: ${res.value.title} [${timestamp.split('T')[0]}]\n${truncated}`;
           
-          // Update or add source
           const existingSource = allSources.find(s => s.url === url);
           if (existingSource) {
             existingSource.snippet = truncated.slice(0, 500);
             existingSource.type = "scrape";
             existingSource.relevance = Math.max(existingSource.relevance, 0.9);
+            existingSource.confidence = 0.9;
           } else {
             allSources.push({
               url,
@@ -826,7 +1039,8 @@ async function executeDeepResearch(
               snippet: truncated.slice(0, 500),
               type: "scrape",
               relevance: 0.9,
-              timestamp: new Date().toISOString()
+              timestamp,
+              confidence: 0.9
             });
           }
           
@@ -836,15 +1050,95 @@ async function executeDeepResearch(
       }
     }
 
-    // ============ PHASE 4: MID-LOOP VALIDATION ============
-    // Calculate confidence based on coverage and content
+    // ============ VALIDATION & GAP DETECTION ============
+    send({ 
+      phase: "extracting", 
+      message: `Validating findings and identifying gaps...`,
+      confidence: Math.round(confidence * 100),
+      sourceCount: allSources.length,
+      iteration
+    });
+
+    // Calculate preliminary metrics
     const uniqueDomains = new Set(allSources.map(s => extractDomain(s.url))).size;
-    const contentScore = Math.min(totalContent.length / 15000, 1); // More content needed
+    const contentScore = Math.min(totalContent.length / 20000, 1);
     const sourceScore = Math.min(allSources.length / DEEP_SEARCH_CONFIG.TARGET_SOURCES, 1);
-    const scrapeScore = Math.min(scrapeCount / 15, 1);
-    const domainDiversity = Math.min(uniqueDomains / 20, 1);
+    const scrapeScore = Math.min(scrapeCount / 20, 1);
+    const domainDiversity = Math.min(uniqueDomains / 25, 1);
     
-    confidence = (contentScore * 0.3 + sourceScore * 0.3 + scrapeScore * 0.2 + domainDiversity * 0.2);
+    confidence = (contentScore * 0.25 + sourceScore * 0.25 + scrapeScore * 0.25 + domainDiversity * 0.25);
+    coverage = (sourceScore + scrapeScore + domainDiversity) / 3;
+
+    // AI-powered validation (every 2 iterations or when potentially stopping)
+    if ((iteration % 2 === 0 || confidence > 0.7) && apis.ai) {
+      const validationResult = await callAI(
+        apis.ai,
+        VALIDATOR_SYSTEM_PROMPT,
+        `Validate deep research for: "${query}"
+
+RESEARCH CONTENT (${totalContent.length} chars):
+${totalContent.slice(0, 8000)}
+
+SOURCES: ${allSources.length} total, ${uniqueDomains} unique domains
+SCRAPED: ${scrapeCount} pages
+ITERATION: ${iteration}
+
+Required data points: ${deconstruction?.required_data?.essential?.join(', ') || 'Not specified'}
+
+Assess: Is this research COMPLETE enough to stop? What gaps remain?`,
+        { jsonMode: true }
+      );
+
+      if (validationResult.success && validationResult.content) {
+        try {
+          const validation: ValidationResult = JSON.parse(validationResult.content);
+          confidence = validation.overall_confidence;
+          coverage = validation.coverage_score;
+          stopCriteriaMet = validation.stop_criteria_met && confidence >= DEEP_SEARCH_CONFIG.CONFIDENCE_THRESHOLD;
+          
+          // Add gaps to track
+          if (validation.gaps?.length) {
+            for (const gap of validation.gaps) {
+              if (!allGaps.includes(gap.missing_data)) {
+                allGaps.push(gap.missing_data);
+              }
+              // Add gap-filling searches to queue
+              if (gap.suggested_search && !searchQueue.some(s => s.query === gap.suggested_search)) {
+                searchQueue.push({ query: gap.suggested_search, purpose: `Fill gap: ${gap.missing_data}`, priority: 3 });
+              }
+            }
+          }
+          
+          // Add contradictions
+          if (validation.contradictions?.length) {
+            for (const c of validation.contradictions) {
+              allContradictions.push(`${c.topic}: ${c.source_a} vs ${c.source_b}`);
+            }
+          }
+          
+          // Add suggested searches to queue
+          if (validation.suggested_searches?.length) {
+            for (const sq of validation.suggested_searches) {
+              if (!searchQueue.some(s => s.query === sq)) {
+                searchQueue.push({ query: sq, purpose: "Validation-driven search", priority: 2 });
+              }
+            }
+          }
+          
+          // Add suggested scrapes
+          if (validation.suggested_scrapes?.length) {
+            for (const url of validation.suggested_scrapes) {
+              if (!scrapedUrls.has(url) && !plan.follow_up_scrapes?.includes(url)) {
+                if (!plan.follow_up_scrapes) plan.follow_up_scrapes = [];
+                plan.follow_up_scrapes.push(url);
+              }
+            }
+          }
+        } catch {
+          console.log("Validation parse failed, continuing...");
+        }
+      }
+    }
 
     send({ 
       phase: "extracting", 
@@ -854,19 +1148,20 @@ async function executeDeepResearch(
       iteration
     });
 
-    // Check if we have enough content and sources
+    // Check stop criteria
     if (
-      totalContent.length >= DEEP_SEARCH_CONFIG.MIN_CONTENT_LENGTH && 
-      allSources.length >= DEEP_SEARCH_CONFIG.MIN_SOURCES &&
-      confidence >= DEEP_SEARCH_CONFIG.CONFIDENCE_THRESHOLD
+      confidence >= DEEP_SEARCH_CONFIG.CONFIDENCE_THRESHOLD &&
+      coverage >= DEEP_SEARCH_CONFIG.COVERAGE_THRESHOLD &&
+      totalContent.length >= DEEP_SEARCH_CONFIG.MIN_CONTENT_LENGTH &&
+      allSources.length >= DEEP_SEARCH_CONFIG.MIN_SOURCES
     ) {
-      break;
+      stopCriteriaMet = true;
     }
 
-    // Generate additional searches if needed for next iteration
-    if (iteration < DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS && searches.length < 4) {
-      const additionalSearches = generateIterativeSearches(query, queryType, iteration, allSources);
-      searches.push(...additionalSearches);
+    // If no more searches and not confident enough, generate more
+    if (!stopCriteriaMet && searchQueue.length === 0 && iteration < DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS - 1) {
+      const additionalSearches = generateIterativeSearches(query, queryType, iteration, allGaps);
+      searchQueue.push(...additionalSearches);
     }
   }
 
@@ -877,51 +1172,54 @@ async function executeDeepResearch(
     scrapeCount,
     credits: Math.min(credits, DEEP_SEARCH_CONFIG.MAX_CREDITS),
     confidence,
-    iterations: iteration
+    coverage,
+    iterations: iteration,
+    gaps: allGaps,
+    contradictions: allContradictions
   };
 }
 
-// ============ COMPREHENSIVE SEARCH GENERATION (FOR TRUE DEEP SEARCH) ============
-function generateComprehensiveSearches(query: string, queryType: QueryType): Array<{ query: string; purpose: string; priority?: number }> {
+// ═══════════════════════════════════════════════════════════════
+// SEARCH GENERATION FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+function generateComprehensiveSearches(query: string, queryType: QueryType): Array<{ query: string; purpose: string; priority: number }> {
   const currentYear = new Date().getFullYear();
   const nextYear = currentYear + 1;
   
   switch (queryType) {
     case "supplier":
       return [
-        // Primary searches
         { query: `${query} manufacturers suppliers ${currentYear}`, purpose: "Primary supplier discovery", priority: 1 },
         { query: `${query} wholesale factory MOQ minimum order quantity`, purpose: "MOQ and pricing research", priority: 1 },
-        { query: `${query} GOTS OEKO-TEX certified sustainable suppliers`, purpose: "Certified sustainable suppliers", priority: 1 },
-        // Regional coverage
-        { query: `${query} suppliers manufacturers Europe Italy Portugal Turkey`, purpose: "European suppliers", priority: 2 },
-        { query: `${query} suppliers manufacturers Asia China India Bangladesh Vietnam`, purpose: "Asian suppliers", priority: 2 },
-        { query: `${query} suppliers USA Americas North America`, purpose: "Americas suppliers", priority: 3 },
-        // Specific data
-        { query: `${query} supplier directory trade fair exhibitors ${currentYear}`, purpose: "Trade directory listings", priority: 2 },
+        { query: `${query} GOTS OEKO-TEX GRS certified sustainable suppliers`, purpose: "Certified sustainable suppliers", priority: 1 },
+        { query: `${query} suppliers manufacturers Europe Italy Portugal Turkey Spain`, purpose: "European suppliers", priority: 2 },
+        { query: `${query} suppliers manufacturers China India Bangladesh Vietnam`, purpose: "Asian suppliers", priority: 2 },
+        { query: `${query} suppliers USA Americas Mexico`, purpose: "Americas suppliers", priority: 2 },
+        { query: `${query} B Corp certified ethical manufacturers`, purpose: "Ethical certifications", priority: 3 },
+        { query: `${query} supplier directory trade fair exhibitors ${currentYear}`, purpose: "Trade directory listings", priority: 3 },
         { query: `${query} production capacity lead time delivery`, purpose: "Production capabilities", priority: 3 },
-        { query: `${query} quality control certifications ISO 9001`, purpose: "Quality certifications", priority: 3 },
-        { query: `${query} supplier reviews ratings trustworthy`, purpose: "Supplier reputation", priority: 4 },
-        { query: `${query} B2B marketplace Alibaba supplier contact`, purpose: "B2B marketplace research", priority: 4 },
-        { query: `${query} small batch low MOQ samples`, purpose: "Small batch options", priority: 4 },
+        { query: `${query} quality control certifications ISO 9001`, purpose: "Quality certifications", priority: 4 },
+        { query: `${query} supplier reviews ratings reliable`, purpose: "Supplier reputation", priority: 4 },
+        { query: `${query} small batch low MOQ samples prototype`, purpose: "Small batch options", priority: 4 },
+        { query: `${query} supplier contact email wholesale inquiry`, purpose: "Contact information", priority: 5 },
+        { query: `${query} Alibaba Maker's Row Kompass supplier list`, purpose: "B2B marketplace research", priority: 5 },
       ];
     case "trend":
       return [
-        // Season-specific
         { query: `${query} fashion trends ${currentYear} ${nextYear}`, purpose: "Current trend overview", priority: 1 },
         { query: `${query} SS${nextYear % 100} Spring Summer ${nextYear} runway`, purpose: "Spring/Summer season", priority: 1 },
         { query: `${query} FW${nextYear % 100} Fall Winter ${nextYear} collections`, purpose: "Fall/Winter season", priority: 1 },
-        // Fashion week coverage
         { query: `${query} Paris Fashion Week runway ${currentYear}`, purpose: "Paris Fashion Week", priority: 2 },
         { query: `${query} Milan Fashion Week collections ${currentYear}`, purpose: "Milan Fashion Week", priority: 2 },
         { query: `${query} London Fashion Week emerging designers`, purpose: "London Fashion Week", priority: 2 },
         { query: `${query} New York Fashion Week NYFW trends`, purpose: "New York Fashion Week", priority: 2 },
-        // Street and consumer signals
+        { query: `${query} Tokyo Seoul fashion week Asia trends`, purpose: "Asian Fashion Weeks", priority: 3 },
         { query: `${query} street style celebrities wearing ${currentYear}`, purpose: "Street style signals", priority: 3 },
         { query: `${query} Instagram TikTok viral fashion trend`, purpose: "Social media signals", priority: 3 },
-        { query: `${query} brand adoption designer collections luxury`, purpose: "Luxury brand adoption", priority: 3 },
+        { query: `${query} brand adoption designer collections luxury`, purpose: "Luxury brand adoption", priority: 4 },
         { query: `${query} emerging trend forecast prediction ${nextYear}`, purpose: "Trend forecasting", priority: 4 },
-        { query: `${query} consumer behavior shift shopping preferences`, purpose: "Consumer behavior", priority: 4 },
+        { query: `${query} WWD Vogue BoF coverage ${currentYear}`, purpose: "Trade publication analysis", priority: 4 },
+        { query: `${query} consumer behavior shift shopping preferences`, purpose: "Consumer behavior", priority: 5 },
       ];
     case "market":
       return [
@@ -930,24 +1228,28 @@ function generateComprehensiveSearches(query: string, queryType: QueryType): Arr
         { query: `${query} competitive landscape market share brands`, purpose: "Competitive analysis", priority: 1 },
         { query: `${query} market segmentation demographics consumer`, purpose: "Market segmentation", priority: 2 },
         { query: `${query} pricing strategy premium mass market`, purpose: "Pricing analysis", priority: 2 },
-        { query: `${query} distribution channels retail e-commerce`, purpose: "Distribution channels", priority: 2 },
+        { query: `${query} distribution channels retail e-commerce DTC`, purpose: "Distribution channels", priority: 2 },
         { query: `${query} industry report market research ${currentYear}`, purpose: "Industry reports", priority: 3 },
         { query: `${query} key players leading brands manufacturers`, purpose: "Key market players", priority: 3 },
-        { query: `${query} market opportunities challenges barriers`, purpose: "Market opportunities", priority: 3 },
-        { query: `${query} regional market Europe Asia Americas`, purpose: "Regional analysis", priority: 4 },
+        { query: `${query} market opportunities challenges barriers entry`, purpose: "Market opportunities", priority: 3 },
+        { query: `${query} regional market Europe Asia Americas analysis`, purpose: "Regional analysis", priority: 4 },
+        { query: `${query} emerging markets growth potential`, purpose: "Emerging markets", priority: 4 },
+        { query: `${query} investment funding M&A acquisitions`, purpose: "Investment activity", priority: 5 },
       ];
     case "sustainability":
       return [
         { query: `${query} sustainable certifications GOTS OEKO-TEX GRS`, purpose: "Certification standards", priority: 1 },
         { query: `${query} eco-friendly recycled organic materials`, purpose: "Sustainable materials", priority: 1 },
-        { query: `${query} carbon footprint emissions reduction`, purpose: "Carbon impact", priority: 1 },
-        { query: `${query} circular economy recycling upcycling`, purpose: "Circularity initiatives", priority: 2 },
-        { query: `${query} supply chain transparency traceability`, purpose: "Supply chain transparency", priority: 2 },
+        { query: `${query} carbon footprint emissions reduction target`, purpose: "Carbon impact", priority: 1 },
+        { query: `${query} circular economy recycling upcycling closed loop`, purpose: "Circularity initiatives", priority: 2 },
+        { query: `${query} supply chain transparency traceability blockchain`, purpose: "Supply chain transparency", priority: 2 },
         { query: `${query} sustainable brands ethical fashion ${currentYear}`, purpose: "Sustainable brands", priority: 2 },
-        { query: `${query} regenerative agriculture natural fibers`, purpose: "Regenerative practices", priority: 3 },
+        { query: `${query} regenerative agriculture natural fibers cotton`, purpose: "Regenerative practices", priority: 3 },
         { query: `${query} water usage reduction dyeing processes`, purpose: "Water impact", priority: 3 },
-        { query: `${query} fair trade ethical labor practices`, purpose: "Social sustainability", priority: 3 },
-        { query: `${query} sustainability reporting ESG metrics`, purpose: "ESG reporting", priority: 4 },
+        { query: `${query} fair trade ethical labor practices living wage`, purpose: "Social sustainability", priority: 3 },
+        { query: `${query} sustainability reporting ESG metrics disclosure`, purpose: "ESG reporting", priority: 4 },
+        { query: `${query} greenwashing verification authentic sustainable`, purpose: "Greenwashing detection", priority: 4 },
+        { query: `${query} biodegradable compostable end-of-life`, purpose: "End-of-life solutions", priority: 5 },
       ];
     default:
       return [
@@ -957,6 +1259,8 @@ function generateComprehensiveSearches(query: string, queryType: QueryType): Arr
         { query: `${query} expert opinion trends forecast`, purpose: "Expert insights", priority: 2 },
         { query: `${query} case studies examples best practices`, purpose: "Case studies", priority: 3 },
         { query: `${query} comparison alternatives options`, purpose: "Comparisons", priority: 3 },
+        { query: `${query} statistics data metrics ${currentYear}`, purpose: "Quantitative data", priority: 4 },
+        { query: `${query} challenges problems solutions`, purpose: "Challenges and solutions", priority: 4 },
       ];
   }
 }
@@ -965,61 +1269,51 @@ function generateIterativeSearches(
   query: string, 
   queryType: QueryType, 
   iteration: number,
-  existingSources: Array<{ url: string; title: string }>
-): Array<{ query: string; purpose: string; priority?: number }> {
-  const currentYear = new Date().getFullYear();
+  gaps: string[]
+): Array<{ query: string; purpose: string; priority: number }> {
+  const searches: Array<{ query: string; purpose: string; priority: number }> = [];
   
-  // Different strategies per iteration
+  // Generate searches to fill identified gaps
+  for (const gap of gaps.slice(0, 3)) {
+    searches.push({
+      query: `${query} ${gap}`,
+      purpose: `Fill gap: ${gap}`,
+      priority: 2
+    });
+  }
+  
+  // Iteration-specific strategies
   const strategies = [
-    // Iteration 2: Go deeper into specific aspects
     [
-      { mod: "detailed analysis deep dive", purpose: "Deep analysis" },
-      { mod: "specific examples case studies", purpose: "Case studies" },
-      { mod: "expert interviews insights", purpose: "Expert insights" },
+      { mod: "detailed analysis expert review", purpose: "Deep analysis" },
+      { mod: "specific examples verified case studies", purpose: "Verified examples" },
     ],
-    // Iteration 3: Regional and temporal expansion
     [
-      { mod: `${currentYear} latest recent`, purpose: "Most recent data" },
-      { mod: "regional differences comparison", purpose: "Regional comparison" },
-      { mod: "emerging new innovative", purpose: "Emerging developments" },
+      { mod: `${new Date().getFullYear()} latest recent update`, purpose: "Most recent data" },
+      { mod: "regional comparison by country", purpose: "Regional comparison" },
     ],
-    // Iteration 4+: Fill gaps
     [
-      { mod: "statistics data numbers metrics", purpose: "Quantitative data" },
-      { mod: "challenges problems solutions", purpose: "Challenges and solutions" },
+      { mod: "statistics numbers data metrics", purpose: "Quantitative data" },
+      { mod: "challenges risks opportunities", purpose: "Risk assessment" },
+    ],
+    [
       { mod: "future outlook prediction forecast", purpose: "Future outlook" },
+      { mod: "expert interviews insights commentary", purpose: "Expert perspectives" },
     ],
   ];
   
-  const strategySet = strategies[Math.min(iteration - 1, strategies.length - 1)];
+  const strategyIndex = Math.min(iteration - 1, strategies.length - 1);
+  const strategySet = strategies[strategyIndex];
   
-  return strategySet.map(s => ({
-    query: `${query} ${s.mod}`,
-    purpose: s.purpose,
-    priority: iteration + 3
-  }));
-}
-
-function generateDefaultSearches(query: string, queryType: QueryType): Array<{ query: string; purpose: string }> {
-  // Use first 4 from comprehensive searches
-  return generateComprehensiveSearches(query, queryType).slice(0, 4).map(s => ({
-    query: s.query,
-    purpose: s.purpose
-  }));
-}
-
-function generateAdditionalSearches(query: string, queryType: QueryType, iteration: number): Array<{ query: string; purpose: string }> {
-  const modifiers = [
-    ["expert analysis", "deep dive"],
-    ["case study examples", "best practices"],
-    ["regional comparison", "global perspective"],
-  ];
+  for (const s of strategySet) {
+    searches.push({
+      query: `${query} ${s.mod}`,
+      purpose: s.purpose,
+      priority: iteration + 2
+    });
+  }
   
-  const modifier = modifiers[iteration % modifiers.length];
-  return [
-    { query: `${query} ${modifier[0]}`, purpose: `Additional ${modifier[0]}` },
-    { query: `${query} ${modifier[1]}`, purpose: `Additional ${modifier[1]}` },
-  ];
+  return searches;
 }
 
 function extractDomain(url: string): string {
@@ -1031,11 +1325,10 @@ function extractDomain(url: string): string {
   }
 }
 
-// ============ FALLBACK PLAN ============
 function createFallbackPlan(queryType: QueryType, query: string) {
   return {
     query_type: queryType,
-    complexity: "complex" as const,
+    complexity: "high" as const,
     parallel_searches: generateComprehensiveSearches(query, queryType),
     follow_up_scrapes: [],
     required_data_points: [],
@@ -1044,7 +1337,9 @@ function createFallbackPlan(queryType: QueryType, query: string) {
   };
 }
 
-// ============ MAIN HANDLER ============
+// ═══════════════════════════════════════════════════════════════
+// MAIN HANDLER
+// ═══════════════════════════════════════════════════════════════
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
@@ -1125,10 +1420,9 @@ serve(async (req) => {
       const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
       const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
 
-      const AI_API_KEY = CURRENT_MODEL_CONFIG.provider === "lovable" ? LOVABLE_API_KEY : GROK_API_KEY;
+      let AI_API_KEY = CURRENT_MODEL_CONFIG.provider === "lovable" ? LOVABLE_API_KEY : GROK_API_KEY;
 
       if (!AI_API_KEY) {
-        // Try fallback to other model
         if (CURRENT_MODEL_CONFIG.provider === "grok" && LOVABLE_API_KEY) {
           CURRENT_MODEL_CONFIG = {
             provider: "lovable",
@@ -1136,6 +1430,7 @@ serve(async (req) => {
             model: "openai/gpt-5",
             temperature: 0.2,
           };
+          AI_API_KEY = LOVABLE_API_KEY;
         } else if (CURRENT_MODEL_CONFIG.provider === "lovable" && GROK_API_KEY) {
           CURRENT_MODEL_CONFIG = {
             provider: "grok",
@@ -1143,6 +1438,7 @@ serve(async (req) => {
             model: "grok-4-latest",
             temperature: 0.2,
           };
+          AI_API_KEY = GROK_API_KEY;
         } else {
           send({ phase: "failed", error: "AI service not configured" });
           close();
@@ -1150,8 +1446,7 @@ serve(async (req) => {
         }
       }
 
-      const FINAL_AI_KEY = CURRENT_MODEL_CONFIG.provider === "lovable" ? LOVABLE_API_KEY : GROK_API_KEY;
-      if (!FINAL_AI_KEY) {
+      if (!AI_API_KEY) {
         send({ phase: "failed", error: "AI service not available" });
         close();
         return;
@@ -1197,25 +1492,59 @@ serve(async (req) => {
 
       const taskId = taskData.id;
 
-      // ============ PHASE 1: PLANNING ============
-      send({ phase: "planning", message: "Deconstructing your research request...", queryType });
+      // ═══════════════════════════════════════════════════════════════
+      // PHASE 1: QUERY DECONSTRUCTION
+      // ═══════════════════════════════════════════════════════════════
+      send({ phase: "planning", message: "Deconstructing your research query...", queryType });
+
+      let deconstruction: QueryDeconstruction | null = null;
+      
+      const deconstructResult = await callAI(
+        AI_API_KEY,
+        DECONSTRUCTOR_SYSTEM_PROMPT,
+        `QUERY TO DECONSTRUCT: "${sanitizedQuery}"
+
+Analyze this query deeply. What is the user really asking for? What data is essential vs nice-to-have? What would make this research COMPLETE?
+
+Output JSON only.`,
+        { jsonMode: true }
+      );
+
+      if (deconstructResult.success && deconstructResult.content) {
+        try {
+          deconstruction = JSON.parse(deconstructResult.content);
+          console.log("Query deconstructed:", deconstruction?.intent?.primary_goal);
+        } catch {
+          console.log("Deconstruction parse failed, continuing without");
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // PHASE 2: RESEARCH PLANNING
+      // ═══════════════════════════════════════════════════════════════
+      send({ phase: "planning", message: "Creating comprehensive research plan...", queryType });
 
       let plan = createFallbackPlan(queryType, sanitizedQuery);
       
-      if (FINAL_AI_KEY) {
-        const planResult = await callAI(
-          FINAL_AI_KEY,
-          PLANNER_SYSTEM_PROMPT,
-          `Research Query: ${sanitizedQuery}\n\nCreate a comprehensive deep research plan. Output JSON only.`,
-          { jsonMode: true }
-        );
+      const planResult = await callAI(
+        AI_API_KEY,
+        PLANNER_SYSTEM_PROMPT,
+        `Research Query: ${sanitizedQuery}
 
-        if (planResult.success && planResult.content) {
-          try {
-            plan = JSON.parse(planResult.content);
-          } catch {
-            console.log("Using fallback plan");
-          }
+Query Deconstruction:
+${deconstruction ? JSON.stringify(deconstruction, null, 2) : 'Not available'}
+
+Create a comprehensive deep research plan that will gather ALL necessary data. Plan for 100+ sources.
+Output JSON only.`,
+        { jsonMode: true }
+      );
+
+      if (planResult.success && planResult.content) {
+        try {
+          const parsedPlan = JSON.parse(planResult.content);
+          plan = { ...plan, ...parsedPlan };
+        } catch {
+          console.log("Using fallback plan");
         }
       }
 
@@ -1224,34 +1553,44 @@ serve(async (req) => {
         .update({ plan, phase: "searching" })
         .eq("id", taskId);
 
-      // ============ PHASES 2-4: DEEP RESEARCH ============
+      // ═══════════════════════════════════════════════════════════════
+      // PHASES 3-5: DEEP RESEARCH EXECUTION
+      // ═══════════════════════════════════════════════════════════════
       let researchResult: ResearchResult;
 
       if (PERPLEXITY_API_KEY && FIRECRAWL_API_KEY) {
         researchResult = await executeDeepResearch(
           sanitizedQuery,
           queryType,
+          deconstruction,
           plan,
-          { perplexity: PERPLEXITY_API_KEY, firecrawl: FIRECRAWL_API_KEY },
+          { perplexity: PERPLEXITY_API_KEY, firecrawl: FIRECRAWL_API_KEY, ai: AI_API_KEY },
           send
         );
       } else {
-        // Fallback to just Perplexity if Firecrawl unavailable
+        // Fallback to basic research
         send({ phase: "searching", message: "Searching for information...", searchCount: 0 });
         
-        const searches = plan.parallel_searches || generateDefaultSearches(sanitizedQuery, queryType);
+        const searches = plan.parallel_searches || generateComprehensiveSearches(sanitizedQuery, queryType);
         let content = "";
-        const sources: Array<{ url: string; title: string; snippet: string; type: string; relevance: number }> = [];
+        const sources: ResearchSource[] = [];
         let searchCount = 0;
 
-        for (const search of searches.slice(0, 4)) {
+        for (const search of searches.slice(0, 6)) {
           if (PERPLEXITY_API_KEY) {
             const result = await webSearchPerplexity(PERPLEXITY_API_KEY, search.query);
             if (result.success && result.content) {
               content += `\n\n### ${search.purpose}\n${result.content}`;
               result.citations?.forEach((url, idx) => {
                 if (url && !sources.some(s => s.url === url)) {
-                  sources.push({ url, title: extractDomain(url), snippet: "", type: "search", relevance: 1 - idx * 0.1 });
+                  sources.push({ 
+                    url, 
+                    title: extractDomain(url), 
+                    snippet: "", 
+                    type: "search", 
+                    relevance: 1 - idx * 0.1,
+                    timestamp: new Date().toISOString()
+                  });
                 }
               });
               searchCount++;
@@ -1266,7 +1605,10 @@ serve(async (req) => {
           scrapeCount: 0,
           credits: DEEP_SEARCH_CONFIG.BASE_COST + searchCount * DEEP_SEARCH_CONFIG.COST_PER_SEARCH,
           confidence: 0.6,
-          iterations: 1
+          coverage: 0.5,
+          iterations: 1,
+          gaps: [],
+          contradictions: []
         };
       }
 
@@ -1282,88 +1624,89 @@ serve(async (req) => {
         });
       }
 
-      // ============ PHASE 5: VALIDATION ============
-      send({ phase: "validating", message: "Cross-referencing and validating findings...", sourceCount: researchResult.sources.length });
+      // ═══════════════════════════════════════════════════════════════
+      // PHASE 6: FINAL VALIDATION
+      // ═══════════════════════════════════════════════════════════════
+      send({ phase: "validating", message: "Final validation and quality check...", sourceCount: researchResult.sources.length });
 
       await supabase
         .from("research_tasks")
         .update({ execution_steps: [], sources: researchResult.sources, phase: "validating" })
         .eq("id", taskId);
 
-      let validationNotes: string[] = [];
+      const validationNotes: string[] = [];
       
-      if (researchResult.content.length < 200) {
+      if (researchResult.content.length < 1000) {
         validationNotes.push("Limited data retrieved - findings should be verified independently");
       }
       
-      if (researchResult.sources.length < 3) {
-        validationNotes.push("Fewer sources than optimal - recommend additional verification");
+      if (researchResult.gaps.length > 0) {
+        validationNotes.push(`Identified gaps: ${researchResult.gaps.slice(0, 3).join(', ')}`);
+      }
+      
+      if (researchResult.contradictions.length > 0) {
+        validationNotes.push(`Noted contradictions: ${researchResult.contradictions.slice(0, 2).join('; ')}`);
       }
 
-      // AI validation
-      if (FINAL_AI_KEY && researchResult.content.length > 100) {
-        const validationResult = await callAI(
-          FINAL_AI_KEY,
-          VALIDATOR_SYSTEM_PROMPT,
-          `Validate findings for: "${sanitizedQuery}"\n\nFINDINGS:\n${researchResult.content.slice(0, 6000)}\n\nSOURCES: ${researchResult.sources.length}`,
-          { jsonMode: true }
-        );
-
-        if (validationResult.success && validationResult.content) {
-          try {
-            const validation = JSON.parse(validationResult.content);
-            if (validation.issues?.length) validationNotes.push(...validation.issues);
-            if (validation.confidence_score < 0.7) validationNotes.push("Moderate confidence - verify key findings");
-          } catch { /* ignore */ }
-        }
-      }
-
-      // ============ PHASE 6: SYNTHESIS ============
+      // ═══════════════════════════════════════════════════════════════
+      // PHASE 7: SYNTHESIS - MANUS AI LEVEL OUTPUT
+      // ═══════════════════════════════════════════════════════════════
       send({ phase: "generating", message: "Synthesizing intelligence report..." });
 
       await supabase.from("research_tasks").update({ phase: "generating" }).eq("id", taskId);
 
-      const sourceList = researchResult.sources.map((s, i) => `[${i + 1}] ${s.title}: ${s.url}`).join("\n");
+      const sourceList = researchResult.sources
+        .filter(s => s.relevance > 0.5)
+        .map((s, i) => `[${i + 1}] ${s.title}: ${s.url}`)
+        .slice(0, 50)
+        .join("\n");
       
-      const generationPrompt = `Transform research findings into strategy-grade intelligence.
+      const generationPrompt = `Transform deep research findings into MANUS AI-LEVEL intelligence output.
 
 ═══════════════════════════════════════════════════════════════
 USER QUERY: ${sanitizedQuery}
 QUERY TYPE: ${queryType}
-FORMAT: ${plan.expected_output_format || "report"}
+INTENT: ${deconstruction?.intent?.primary_goal || 'General research'}
+SUCCESS CRITERIA: ${deconstruction?.intent?.success_criteria?.join(', ') || 'Comprehensive answer'}
 ═══════════════════════════════════════════════════════════════
 
-RESEARCH FINDINGS:
-${researchResult.content || "Limited data available."}
+RESEARCH FINDINGS (${researchResult.sources.length} sources, ${researchResult.iterations} iterations):
+${researchResult.content.slice(0, 25000) || "Limited data available."}
 
-SOURCES (${researchResult.sources.length} total):
+SOURCES (${researchResult.sources.length} total from ${new Set(researchResult.sources.map(s => extractDomain(s.url))).size} domains):
 ${sourceList || "Limited sources."}
 
-VALIDATION NOTES:
-${validationNotes.join("\n") || "Findings validated."}
+CONFIDENCE: ${Math.round(researchResult.confidence * 100)}%
+COVERAGE: ${Math.round(researchResult.coverage * 100)}%
+
+${researchResult.gaps.length > 0 ? `KNOWN GAPS: ${researchResult.gaps.join(', ')}` : ''}
+${researchResult.contradictions.length > 0 ? `CONTRADICTIONS: ${researchResult.contradictions.join('; ')}` : ''}
+${validationNotes.length > 0 ? `VALIDATION NOTES: ${validationNotes.join('; ')}` : ''}
 
 ═══════════════════════════════════════════════════════════════
 OUTPUT REQUIREMENTS:
-1. ADAPT structure to query type
-2. Include REASONING and INTERPRETATION
-3. Use ONLY data from research findings
+1. STRUCTURE adaptively based on content, not templates
+2. Include REASONING and INTERPRETATION at every step
+3. Use ONLY data from research findings - no hallucination
 4. Make ACTIONABLE recommendations
-5. Format sources at END only: **Sources:** Name1 · Name2 · Name3
-6. Tables OPTIONAL, must be clean and Excel-ready
+5. Note any UNCERTAINTIES or GAPS explicitly
+6. Format sources at END only: **Sources:** Name1 · Name2 · Name3
+7. Tables OPTIONAL, must be clean and Excel-ready
+8. This should feel like a senior analyst's intelligence briefing
 ═══════════════════════════════════════════════════════════════`;
 
       let finalContent = "";
       const synthesizerPrompt = getSynthesizerPromptWithDomain(activeDomain);
       
       const streamResult = await callAIStreaming(
-        FINAL_AI_KEY,
+        AI_API_KEY,
         synthesizerPrompt,
         generationPrompt,
         (chunk: string) => { send({ phase: "generating", content: chunk }); }
       );
 
       if (!streamResult.success || !streamResult.content) {
-        const fallbackResult = await callAI(FINAL_AI_KEY, synthesizerPrompt, generationPrompt);
+        const fallbackResult = await callAI(AI_API_KEY, synthesizerPrompt, generationPrompt);
         
         if (!fallbackResult.success) {
           send({ phase: "failed", error: "Failed to generate response" });
@@ -1386,7 +1729,7 @@ OUTPUT REQUIREMENTS:
       await supabase.rpc("deduct_credits", {
         p_user_id: user.id,
         p_amount: finalCredits,
-        p_description: `Deep Research - ${queryType} (${researchResult.searchCount} searches, ${researchResult.scrapeCount} scrapes)`
+        p_description: `Deep Research - ${queryType} (${researchResult.searchCount} searches, ${researchResult.scrapeCount} scrapes, ${researchResult.iterations} iterations)`
       });
 
       // Complete task
@@ -1408,7 +1751,12 @@ OUTPUT REQUIREMENTS:
         queryType,
         modelUsed: CURRENT_MODEL_CONFIG.provider === "lovable" ? "GPT-4.1" : "Grok-4",
         searchCount: researchResult.searchCount,
-        scrapeCount: researchResult.scrapeCount
+        scrapeCount: researchResult.scrapeCount,
+        iterations: researchResult.iterations,
+        confidence: Math.round(researchResult.confidence * 100),
+        coverage: Math.round(researchResult.coverage * 100),
+        gaps: researchResult.gaps,
+        contradictions: researchResult.contradictions
       });
 
       close();
