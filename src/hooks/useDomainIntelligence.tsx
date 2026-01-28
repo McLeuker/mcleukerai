@@ -8,6 +8,9 @@ export interface IntelligenceItem {
   date: string;
   source: string;
   sourceUrl?: string | null;
+  confidence: 'high' | 'medium' | 'low';
+  dataType: 'realtime' | 'curated' | 'predictive';
+  category?: string | null;
 }
 
 export interface IntelligenceState {
@@ -17,6 +20,7 @@ export interface IntelligenceState {
   source: 'perplexity' | 'grok' | 'fallback' | null;
   lastFetched: Sector | null;
   generatedAt: string | null;
+  seasonContext: string | null;
 }
 
 const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes cache
@@ -29,6 +33,7 @@ export function useDomainIntelligence() {
     source: null,
     lastFetched: null,
     generatedAt: null,
+    seasonContext: null,
   });
   
   const cacheRef = useRef<Map<string, { data: IntelligenceState; timestamp: number }>>(new Map());
@@ -67,11 +72,16 @@ export function useDomainIntelligence() {
 
       const newState: IntelligenceState = {
         loading: false,
-        items: data.items || [],
+        items: (data.items || []).map((item: any) => ({
+          ...item,
+          confidence: item.confidence || 'medium',
+          dataType: item.dataType || 'curated',
+        })),
         error: data.error || null,
         source: data.source || null,
         lastFetched: sector,
         generatedAt: data.generatedAt || new Date().toISOString(),
+        seasonContext: data.seasonContext || null,
       };
 
       setState(newState);
@@ -99,6 +109,7 @@ export function useDomainIntelligence() {
       source: null,
       lastFetched: null,
       generatedAt: null,
+      seasonContext: null,
     });
   }, []);
 

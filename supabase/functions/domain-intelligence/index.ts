@@ -11,6 +11,9 @@ interface IntelligenceItem {
   date: string;
   source: string;
   sourceUrl?: string;
+  confidence: 'high' | 'medium' | 'low';
+  dataType: 'realtime' | 'curated' | 'predictive';
+  category?: string;
 }
 
 interface IntelligenceResponse {
@@ -18,7 +21,26 @@ interface IntelligenceResponse {
   source: 'perplexity' | 'grok' | 'fallback';
   domain: string;
   generatedAt: string;
+  seasonContext?: string;
 }
+
+// Current date for real-time context
+const getCurrentSeasonContext = (): string => {
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  
+  // Determine current fashion season context
+  if (month >= 1 && month <= 4) {
+    return `Spring/Summer ${year} (current) and Fall/Winter ${year} (upcoming previews)`;
+  } else if (month >= 5 && month <= 7) {
+    return `Fall/Winter ${year} (current focus) and Spring/Summer ${year + 1} (emerging)`;
+  } else if (month >= 8 && month <= 10) {
+    return `Fall/Winter ${year} (current) and Spring/Summer ${year + 1} (runway season)`;
+  } else {
+    return `Fall/Winter ${year} (current) and Spring/Summer ${year + 1} (pre-season)`;
+  }
+};
 
 const domainPrompts: Record<string, string> = {
   fashion: "fashion industry news, runway shows, designer collections, fashion week updates, luxury brand announcements",
@@ -32,9 +54,56 @@ const domainPrompts: Record<string, string> = {
   lifestyle: "luxury lifestyle trends, wellness culture, consumer behavior shifts, lifestyle brand news",
 };
 
+const domainSearchScopes: Record<string, string[]> = {
+  fashion: ["runway collections", "street style signals", "emerging designers", "brand movements", "fashion week coverage"],
+  beauty: ["product launches", "ingredient innovations", "brand campaigns", "influencer trends", "clinical research"],
+  skincare: ["active ingredients", "formulation trends", "dermatology advances", "K-beauty innovations", "clinical trials"],
+  sustainability: ["circular fashion", "sustainable materials", "brand initiatives", "certifications", "policy updates"],
+  "fashion-tech": ["AI applications", "virtual fashion", "wearable tech", "startup news", "digital innovation"],
+  catwalks: ["runway shows", "designer presentations", "styling trends", "emerging talent", "fashion week highlights"],
+  culture: ["cultural collaborations", "art exhibitions", "social movements", "regional trends", "celebrity style"],
+  textile: ["fiber innovations", "mill capabilities", "sustainable textiles", "manufacturing tech", "sourcing trends"],
+  lifestyle: ["consumer behavior", "wellness trends", "luxury experiences", "travel influence", "cross-category signals"],
+};
+
 async function fetchWithPerplexity(domain: string, apiKey: string): Promise<IntelligenceItem[]> {
   const searchQuery = domainPrompts[domain] || `${domain} industry latest news and trends`;
+  const searchScopes = domainSearchScopes[domain] || ["industry news", "trends", "updates"];
+  const seasonContext = getCurrentSeasonContext();
   
+  const systemPrompt = `You are a ${domain} industry intelligence analyst providing REAL-TIME verified updates.
+
+CRITICAL RULES:
+1. Only include information from the LAST 7 DAYS - no outdated content
+2. Season/Year Accuracy: Current context is ${seasonContext}. All trends must match this timeframe.
+3. Multi-source validation: Cross-reference across fashion media, runway reports, social signals
+4. Each item MUST include a real, verifiable source URL
+
+SEARCH SCOPE (prioritize these signal types):
+${searchScopes.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+
+CONFIDENCE LEVELS:
+- "high": Verified by 2+ authoritative sources (Vogue, WWD, BoF, official brand announcements)
+- "medium": Single authoritative source or emerging signals from influencers/social media
+- "low": Predictive insights or early rumors not yet confirmed
+
+DATA TYPE:
+- "realtime": Live, verified news from past 48 hours
+- "curated": Verified content from past 7 days
+- "predictive": Forward-looking analysis or forecasts
+
+OUTPUT: Return ONLY a valid JSON array with exactly 6 objects. Each object must have:
+{
+  "title": "string (max 80 chars, action-oriented headline)",
+  "description": "string (max 200 chars, include trend implications)",
+  "date": "YYYY-MM-DD",
+  "source": "publication name",
+  "sourceUrl": "full URL to article",
+  "confidence": "high" | "medium" | "low",
+  "dataType": "realtime" | "curated" | "predictive",
+  "category": "one of: ${searchScopes.slice(0, 3).join(', ')}"
+}`;
+
   const response = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
     headers: {
@@ -44,17 +113,11 @@ async function fetchWithPerplexity(domain: string, apiKey: string): Promise<Inte
     body: JSON.stringify({
       model: 'sonar',
       messages: [
-        {
-          role: 'system',
-          content: `You are a ${domain} industry intelligence analyst. Provide exactly 5 recent, verified updates. Each update MUST include a real source URL. Format your response as a JSON array with objects containing: title (string, max 80 chars), description (string, max 200 chars), date (YYYY-MM-DD format, use today's date if exact date unknown), source (publication name), sourceUrl (full URL to the article). Only return the JSON array, no other text.`
-        },
-        {
-          role: 'user',
-          content: `What are the 5 most important recent developments in ${searchQuery}? Focus on news from the last 7 days. Include specific brands, designers, or companies mentioned.`
-        }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `What are the 6 most important REAL-TIME developments in ${searchQuery}? Focus on verified news from the last 7 days. Include specific brands, designers, events, or companies. Current season context: ${seasonContext}` }
       ],
-      max_tokens: 1500,
-      temperature: 0.3,
+      max_tokens: 2000,
+      temperature: 0.2,
       search_recency_filter: 'week',
     }),
   });
@@ -72,9 +135,7 @@ async function fetchWithPerplexity(domain: string, apiKey: string): Promise<Inte
     throw new Error('No content in Perplexity response');
   }
 
-  // Parse JSON from response
   try {
-    // Extract JSON array from response (handle markdown code blocks)
     let jsonStr = content;
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
@@ -88,6 +149,9 @@ async function fetchWithPerplexity(domain: string, apiKey: string): Promise<Inte
       date: item.date || new Date().toISOString().split('T')[0],
       source: item.source || 'Industry Source',
       sourceUrl: item.sourceUrl || item.source_url || null,
+      confidence: ['high', 'medium', 'low'].includes(item.confidence) ? item.confidence : 'medium',
+      dataType: ['realtime', 'curated', 'predictive'].includes(item.dataType) ? item.dataType : 'curated',
+      category: item.category || null,
     }));
   } catch (parseError) {
     console.error('Failed to parse Perplexity response:', parseError);
@@ -97,6 +161,8 @@ async function fetchWithPerplexity(domain: string, apiKey: string): Promise<Inte
 
 async function fetchWithGrok(domain: string, apiKey: string): Promise<IntelligenceItem[]> {
   const searchQuery = domainPrompts[domain] || `${domain} industry`;
+  const seasonContext = getCurrentSeasonContext();
+  const searchScopes = domainSearchScopes[domain] || ["industry news", "trends"];
   
   const response = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
@@ -109,15 +175,24 @@ async function fetchWithGrok(domain: string, apiKey: string): Promise<Intelligen
       messages: [
         {
           role: 'system',
-          content: `You are a ${domain} industry analyst. Provide 5 recent industry updates. Format as JSON array with: title (max 80 chars), description (max 200 chars), date (YYYY-MM-DD), source (publication name). Only return the JSON array.`
+          content: `You are a ${domain} industry analyst. Provide 6 current industry updates.
+
+CRITICAL: Current season context is ${seasonContext}. All content must be temporally accurate.
+
+CONFIDENCE LEVELS:
+- "high": Well-established trends or verified news
+- "medium": Emerging signals or single-source reports
+- "low": Predictive or speculative insights
+
+Format as JSON array with: title (max 80 chars), description (max 200 chars), date (YYYY-MM-DD), source (publication name), confidence ("high"|"medium"|"low"), dataType ("realtime"|"curated"|"predictive"), category (one of: ${searchScopes.slice(0, 3).join(', ')}). Only return the JSON array.`
         },
         {
           role: 'user',
-          content: `List 5 recent significant developments in ${searchQuery}. Include specific brands, designers, or events.`
+          content: `List 6 significant current developments in ${searchQuery}. Include specific brands, designers, or events. Season context: ${seasonContext}`
         }
       ],
-      temperature: 0.4,
-      max_tokens: 1200,
+      temperature: 0.3,
+      max_tokens: 1500,
     }),
   });
 
@@ -148,6 +223,9 @@ async function fetchWithGrok(domain: string, apiKey: string): Promise<Intelligen
       date: item.date || new Date().toISOString().split('T')[0],
       source: item.source || 'Industry Analysis',
       sourceUrl: null,
+      confidence: ['high', 'medium', 'low'].includes(item.confidence) ? item.confidence : 'medium',
+      dataType: 'curated' as const,
+      category: item.category || null,
     }));
   } catch (parseError) {
     console.error('Failed to parse Grok response:', parseError);
@@ -157,6 +235,8 @@ async function fetchWithGrok(domain: string, apiKey: string): Promise<Intelligen
 
 async function fetchWithLovableAI(domain: string, apiKey: string): Promise<IntelligenceItem[]> {
   const searchQuery = domainPrompts[domain] || `${domain} industry`;
+  const seasonContext = getCurrentSeasonContext();
+  const searchScopes = domainSearchScopes[domain] || ["industry news", "trends"];
   
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -169,15 +249,21 @@ async function fetchWithLovableAI(domain: string, apiKey: string): Promise<Intel
       messages: [
         {
           role: 'system',
-          content: `You are a ${domain} industry analyst. Provide 5 current industry updates based on your knowledge. Format as JSON array with: title (max 80 chars), description (max 200 chars), date (YYYY-MM-DD, use recent dates), source (publication or "Industry Analysis"). Only return the JSON array, no other text.`
+          content: `You are a ${domain} industry analyst. Provide 6 current industry updates based on your knowledge.
+
+IMPORTANT: This is PREDICTIVE/CURATED content as real-time search is unavailable. Mark all items appropriately.
+
+Current season context: ${seasonContext}. All content must be temporally relevant.
+
+Format as JSON array with: title (max 80 chars), description (max 200 chars), date (YYYY-MM-DD, use recent dates), source (publication or "Industry Analysis"), confidence ("medium" or "low" only for fallback), dataType ("predictive"), category (one of: ${searchScopes.slice(0, 3).join(', ')}). Only return the JSON array.`
         },
         {
           role: 'user',
-          content: `What are 5 notable current trends or developments in ${searchQuery}?`
+          content: `What are 6 notable current trends or developments in ${searchQuery}? Season: ${seasonContext}`
         }
       ],
-      temperature: 0.5,
-      max_tokens: 1200,
+      temperature: 0.4,
+      max_tokens: 1500,
     }),
   });
 
@@ -208,6 +294,9 @@ async function fetchWithLovableAI(domain: string, apiKey: string): Promise<Intel
       date: item.date || new Date().toISOString().split('T')[0],
       source: item.source || 'Industry Analysis',
       sourceUrl: null,
+      confidence: 'low' as const,
+      dataType: 'predictive' as const,
+      category: item.category || null,
     }));
   } catch (parseError) {
     console.error('Failed to parse Lovable AI response:', parseError);
@@ -231,12 +320,13 @@ serve(async (req) => {
     }
 
     const normalizedDomain = domain.toLowerCase().replace(/\s+/g, '-');
+    const seasonContext = getCurrentSeasonContext();
     
-    // Try Perplexity first (best for real-time intelligence)
+    // Try Perplexity first (best for real-time intelligence with source URLs)
     const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
     if (perplexityKey) {
       try {
-        console.log(`Fetching ${normalizedDomain} intelligence from Perplexity...`);
+        console.log(`Fetching ${normalizedDomain} intelligence from Perplexity (real-time)...`);
         const items = await fetchWithPerplexity(normalizedDomain, perplexityKey);
         
         const response: IntelligenceResponse = {
@@ -244,6 +334,7 @@ serve(async (req) => {
           source: 'perplexity',
           domain: normalizedDomain,
           generatedAt: new Date().toISOString(),
+          seasonContext,
         };
         
         return new Response(
@@ -255,11 +346,11 @@ serve(async (req) => {
       }
     }
 
-    // Fallback to Grok
+    // Fallback to Grok (curated content)
     const grokKey = Deno.env.get('Grok_API');
     if (grokKey) {
       try {
-        console.log(`Fetching ${normalizedDomain} intelligence from Grok...`);
+        console.log(`Fetching ${normalizedDomain} intelligence from Grok (curated)...`);
         const items = await fetchWithGrok(normalizedDomain, grokKey);
         
         const response: IntelligenceResponse = {
@@ -267,6 +358,7 @@ serve(async (req) => {
           source: 'grok',
           domain: normalizedDomain,
           generatedAt: new Date().toISOString(),
+          seasonContext,
         };
         
         return new Response(
@@ -278,11 +370,11 @@ serve(async (req) => {
       }
     }
 
-    // Final fallback to Lovable AI
+    // Final fallback to Lovable AI (predictive content)
     const lovableKey = Deno.env.get('LOVABLE_API_KEY');
     if (lovableKey) {
       try {
-        console.log(`Fetching ${normalizedDomain} intelligence from Lovable AI...`);
+        console.log(`Fetching ${normalizedDomain} intelligence from Lovable AI (predictive)...`);
         const items = await fetchWithLovableAI(normalizedDomain, lovableKey);
         
         const response: IntelligenceResponse = {
@@ -290,6 +382,7 @@ serve(async (req) => {
           source: 'fallback',
           domain: normalizedDomain,
           generatedAt: new Date().toISOString(),
+          seasonContext,
         };
         
         return new Response(
@@ -309,6 +402,7 @@ serve(async (req) => {
         source: 'fallback',
         domain: normalizedDomain,
         generatedAt: new Date().toISOString(),
+        seasonContext,
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
