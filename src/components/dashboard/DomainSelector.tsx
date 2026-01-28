@@ -1,3 +1,4 @@
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSector, SECTORS, Sector } from "@/contexts/SectorContext";
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -13,14 +14,32 @@ interface DomainSelectorProps {
   variant?: "pills" | "dropdown";
   className?: string;
   onDomainChange?: (sector: Sector) => void;
+  navigateOnClick?: boolean;
 }
 
-export function DomainSelector({ variant = "pills", className, onDomainChange }: DomainSelectorProps) {
+export function DomainSelector({ 
+  variant = "pills", 
+  className, 
+  onDomainChange,
+  navigateOnClick = true,
+}: DomainSelectorProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { currentSector, setSector } = useSector();
 
   const handleSectorChange = (sector: Sector) => {
     setSector(sector);
     onDomainChange?.(sector);
+    
+    // Navigate to domain landing page (except for "all" which stays in dashboard)
+    if (navigateOnClick && sector !== "all") {
+      navigate(`/domain/${sector}`);
+    } else if (navigateOnClick && sector === "all") {
+      // If clicking "All Domains", go to dashboard
+      if (location.pathname.startsWith("/domain/")) {
+        navigate("/dashboard");
+      }
+    }
   };
 
   if (variant === "dropdown") {

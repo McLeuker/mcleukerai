@@ -11,6 +11,7 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
+import DomainLanding from "./pages/DomainLanding";
 import Profile from "./pages/Profile";
 import Billing from "./pages/Billing";
 import WorkspacePreferences from "./pages/WorkspacePreferences";
@@ -45,7 +46,15 @@ const App = () => {
                         <Dashboard />
                       </ProtectedRoute>
                     }
-                    />
+                  />
+                  <Route
+                    path="/domain/:domain"
+                    element={
+                      <ProtectedRoute>
+                        <DomainLanding />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="/profile"
                     element={
