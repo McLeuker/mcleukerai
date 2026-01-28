@@ -43,14 +43,21 @@ const allowedOrigins = [
   "https://preview--mcleukerai.lovable.app",
   "https://www.mcleukerai.com",
   "https://mcleukerai.com",
-  "https://id-preview--697e9ee9-fa45-4e69-8ad9-6a04c8a6c0f7.lovable.app",
   "http://localhost:5173",
   "http://localhost:8080",
 ];
 
+// Allow Lovable preview domains dynamically
+function isAllowedOrigin(origin: string): boolean {
+  if (allowedOrigins.includes(origin)) return true;
+  if (origin.match(/^https:\/\/[a-z0-9-]+\.lovableproject\.com$/)) return true;
+  if (origin.match(/^https:\/\/[a-z0-9-]+\.lovable\.app$/)) return true;
+  return false;
+}
+
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get("Origin") || "";
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  const allowedOrigin = isAllowedOrigin(origin) ? origin : allowedOrigins[0];
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Headers":

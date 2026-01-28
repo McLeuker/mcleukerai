@@ -4,18 +4,28 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const allowedOrigins = [
   "https://mcleukerai.lovable.app",
+  "https://preview--mcleukerai.lovable.app",
   "https://www.mcleukerai.com",
   "https://mcleukerai.com",
   "http://localhost:5173",
   "http://localhost:8080",
 ];
 
+// Allow Lovable preview domains dynamically
+function isAllowedOrigin(origin: string): boolean {
+  if (allowedOrigins.includes(origin)) return true;
+  if (origin.match(/^https:\/\/[a-z0-9-]+\.lovableproject\.com$/)) return true;
+  if (origin.match(/^https:\/\/[a-z0-9-]+\.lovable\.app$/)) return true;
+  return false;
+}
+
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get("Origin") || "";
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  const allowedOrigin = isAllowedOrigin(origin) ? origin : allowedOrigins[0];
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
     "Access-Control-Allow-Credentials": "true",
   };
 }
