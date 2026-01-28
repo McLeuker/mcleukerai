@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Task, TaskStep, TaskFile } from "@/hooks/useTasks";
+import { Task, TaskStep } from "@/hooks/useTasks";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import DOMPurify from "dompurify";
+import { FileDownloadList } from "./FileDownloadCard";
 
 interface TaskExecutionProps {
   task: Task;
@@ -266,10 +267,15 @@ export function TaskExecution({ task, streamingContent, isLoading }: TaskExecuti
           </div>
         )}
 
-        {/* Generated Files - Clean list style */}
+        {/* Generated Files from AI - using new FileDownloadList */}
+        {task.generated_files && task.generated_files.length > 0 && task.status === "completed" && (
+          <FileDownloadList files={task.generated_files} />
+        )}
+
+        {/* Legacy task.files for backward compatibility */}
         {task.files && task.files.length > 0 && task.status === "completed" && (
-          <div className="mt-8 pt-6 border-t border-border">
-            <p className="text-sm font-medium text-foreground mb-3">Downloads</p>
+          <div className="mt-6 pt-6 border-t border-border">
+            <p className="text-sm font-medium text-foreground mb-3">Attachments</p>
             <div className="space-y-2">
               {task.files.map((file, index) => {
                 const Icon = fileIcons[file.type as keyof typeof fileIcons] || FileText;

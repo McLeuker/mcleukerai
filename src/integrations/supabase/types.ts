@@ -274,6 +274,7 @@ export type Database = {
           created_at: string
           credits_used: number | null
           files: Json | null
+          generated_files: Json | null
           id: string
           model_used: string | null
           prompt: string
@@ -287,6 +288,7 @@ export type Database = {
           created_at?: string
           credits_used?: number | null
           files?: Json | null
+          generated_files?: Json | null
           id?: string
           model_used?: string | null
           prompt: string
@@ -300,6 +302,7 @@ export type Database = {
           created_at?: string
           credits_used?: number | null
           files?: Json | null
+          generated_files?: Json | null
           id?: string
           model_used?: string | null
           prompt?: string
