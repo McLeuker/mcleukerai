@@ -30,6 +30,7 @@ interface ResearchProgressProps {
   scrapeCount?: number;
   sourceCount?: number;
   iteration?: number;
+  confidence?: number;
 }
 
 const phases = [
@@ -77,7 +78,8 @@ export function ResearchProgress({
   searchCount,
   scrapeCount,
   sourceCount,
-  iteration
+  iteration,
+  confidence
 }: ResearchProgressProps) {
   const currentPhaseIndex = getPhaseIndex(phase);
   const queryTypeInfo = getQueryTypeLabel(queryType);
@@ -206,6 +208,17 @@ export function ResearchProgress({
           </span>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          {confidence !== undefined && confidence > 0 && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded">
+              <span className="font-medium">{Math.round(confidence)}%</span> confidence
+            </span>
+          )}
+          {sourceCount !== undefined && sourceCount > 0 && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Globe className="h-3 w-3" />
+              {sourceCount} sources
+            </span>
+          )}
           {searchCount !== undefined && searchCount > 0 && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Search className="h-3 w-3" />

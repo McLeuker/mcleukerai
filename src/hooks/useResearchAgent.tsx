@@ -16,6 +16,11 @@ export interface ResearchState {
   sources: Source[];
   creditsUsed: number;
   error: string | null;
+  searchCount: number;
+  scrapeCount: number;
+  sourceCount: number;
+  iteration: number;
+  confidence: number;
 }
 
 const initialState: ResearchState = {
@@ -28,6 +33,11 @@ const initialState: ResearchState = {
   sources: [],
   creditsUsed: 0,
   error: null,
+  searchCount: 0,
+  scrapeCount: 0,
+  sourceCount: 0,
+  iteration: 0,
+  confidence: 0,
 };
 
 export function useResearchAgent() {
@@ -123,6 +133,11 @@ export function useResearchAgent() {
                       currentStep: parsed.step || prev.currentStep,
                       totalSteps: parsed.total || prev.totalSteps,
                       creditsUsed: parsed.creditsUsed || prev.creditsUsed,
+                      searchCount: parsed.searchCount ?? prev.searchCount,
+                      scrapeCount: parsed.scrapeCount ?? prev.scrapeCount,
+                      sourceCount: parsed.sourceCount ?? prev.sourceCount,
+                      iteration: parsed.iteration ?? prev.iteration,
+                      confidence: parsed.confidence ?? prev.confidence,
                     }));
                   }
 
