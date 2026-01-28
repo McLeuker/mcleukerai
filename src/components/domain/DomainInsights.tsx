@@ -1,9 +1,15 @@
+import { useState } from "react";
 import { Sector } from "@/contexts/SectorContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ExternalLink, AlertCircle } from "lucide-react";
+import { RefreshCw, ExternalLink, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { IntelligenceItem } from "@/hooks/useDomainIntelligence";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface DomainInsightsProps {
   sector: Sector;
@@ -14,6 +20,70 @@ interface DomainInsightsProps {
   onRefresh?: () => void;
 }
 
+function extractSourceName(sourceStr: string, url?: string): string {
+  // If source is already a clean name, use it
+  if (sourceStr && !sourceStr.includes('http') && !sourceStr.includes('.com')) {
+    return sourceStr;
+  }
+
+  if (!url) return sourceStr || 'Source';
+
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.replace('www.', '');
+    
+    const domainNames: Record<string, string> = {
+      'vogue.com': 'Vogue',
+      'wwd.com': 'WWD',
+      'fashionunited.com': 'Fashion United',
+      'fashionunited.uk': 'Fashion United',
+      'whowhatwear.com': 'Who What Wear',
+      'marieclaire.com': 'Marie Claire',
+      'harpersbazaar.com': 'Harper\'s Bazaar',
+      'elle.com': 'ELLE',
+      'businessoffashion.com': 'BoF',
+      'highsnobiety.com': 'Highsnobiety',
+      'hypebeast.com': 'Hypebeast',
+      'complex.com': 'Complex',
+      'refinery29.com': 'Refinery29',
+      'glamour.com': 'Glamour',
+      'instyle.com': 'InStyle',
+      'cosmopolitan.com': 'Cosmopolitan',
+      'allure.com': 'Allure',
+      'byrdie.com': 'Byrdie',
+      'nylon.com': 'NYLON',
+      'thecut.com': 'The Cut',
+      'gq.com': 'GQ',
+      'esquire.com': 'Esquire',
+      'forbes.com': 'Forbes',
+      'bloomberg.com': 'Bloomberg',
+      'reuters.com': 'Reuters',
+      'bbc.com': 'BBC',
+      'theguardian.com': 'The Guardian',
+      'nytimes.com': 'NY Times',
+      'wsj.com': 'WSJ',
+    };
+
+    if (domainNames[hostname]) {
+      return domainNames[hostname];
+    }
+
+    for (const [domain, name] of Object.entries(domainNames)) {
+      if (hostname.includes(domain.split('.')[0])) {
+        return name;
+      }
+    }
+
+    return hostname
+      .split('.')[0]
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  } catch {
+    return sourceStr || 'Source';
+  }
+}
+
 export function DomainInsights({ 
   sector, 
   items, 
@@ -22,6 +92,8 @@ export function DomainInsights({
   source,
   onRefresh 
 }: DomainInsightsProps) {
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+
   const formatDate = (dateStr: string) => {
     try {
       const date = new Date(dateStr);
@@ -38,14 +110,25 @@ export function DomainInsights({
     }
   };
 
-  const truncateUrl = (url: string) => {
-    try {
-      const urlObj = new URL(url);
-      return urlObj.hostname.replace('www.', '');
-    } catch {
-      return url.slice(0, 30) + '...';
+  // Extract unique sources for compact display
+  const uniqueSources = items.reduce((acc, item) => {
+    const name = extractSourceName(item.source, item.sourceUrl);
+    if (!acc.find(s => s.name === name)) {
+      acc.push({
+        name,
+        title: item.title,
+        description: item.description,
+        url: item.sourceUrl || '',
+      });
     }
-  };
+    return acc;
+  }, [] as { name: string; title: string; description: string; url: string }[]);
+
+  // Compact source list text
+  const compactSourceList = uniqueSources
+    .slice(0, 5)
+    .map((s, i) => `${i + 1}. ${s.name}`)
+    .join(' ');
 
   return (
     <section className="w-full max-w-5xl mx-auto px-6 py-10 md:py-14">
@@ -100,43 +183,115 @@ export function DomainInsights({
           )}
         </div>
       ) : items.length > 0 ? (
-        <div className="space-y-3">
-          {items.map((item, idx) => (
-            <article
-              key={idx}
-              className={cn(
-                "group p-4 border border-border rounded-lg",
-                "bg-card hover:bg-accent/30 transition-colors duration-200"
-              )}
-            >
-              <h3 className="text-[15px] font-medium text-foreground leading-snug mb-2">
-                {item.title}
-              </h3>
-              
-              <p className="text-sm text-foreground/70 leading-relaxed mb-3">
-                {item.description}
-              </p>
-              
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span>{formatDate(item.date)}</span>
-                <span className="text-muted-foreground/40">•</span>
-                
-                {item.sourceUrl ? (
-                  <a
-                    href={item.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 hover:text-foreground transition-colors"
-                  >
-                    <span>{item.source || truncateUrl(item.sourceUrl)}</span>
-                    <ExternalLink className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                  </a>
-                ) : (
-                  <span>{item.source}</span>
+        <div className="space-y-4">
+          {/* Intelligence Cards */}
+          <div className="space-y-3">
+            {items.map((item, idx) => (
+              <article
+                key={idx}
+                className={cn(
+                  "group p-4 border border-border rounded-lg",
+                  "bg-card hover:bg-accent/30 transition-colors duration-200"
                 )}
-              </div>
-            </article>
-          ))}
+              >
+                <h3 className="text-[15px] font-medium text-foreground leading-snug mb-2">
+                  {item.title}
+                </h3>
+                
+                <p className="text-sm text-foreground/70 leading-relaxed mb-3">
+                  {item.description}
+                </p>
+                
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span>{formatDate(item.date)}</span>
+                  <span className="text-muted-foreground/40">•</span>
+                  <span>{extractSourceName(item.source, item.sourceUrl)}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          {/* Compact Sources Section */}
+          {uniqueSources.length > 0 && (
+            <Collapsible
+              open={sourcesExpanded}
+              onOpenChange={setSourcesExpanded}
+              className="mt-6 pt-4 border-t border-border"
+            >
+              <CollapsibleTrigger asChild>
+                <button className="w-full flex items-center justify-between text-left py-2 group">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Sources:
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {compactSourceList}
+                      {uniqueSources.length > 5 && ` +${uniqueSources.length - 5} more`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-3 shrink-0">
+                    <span className="group-hover:text-foreground transition-colors">
+                      {sourcesExpanded ? 'Collapse' : 'Expand'}
+                    </span>
+                    {sourcesExpanded ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </div>
+                </button>
+              </CollapsibleTrigger>
+
+              <CollapsibleContent>
+                <div className="pt-3 pb-1 space-y-3">
+                  {uniqueSources.map((src, index) => (
+                    <a
+                      key={`${src.url}-${index}`}
+                      href={src.url || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cn(
+                        "block group/item rounded-md p-2 -mx-2 transition-colors",
+                        src.url ? "hover:bg-muted/30 cursor-pointer" : "cursor-default"
+                      )}
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs text-muted-foreground font-medium shrink-0 mt-0.5">
+                          {index + 1}.
+                        </span>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn(
+                              "text-sm font-medium text-foreground",
+                              src.url && "group-hover/item:underline"
+                            )}>
+                              {src.name}
+                            </span>
+                            {src.url && (
+                              <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                            )}
+                          </div>
+                          
+                          {src.title && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                              {src.title}
+                            </p>
+                          )}
+                          
+                          {src.description && (
+                            <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-1">
+                              {src.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-12 text-center">

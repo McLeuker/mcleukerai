@@ -1,20 +1,11 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, ExternalLink, FileText, Globe, Search, Star, Filter } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 export interface Source {
   url: string;
@@ -29,196 +20,166 @@ interface SourceCitationsProps {
   className?: string;
 }
 
-function getSourceIcon(type: Source["type"]) {
-  switch (type) {
-    case "search":
-      return Search;
-    case "scrape":
-    case "crawl":
-      return Globe;
-    default:
-      return FileText;
-  }
-}
+function extractSourceName(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.replace('www.', '');
+    
+    // Map common domains to readable names
+    const domainNames: Record<string, string> = {
+      'vogue.com': 'Vogue',
+      'wwd.com': 'WWD',
+      'fashionunited.com': 'Fashion United',
+      'fashionunited.uk': 'Fashion United',
+      'whowhatwear.com': 'Who What Wear',
+      'marieclaire.com': 'Marie Claire',
+      'harpersbazaar.com': 'Harper\'s Bazaar',
+      'elle.com': 'ELLE',
+      'businessoffashion.com': 'BoF',
+      'highsnobiety.com': 'Highsnobiety',
+      'hypebeast.com': 'Hypebeast',
+      'complex.com': 'Complex',
+      'refinery29.com': 'Refinery29',
+      'glamour.com': 'Glamour',
+      'instyle.com': 'InStyle',
+      'cosmopolitan.com': 'Cosmopolitan',
+      'allure.com': 'Allure',
+      'byrdie.com': 'Byrdie',
+      'nylon.com': 'NYLON',
+      'thecut.com': 'The Cut',
+      'gq.com': 'GQ',
+      'esquire.com': 'Esquire',
+      'forbes.com': 'Forbes',
+      'bloomberg.com': 'Bloomberg',
+      'reuters.com': 'Reuters',
+      'bbc.com': 'BBC',
+      'theguardian.com': 'The Guardian',
+      'nytimes.com': 'NY Times',
+      'wsj.com': 'WSJ',
+    };
 
-function getSourceLabel(type: Source["type"]) {
-  switch (type) {
-    case "search":
-      return "Web Search";
-    case "scrape":
-      return "Scraped Page";
-    case "crawl":
-      return "Crawled Site";
-    default:
-      return "Source";
-  }
-}
+    // Check for exact match
+    if (domainNames[hostname]) {
+      return domainNames[hostname];
+    }
 
-function getRelevanceBadge(score?: number) {
-  if (!score) return null;
-  if (score >= 0.9) return { label: "High", variant: "default" as const };
-  if (score >= 0.7) return { label: "Medium", variant: "secondary" as const };
-  return { label: "Low", variant: "outline" as const };
+    // Check for partial match
+    for (const [domain, name] of Object.entries(domainNames)) {
+      if (hostname.includes(domain.split('.')[0])) {
+        return name;
+      }
+    }
+
+    // Capitalize first letter of each word in hostname
+    return hostname
+      .split('.')[0]
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  } catch {
+    return 'Source';
+  }
 }
 
 export function SourceCitations({ sources, className }: SourceCitationsProps) {
-  // Default to collapsed for cleaner UI - users can expand to see details
-  const [isOpen, setIsOpen] = useState(false);
-  const [filterType, setFilterType] = useState<"all" | "search" | "scrape">("all");
-  const [sortBy, setSortBy] = useState<"order" | "relevance">("order");
+  const [isExpanded, setIsExpanded] = useState(false);
 
   if (!sources || sources.length === 0) {
     return null;
   }
 
-  // Filter sources
-  let filteredSources = filterType === "all" 
-    ? sources 
-    : sources.filter(s => s.type === filterType);
+  // Create unique sources list with names
+  const uniqueSources = sources.reduce((acc, source) => {
+    const name = extractSourceName(source.url);
+    if (!acc.find(s => s.name === name)) {
+      acc.push({ ...source, name });
+    }
+    return acc;
+  }, [] as (Source & { name: string })[]);
 
-  // Sort sources
-  if (sortBy === "relevance") {
-    filteredSources = [...filteredSources].sort((a, b) => 
-      (b.relevance_score || 0) - (a.relevance_score || 0)
-    );
-  }
-
-  const searchCount = sources.filter(s => s.type === "search").length;
-  const scrapeCount = sources.filter(s => s.type === "scrape" || s.type === "crawl").length;
+  // Compact one-line view text
+  const compactSourceList = uniqueSources
+    .slice(0, 5)
+    .map((s, i) => `${i + 1}. ${s.name}`)
+    .join(' ');
 
   return (
     <Collapsible
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      className={cn("mt-4 border border-border rounded-lg bg-background", className)}
+      open={isExpanded}
+      onOpenChange={setIsExpanded}
+      className={cn("mt-4", className)}
     >
+      {/* Compact View - One Line */}
       <CollapsibleTrigger asChild>
-        <Button
-          variant="ghost"
-          className="w-full flex items-center justify-between px-4 py-3 h-auto hover:bg-muted/50"
+        <button
+          className="w-full flex items-center justify-between text-left py-2 group"
         >
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">Sources & Citations</span>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {sources.length}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Sources:
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {compactSourceList}
+              {uniqueSources.length > 5 && ` +${uniqueSources.length - 5} more`}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            {searchCount > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                <Search className="h-3 w-3 mr-1" />
-                {searchCount}
-              </Badge>
-            )}
-            {scrapeCount > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                <Globe className="h-3 w-3 mr-1" />
-                {scrapeCount}
-              </Badge>
-            )}
-            {isOpen ? (
-              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-3 shrink-0">
+            <span className="group-hover:text-foreground transition-colors">
+              {isExpanded ? 'Collapse' : 'Expand'}
+            </span>
+            {isExpanded ? (
+              <ChevronUp className="h-3.5 w-3.5" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-3.5 w-3.5" />
             )}
           </div>
-        </Button>
+        </button>
       </CollapsibleTrigger>
 
+      {/* Expanded View - Title + Subtitle */}
       <CollapsibleContent>
-        {/* Filter Bar */}
-        <div className="px-4 py-2 border-t border-border bg-muted/30 flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-            <Select value={filterType} onValueChange={(v) => setFilterType(v as typeof filterType)}>
-              <SelectTrigger className="h-7 w-[100px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="search">Searches</SelectItem>
-                <SelectItem value="scrape">Scraped</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <Star className="h-3.5 w-3.5 text-muted-foreground" />
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-              <SelectTrigger className="h-7 w-[110px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="order">By Order</SelectItem>
-                <SelectItem value="relevance">By Relevance</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="border-t border-border divide-y divide-border max-h-[300px] overflow-y-auto">
-          {filteredSources.map((source, index) => {
-            const Icon = getSourceIcon(source.type);
-            const label = getSourceLabel(source.type);
-            const relevance = getRelevanceBadge(source.relevance_score);
-            const originalIndex = sources.indexOf(source);
-
-            return (
-              <div
-                key={`${source.url}-${index}`}
-                className="px-4 py-3 hover:bg-muted/30 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  {/* Citation number */}
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center">
-                    {originalIndex + 1}
-                  </span>
-
-                  {/* Source content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="text-xs text-muted-foreground">{label}</span>
-                      </span>
-                      {relevance && (
-                        <Badge variant={relevance.variant} className="text-[10px] h-5 px-1.5">
-                          {relevance.label}
-                        </Badge>
-                      )}
-                    </div>
-
-                    <h4 className="font-medium text-sm text-foreground line-clamp-1">
-                      {source.title || "Untitled Source"}
-                    </h4>
-
-                    {source.url && (
-                      <a
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline flex items-center gap-1 mt-1"
-                      >
-                        <span className="truncate max-w-[250px]">{source.url}</span>
-                        <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                      </a>
-                    )}
-
-                    {source.snippet && (
-                      <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                        {source.snippet}
-                      </p>
-                    )}
+        <div className="pt-3 pb-1 border-t border-border space-y-3">
+          {uniqueSources.map((source, index) => (
+            <a
+              key={`${source.url}-${index}`}
+              href={source.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block group/item hover:bg-muted/30 rounded-md p-2 -mx-2 transition-colors"
+            >
+              <div className="flex items-start gap-2">
+                {/* Number */}
+                <span className="text-xs text-muted-foreground font-medium shrink-0 mt-0.5">
+                  {index + 1}.
+                </span>
+                
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  {/* Source Name as Title */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-foreground group-hover/item:underline">
+                      {source.name}
+                    </span>
+                    <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity" />
                   </div>
+                  
+                  {/* Article Title as Subtitle */}
+                  {source.title && source.title !== source.name && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                      {source.title}
+                    </p>
+                  )}
+                  
+                  {/* Snippet if available */}
+                  {source.snippet && (
+                    <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-1">
+                      {source.snippet}
+                    </p>
+                  )}
                 </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Footer with export hint */}
-        <div className="px-4 py-2 border-t border-border bg-muted/30 text-xs text-muted-foreground">
-          Citations are included in PDF and Excel exports
+            </a>
+          ))}
         </div>
       </CollapsibleContent>
     </Collapsible>
