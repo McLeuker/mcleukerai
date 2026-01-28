@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useConversations } from "@/hooks/useConversations";
-import { useSector } from "@/contexts/SectorContext";
+import { useSector, Sector } from "@/contexts/SectorContext";
+import { useDomainSnapshot } from "@/hooks/useDomainSnapshot";
 import { ChatSidebar } from "@/components/dashboard/ChatSidebar";
 import { MobileChatSidebar } from "@/components/dashboard/MobileChatSidebar";
 import { ChatView } from "@/components/dashboard/ChatView";
@@ -39,13 +40,27 @@ const Dashboard = () => {
     deleteConversation,
     cancelRequest,
   } = useConversations();
-  const { getSectorConfig } = useSector();
+  const { currentSector, getSectorConfig, getDomainSystemPrompt } = useSector();
+  const { content: domainSnapshot, loading: snapshotLoading, fetchSnapshot, clearSnapshot } = useDomainSnapshot();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
 
   const sectorConfig = getSectorConfig();
 
+  // Handle domain change - fetch snapshot for new domain
+  const handleDomainChange = useCallback((sector: Sector) => {
+    // Clear previous snapshot and fetch new one
+    clearSnapshot();
+    if (sector !== "all") {
+      // Delay snapshot fetch slightly to let state settle
+      setTimeout(() => {
+        fetchSnapshot(sector);
+      }, 100);
+    }
+  }, [clearSnapshot, fetchSnapshot]);
+
   const handleSendMessage = async (message: string, mode: "quick" | "deep" = "quick", model?: string) => {
-    await sendMessage(message, mode, model);
+    await sendMessage(message, mode, model, currentSector);
   };
 
   const handleExportPDF = () => {
@@ -107,7 +122,7 @@ const Dashboard = () => {
               onDeleteConversation={deleteConversation}
             />
             <div className="flex-1">
-              <DomainSelector variant="dropdown" />
+              <DomainSelector variant="dropdown" onDomainChange={handleDomainChange} />
             </div>
             <CreditDisplay variant="compact" />
           </div>
@@ -116,7 +131,7 @@ const Dashboard = () => {
         {/* Desktop Domain Bar */}
         <div className="hidden lg:block border-b border-border bg-background/50 backdrop-blur-sm">
           <div className="flex items-center justify-between gap-4 px-6 py-3">
-            <DomainSelector variant="pills" className="flex-1" />
+            <DomainSelector variant="pills" className="flex-1" onDomainChange={handleDomainChange} />
             <div className="flex items-center gap-3">
               {/* Export Button */}
               {messages.length > 0 && (
@@ -171,14 +186,14 @@ const Dashboard = () => {
             onToggleFavorite={toggleFavorite}
             onDeleteMessage={deleteMessage}
             onNewChat={createNewConversation}
+            onSelectPrompt={(prompt) => handleSendMessage(prompt, "quick")}
+            domainSnapshot={domainSnapshot}
+            domainSnapshotLoading={snapshotLoading}
           />
 
           {/* Input Area */}
           <div className="border-t border-border bg-background/95 backdrop-blur-sm p-4 sticky bottom-0">
             <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 animate-fade-in">
-              {messages.length === 0 && !loading && (
-                <QuickActions onAction={(msg) => handleSendMessage(msg, "quick")} isLoading={loading} />
-              )}
               <ChatInput
                 onSubmit={handleSendMessage}
                 isLoading={loading}

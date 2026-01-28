@@ -4,9 +4,10 @@ import { ChatMessageComponent } from "./ChatMessage";
 import { ResearchProgress } from "./ResearchProgress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { MessageSquarePlus, Star, Filter } from "lucide-react";
+import { Star, Filter } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { DomainStarterPanel } from "./DomainStarterPanel";
 
 interface ChatViewProps {
   messages: ChatMessageType[];
@@ -16,6 +17,9 @@ interface ChatViewProps {
   onToggleFavorite: (messageId: string) => void;
   onDeleteMessage: (messageId: string) => void;
   onNewChat: () => void;
+  onSelectPrompt?: (prompt: string) => void;
+  domainSnapshot?: string | null;
+  domainSnapshotLoading?: boolean;
 }
 
 export function ChatView({
@@ -26,6 +30,9 @@ export function ChatView({
   onToggleFavorite,
   onDeleteMessage,
   onNewChat,
+  onSelectPrompt,
+  domainSnapshot,
+  domainSnapshotLoading,
 }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -43,20 +50,16 @@ export function ChatView({
 
   const favoriteCount = messages.filter((m) => m.is_favorite).length;
 
+  // Show domain starter panel when no messages
   if (messages.length === 0 && !isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 pb-4 animate-fade-in">
-        <div className="w-12 h-12 bg-muted/50 rounded-2xl flex items-center justify-center mb-4 transition-transform duration-300 hover:scale-105">
-          <MessageSquarePlus className="h-6 w-6 text-muted-foreground" />
-        </div>
-        <h2 className="text-xl font-editorial text-foreground mb-2">
-          Start a conversation
-        </h2>
-        <p className="text-muted-foreground max-w-md text-sm leading-relaxed">
-          Ask McLeuker AI to help with supplier research, trend analysis, market
-          intelligence, or sustainability audits.
-        </p>
-      </div>
+      <ScrollArea className="flex-1">
+        <DomainStarterPanel
+          onSelectPrompt={onSelectPrompt || (() => {})}
+          snapshot={domainSnapshot}
+          snapshotLoading={domainSnapshotLoading}
+        />
+      </ScrollArea>
     );
   }
 

@@ -156,6 +156,26 @@ TONE: Precise, conversational, consulting-grade. Like a senior analyst explainin
 
 If information is uncertain or limited, explicitly acknowledge it rather than fabricating data.`;
 
+// Domain-specific prompt additions
+const DOMAIN_PROMPTS: Record<string, string> = {
+  all: "",
+  fashion: "\n\nDOMAIN MODE: FASHION\nFocus on runway trends, silhouettes, designer collections, fashion week insights, and ready-to-wear developments. Prioritize insights from Fashion Weeks, emerging designers, and styling patterns.",
+  beauty: "\n\nDOMAIN MODE: BEAUTY\nFocus on beauty formulations, cosmetic trends, brand strategies, backstage beauty, and consumer preferences. Prioritize insights on clean beauty, K-beauty, and prestige segments.",
+  skincare: "\n\nDOMAIN MODE: SKINCARE\nFocus on skincare ingredients, clinical aesthetics, regulatory compliance, and science-backed formulations. Prioritize actives, efficacy data, and market innovations.",
+  sustainability: "\n\nDOMAIN MODE: SUSTAINABILITY\nFocus on circularity, sustainable materials, supply chain transparency, certifications, and environmental impact. Prioritize regenerative practices, certifications, and regulatory shifts.",
+  "fashion-tech": "\n\nDOMAIN MODE: FASHION TECH\nFocus on AI in fashion, digital innovation, virtual try-on, tech startups, and future technologies. Prioritize emerging technologies and their adoption in the industry.",
+  catwalks: "\n\nDOMAIN MODE: CATWALKS\nFocus on runway coverage, designer shows, styling trends, fashion week analysis, and emerging talent. Prioritize recent shows and live runway insights.",
+  culture: "\n\nDOMAIN MODE: CULTURE\nFocus on cultural influences, art collaborations, social movements, and regional cultural signals in fashion. Prioritize cultural narratives shaping brand positioning.",
+  textile: "\n\nDOMAIN MODE: TEXTILE\nFocus on fibers, mills, material innovation, textile sourcing, MOQ requirements, and manufacturing capabilities. Prioritize supplier data, certifications, and production insights.",
+  lifestyle: "\n\nDOMAIN MODE: LIFESTYLE\nFocus on consumer behavior, wellness trends, luxury lifestyle, travel influence, and cross-category signals. Prioritize lifestyle shifts impacting fashion consumption.",
+};
+
+// Get enhanced system prompt with domain context
+function getSystemPromptWithDomain(domain: string): string {
+  const domainAddition = DOMAIN_PROMPTS[domain] || DOMAIN_PROMPTS.all;
+  return FASHION_SYSTEM_PROMPT + domainAddition;
+}
+
 // Single Grok API call function
 async function callGrok(
   apiKey: string,
@@ -293,10 +313,11 @@ serve(async (req) => {
       });
     }
 
-    const { prompt, taskId, conversationId, model: requestedModel } = await req.json();
+    const { prompt, taskId, conversationId, model: requestedModel, domain } = await req.json();
     
     // Support both legacy taskId and new conversationId modes
     const isLegacyMode = !!taskId;
+    const activeDomain = domain || "all";
     
     // ============ INPUT VALIDATION WITH INJECTION PROTECTION ============
     
@@ -463,14 +484,17 @@ serve(async (req) => {
       }).eq("id", taskId);
     }
 
+    // Get domain-enhanced system prompt
+    const systemPrompt = getSystemPromptWithDomain(activeDomain);
+
     // Execute AI (Grok primary, Lovable AI fallback if Grok model is unavailable)
     let modelUsedLabel = "Grok";
-    let aiResult = await callGrok(GROK_API_KEY, trimmedPrompt, FASHION_SYSTEM_PROMPT);
+    let aiResult = await callGrok(GROK_API_KEY, trimmedPrompt, systemPrompt);
 
     // If Grok is unavailable for this account (404/403/5xx), fall back so the app still works.
     if (!aiResult.success && (aiResult.status === 404 || aiResult.status === 403 || (aiResult.status && aiResult.status >= 500))) {
       console.warn("Grok unavailable, falling back to Lovable AI.", { status: aiResult.status });
-      const fallback = await callLovableAI(trimmedPrompt, FASHION_SYSTEM_PROMPT);
+      const fallback = await callLovableAI(trimmedPrompt, systemPrompt);
       if (fallback.success) {
         aiResult = { success: true, content: fallback.content };
         modelUsedLabel = "Lovable AI";
