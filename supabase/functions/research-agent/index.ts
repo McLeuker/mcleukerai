@@ -772,10 +772,11 @@ serve(async (req) => {
         return;
       }
 
+      // CREDIT-BASED ACCESS: All users have equal access, credits are the only gate
       if (userData.credit_balance < BASE_RESEARCH_COST) {
         send({ 
           phase: "failed", 
-          error: "You don't have enough credits for this research. Please purchase more credits or upgrade your plan.",
+          error: "You're out of credits for this research. Add credits to continue searching and researching. All features remain available once credits are added.",
           insufficientCredits: true,
           currentBalance: userData.credit_balance,
           requiredCredits: BASE_RESEARCH_COST
