@@ -12,14 +12,20 @@ import {
 interface DomainSelectorProps {
   variant?: "pills" | "dropdown";
   className?: string;
+  onDomainChange?: (sector: Sector) => void;
 }
 
-export function DomainSelector({ variant = "pills", className }: DomainSelectorProps) {
+export function DomainSelector({ variant = "pills", className, onDomainChange }: DomainSelectorProps) {
   const { currentSector, setSector } = useSector();
+
+  const handleSectorChange = (sector: Sector) => {
+    setSector(sector);
+    onDomainChange?.(sector);
+  };
 
   if (variant === "dropdown") {
     return (
-      <Select value={currentSector} onValueChange={(v) => setSector(v as Sector)}>
+      <Select value={currentSector} onValueChange={(v) => handleSectorChange(v as Sector)}>
         <SelectTrigger className="w-40 h-9 text-xs bg-card border-border">
           <SelectValue placeholder="Select domain" />
         </SelectTrigger>
@@ -40,7 +46,7 @@ export function DomainSelector({ variant = "pills", className }: DomainSelectorP
         {SECTORS.map((sector) => (
           <button
             key={sector.id}
-            onClick={() => setSector(sector.id)}
+            onClick={() => handleSectorChange(sector.id)}
             className={cn(
               "px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200",
               "border hover:border-foreground/30",

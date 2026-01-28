@@ -166,7 +166,12 @@ export function useConversations() {
   };
 
   // Send a message in the current conversation
-  const sendMessage = async (prompt: string, mode: ResearchMode = "quick", model?: string): Promise<void> => {
+  const sendMessage = async (
+    prompt: string, 
+    mode: ResearchMode = "quick", 
+    model?: string,
+    domain?: string
+  ): Promise<void> => {
     if (!user) return;
 
     setLoading(true);
@@ -265,6 +270,7 @@ export function useConversations() {
             [bodyParam]: prompt,
             conversationId: conversation.id,
             model: model || "grok-4-latest",
+            domain: domain || undefined,
           }),
           signal: abortControllerRef.current.signal,
         }

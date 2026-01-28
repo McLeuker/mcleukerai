@@ -215,6 +215,26 @@ TONE: Precise, intelligent, conversational. The user should feel like they're re
 
 If data is missing or uncertain, acknowledge it explicitly rather than fabricating.`;
 
+// Domain-specific prompt additions for research agent
+const DOMAIN_RESEARCH_PROMPTS: Record<string, string> = {
+  all: "",
+  fashion: "\n\nDOMAIN: FASHION\nPrioritize runway trends, silhouettes, designer collections, fashion week coverage, and ready-to-wear developments.",
+  beauty: "\n\nDOMAIN: BEAUTY\nPrioritize beauty formulations, cosmetic trends, backstage beauty, brand strategies, and consumer preferences.",
+  skincare: "\n\nDOMAIN: SKINCARE\nPrioritize skincare ingredients, clinical aesthetics, regulatory compliance, and science-backed formulations.",
+  sustainability: "\n\nDOMAIN: SUSTAINABILITY\nPrioritize circularity, sustainable materials, supply chain transparency, certifications, and environmental impact.",
+  "fashion-tech": "\n\nDOMAIN: FASHION TECH\nPrioritize AI in fashion, digital innovation, virtual try-on, tech startups, and emerging technologies.",
+  catwalks: "\n\nDOMAIN: CATWALKS\nPrioritize runway coverage, designer shows, styling trends, fashion week analysis, and emerging talent.",
+  culture: "\n\nDOMAIN: CULTURE\nPrioritize cultural influences, art collaborations, social movements, and regional cultural signals in fashion.",
+  textile: "\n\nDOMAIN: TEXTILE\nPrioritize fibers, mills, material innovation, textile sourcing, MOQ requirements, and manufacturing capabilities.",
+  lifestyle: "\n\nDOMAIN: LIFESTYLE\nPrioritize consumer behavior, wellness trends, luxury lifestyle, travel influence, and cross-category signals.",
+};
+
+// Get enhanced synthesizer prompt with domain context
+function getSynthesizerPromptWithDomain(domain: string): string {
+  const domainAddition = DOMAIN_RESEARCH_PROMPTS[domain] || DOMAIN_RESEARCH_PROMPTS.all;
+  return SYNTHESIZER_SYSTEM_PROMPT + domainAddition;
+}
+
 // Helper to send SSE events
 function createSSEStream() {
   const encoder = new TextEncoder();
@@ -649,7 +669,8 @@ serve(async (req) => {
         return;
       }
 
-      const { query, conversationId, model: requestedModel } = await req.json();
+      const { query, conversationId, model: requestedModel, domain } = await req.json();
+      const activeDomain = domain || "all";
       
       // ============ INPUT VALIDATION WITH INJECTION PROTECTION ============
       
@@ -1006,9 +1027,10 @@ CRITICAL INSTRUCTIONS:
       // Stream the response from Grok
       let finalContent = "";
       
+      const synthesizerPrompt = getSynthesizerPromptWithDomain(activeDomain);
       const streamResult = await callGrokStreaming(
         GROK_API_KEY,
-        SYNTHESIZER_SYSTEM_PROMPT,
+        synthesizerPrompt,
         generationPrompt,
         (chunk) => {
           send({ phase: "generating", content: chunk });
@@ -1019,7 +1041,7 @@ CRITICAL INSTRUCTIONS:
         // Fallback to non-streaming if streaming fails
         const fallbackResult = await callGrok(
           GROK_API_KEY,
-          SYNTHESIZER_SYSTEM_PROMPT,
+          synthesizerPrompt,
           generationPrompt
         );
         
