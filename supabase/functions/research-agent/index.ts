@@ -67,18 +67,22 @@ function getCorsHeaders(req: Request) {
 type ResearchPhase = "planning" | "searching" | "browsing" | "extracting" | "validating" | "generating" | "completed" | "failed";
 type QueryType = "supplier" | "trend" | "market" | "sustainability" | "general";
 
-// Deep Search Configuration
+// Deep Search Configuration - TRUE DEEP RESEARCH MODE
 const DEEP_SEARCH_CONFIG = {
-  BASE_COST: 8,
+  BASE_COST: 10,
   COST_PER_SEARCH: 1,
   COST_PER_SCRAPE: 2,
-  MAX_CREDITS: 50,           // Increased for deep research
-  MIN_SOURCES: 5,            // Minimum sources before synthesis
-  MAX_SEARCH_ITERATIONS: 4,  // Up to 4 search rounds
-  MAX_SCRAPE_PER_ROUND: 10,  // Max scrapes per iteration
-  PERPLEXITY_TIMEOUT: 90000, // 90 seconds for complex queries
-  FIRECRAWL_TIMEOUT: 45000,  // 45 seconds per scrape
-  MIN_CONTENT_LENGTH: 500,   // Minimum content before triggering re-search
+  MAX_CREDITS: 80,              // High budget for comprehensive research
+  MIN_SOURCES: 10,              // Require more sources before synthesis
+  TARGET_SOURCES: 50,           // Aim for 50+ sources for complex queries
+  MAX_SEARCH_ITERATIONS: 8,     // Up to 8 search rounds for deep coverage
+  SEARCHES_PER_ITERATION: 6,    // More parallel searches per round
+  MAX_SCRAPE_PER_ROUND: 15,     // More scrapes per iteration
+  PERPLEXITY_TIMEOUT: 120000,   // 2 minutes for complex queries
+  FIRECRAWL_TIMEOUT: 60000,     // 60 seconds per scrape
+  MIN_CONTENT_LENGTH: 2000,     // Require substantial content before synthesis
+  CONFIDENCE_THRESHOLD: 0.75,   // Minimum confidence to stop iterating
+  MAX_EXECUTION_TIME: 300000,   // 5 minute max execution time
 };
 
 // Model Configuration
@@ -106,53 +110,99 @@ let CURRENT_MODEL_CONFIG = {
 
 // ============ SYSTEM PROMPTS ============
 
-const PLANNER_SYSTEM_PROMPT = `You are a senior research planner for deep intelligence gathering.
+const PLANNER_SYSTEM_PROMPT = `You are a senior research planner for TRUE DEEP SEARCH intelligence gathering.
+
+═══════════════════════════════════════════════════════════════
+DEEP SEARCH MODE - NOT A SIMPLE QUERY
+═══════════════════════════════════════════════════════════════
+
+This is credit-intensive, time-intensive research aiming for 100+ website coverage.
 
 AVAILABLE TOOLS:
-1. web_search - Search web for current information (query, limit). Best for: trends, news, market data
-2. scrape_url - Extract content from URL (url). Best for: company pages, detailed articles
-3. extract_structured - Extract structured data with schema (url, schema). Best for: supplier lists, pricing
+1. web_search - Perplexity-powered search with real-time citations
+2. scrape_url - Firecrawl deep extraction from specific URLs
+3. search_discover - Firecrawl search to discover new relevant URLs
 
-DEEP SEARCH PLANNING RULES:
-1. Break complex queries into 4-8 parallel search steps for comprehensive coverage
-2. For supplier queries: Plan to search multiple regions, certifications, and product types
-3. For trend queries: Search fashion weeks, street style, social signals, brand adoptions
-4. For market queries: Multiple searches for competition, pricing, growth, segments
-5. ALWAYS plan to scrape key company/source websites after initial discovery
-6. Plan for cross-validation with multiple authoritative sources
+DEEP PLANNING RULES:
+1. Plan 8-12 parallel searches for maximum coverage
+2. Each search should target a DIFFERENT aspect of the query
+3. Include time-specific queries (e.g., "2024", "2025", "SS26", "FW25")
+4. Plan regional diversity (Europe, Asia, Americas)
+5. Include comparison searches (competitors, alternatives)
+6. Plan structured data extraction for lists/tables
+7. Identify 10+ authoritative domains for deep scraping
+
+FOR SUPPLIER QUERIES:
+- Regional searches (Europe, Asia, Americas, specific countries)
+- Certification-specific searches (GOTS, OEKO-TEX, B Corp)
+- Product category searches
+- MOQ and pricing searches
+- Trade directory searches
+
+FOR TREND QUERIES:
+- Fashion week coverage (Paris, Milan, London, NY)
+- Street style and influencer signals
+- Brand adoption and runway analysis
+- Consumer behavior shifts
+- Seasonal forecasts
 
 OUTPUT JSON ONLY:
 {
   "query_type": "supplier" | "trend" | "market" | "sustainability" | "general",
-  "complexity": "simple" | "moderate" | "complex",
-  "reasoning": "Brief explanation",
+  "complexity": "complex",
+  "time_frame": "requested season/year or current",
+  "reasoning": "Deep analysis of what needs to be researched",
   "parallel_searches": [
-    { "query": "specific search 1", "purpose": "why" },
-    { "query": "specific search 2", "purpose": "why" }
+    { "query": "specific search 1", "purpose": "coverage area", "priority": 1-10 }
   ],
   "follow_up_scrapes": ["domain1.com", "domain2.com"],
-  "validation_criteria": ["Criterion 1", "Criterion 2"],
+  "required_data_points": ["What specific data must be found"],
+  "validation_criteria": ["How to verify accuracy"],
   "expected_output_format": "table" | "report" | "list" | "comparison"
 }`;
 
-const VALIDATOR_SYSTEM_PROMPT = `You are a fashion industry analyst validating research findings.
+const VALIDATOR_SYSTEM_PROMPT = `You are a senior fashion industry analyst performing DEEP VALIDATION.
 
-Your role:
-- Cross-check findings for consistency
-- Detect inconsistencies or contradictions
-- Flag low-confidence or outdated information
-- Ensure all claims are supported by sources
-- Identify gaps that require additional research
+═══════════════════════════════════════════════════════════════
+VALIDATION FOR TRUE DEEP SEARCH
+═══════════════════════════════════════════════════════════════
+
+Your role is to rigorously validate research findings:
+
+1. DATA FRESHNESS CHECK
+   - Are dates/timestamps current for the requested timeframe?
+   - Flag any data that appears outdated (>6 months for trends, >1 year for suppliers)
+   
+2. CROSS-SOURCE VALIDATION
+   - Do multiple sources agree on key facts?
+   - Identify contradictions between sources
+   
+3. COMPLETENESS ASSESSMENT
+   - What data points are missing?
+   - What regions/segments are under-represented?
+   
+4. CONFIDENCE SCORING
+   - High (>0.85): Multiple sources agree, recent data, specific metrics
+   - Medium (0.6-0.85): Some verification, some gaps
+   - Low (<0.6): Limited sources, potential outdated data
+
+5. GAP IDENTIFICATION
+   - What additional searches would improve coverage?
+   - What specific domains should be scraped?
 
 OUTPUT JSON ONLY:
 {
   "verified": true | false,
   "confidence_score": 0.0 - 1.0,
-  "issues": ["list of issues"],
-  "gaps": ["data gaps that need more research"],
+  "data_freshness": "current" | "acceptable" | "outdated",
+  "coverage_score": 0.0 - 1.0,
+  "issues": ["specific issues found"],
+  "contradictions": ["conflicting data points"],
+  "gaps": ["missing data that needs more research"],
   "needs_more_research": true | false,
-  "suggested_searches": ["additional search if needed"],
-  "notes": "summary"
+  "suggested_searches": ["additional search queries"],
+  "suggested_scrapes": ["specific URLs to scrape"],
+  "notes": "summary of validation"
 }`;
 
 const SYNTHESIZER_SYSTEM_PROMPT = `You are a senior fashion intelligence analyst delivering strategy-grade research.
@@ -593,45 +643,72 @@ async function searchWithFirecrawl(
 // ============ DEEP RESEARCH ORCHESTRATOR ============
 interface ResearchResult {
   content: string;
-  sources: Array<{ url: string; title: string; snippet: string; type: string; relevance: number }>;
+  sources: Array<{ url: string; title: string; snippet: string; type: string; relevance: number; timestamp?: string }>;
   searchCount: number;
   scrapeCount: number;
   credits: number;
+  confidence: number;
+  iterations: number;
+}
+
+interface ValidationResult {
+  verified: boolean;
+  confidence_score: number;
+  needs_more_research: boolean;
+  suggested_searches?: string[];
+  suggested_scrapes?: string[];
+  gaps?: string[];
 }
 
 async function executeDeepResearch(
   query: string,
   queryType: QueryType,
-  plan: { parallel_searches?: Array<{ query: string; purpose: string }>; follow_up_scrapes?: string[] },
-  apis: { perplexity: string; firecrawl: string },
+  plan: { parallel_searches?: Array<{ query: string; purpose: string; priority?: number }>; follow_up_scrapes?: string[]; required_data_points?: string[] },
+  apis: { perplexity: string; firecrawl: string; ai?: string },
   send: (data: Record<string, unknown>) => void
 ): Promise<ResearchResult> {
+  const startTime = Date.now();
   let totalContent = "";
-  const allSources: Array<{ url: string; title: string; snippet: string; type: string; relevance: number }> = [];
+  const allSources: Array<{ url: string; title: string; snippet: string; type: string; relevance: number; timestamp?: string }> = [];
+  const scrapedUrls = new Set<string>();
   let searchCount = 0;
   let scrapeCount = 0;
   let credits = DEEP_SEARCH_CONFIG.BASE_COST;
   let iteration = 0;
+  let confidence = 0;
 
-  // Generate search queries based on plan or fallback
-  const searches = plan.parallel_searches?.length 
-    ? plan.parallel_searches 
-    : generateDefaultSearches(query, queryType);
+  // Generate comprehensive search queries based on plan or enhanced fallback
+  let searches = plan.parallel_searches?.length 
+    ? [...plan.parallel_searches] 
+    : generateComprehensiveSearches(query, queryType);
 
-  // ============ PHASE 2: PARALLEL PERPLEXITY SEARCHES ============
-  while (iteration < DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS && credits < DEEP_SEARCH_CONFIG.MAX_CREDITS) {
+  // ============ ITERATIVE DEEP RESEARCH LOOP ============
+  while (
+    iteration < DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS && 
+    credits < DEEP_SEARCH_CONFIG.MAX_CREDITS &&
+    (Date.now() - startTime) < DEEP_SEARCH_CONFIG.MAX_EXECUTION_TIME &&
+    (confidence < DEEP_SEARCH_CONFIG.CONFIDENCE_THRESHOLD || allSources.length < DEEP_SEARCH_CONFIG.MIN_SOURCES)
+  ) {
     iteration++;
+    const targetSources = Math.min(DEEP_SEARCH_CONFIG.TARGET_SOURCES, 20 + iteration * 15);
+    
     send({ 
       phase: "searching", 
-      message: `Deep search round ${iteration}/${DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS}...`,
+      message: `Deep search round ${iteration}/${DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS} — targeting ${targetSources}+ sources...`,
       searchCount,
+      scrapeCount,
+      sourceCount: allSources.length,
       iteration 
     });
 
-    // Execute searches in parallel (batch of 3)
+    // ============ PHASE 2: PARALLEL PERPLEXITY SEARCHES ============
+    // Execute searches in larger parallel batches for speed
+    const searchesThisRound = searches.slice(0, DEEP_SEARCH_CONFIG.SEARCHES_PER_ITERATION);
+    searches = searches.slice(DEEP_SEARCH_CONFIG.SEARCHES_PER_ITERATION); // Remove processed
+    
     const searchBatches = [];
-    for (let i = 0; i < searches.length; i += 3) {
-      searchBatches.push(searches.slice(i, i + 3));
+    for (let i = 0; i < searchesThisRound.length; i += 4) {
+      searchBatches.push(searchesThisRound.slice(i, i + 4));
     }
 
     for (const batch of searchBatches) {
@@ -639,7 +716,8 @@ async function executeDeepResearch(
 
       const searchPromises = batch.map(async (search) => {
         const result = await webSearchPerplexity(apis.perplexity, search.query, { 
-          recencyFilter: queryType === "trend" ? "month" : undefined 
+          recencyFilter: queryType === "trend" ? "week" : "month",
+          limit: 10
         });
         return { search, result };
       });
@@ -649,9 +727,9 @@ async function executeDeepResearch(
       for (const res of results) {
         if (res.status === "fulfilled" && res.value.result.success) {
           const { search, result } = res.value;
-          totalContent += `\n\n### ${search.purpose}\n${result.content}`;
+          totalContent += `\n\n### ${search.purpose} [${new Date().toISOString().split('T')[0]}]\n${result.content}`;
           
-          // Add citations as sources
+          // Add citations as sources with timestamps
           result.citations?.forEach((url, idx) => {
             if (url && !allSources.some(s => s.url === url)) {
               allSources.push({
@@ -659,7 +737,8 @@ async function executeDeepResearch(
                 title: extractDomain(url),
                 snippet: "",
                 type: "search",
-                relevance: 1 - (idx * 0.05)
+                relevance: 1 - (idx * 0.03),
+                timestamp: new Date().toISOString()
               });
             }
           });
@@ -670,51 +749,84 @@ async function executeDeepResearch(
       }
     }
 
-    // ============ PHASE 3: FIRECRAWL DEEP SCRAPING ============
-    send({ phase: "browsing", message: "Deep crawling key sources...", scrapeCount });
+    // ============ PHASE 3: FIRECRAWL DISCOVERY + DEEP SCRAPING ============
+    send({ 
+      phase: "browsing", 
+      message: `Deep crawling sources (${scrapeCount} crawled, ${allSources.length} discovered)...`, 
+      scrapeCount,
+      sourceCount: allSources.length,
+      iteration
+    });
 
-    // Collect URLs to scrape from citations and plan
-    const urlsToScrape = new Set<string>();
+    // Also use Firecrawl search for additional URL discovery
+    if (iteration <= 2 && credits < DEEP_SEARCH_CONFIG.MAX_CREDITS - 10) {
+      const discoveryResult = await searchWithFirecrawl(apis.firecrawl, query, 20);
+      if (discoveryResult.success && discoveryResult.results) {
+        for (const result of discoveryResult.results) {
+          if (!allSources.some(s => s.url === result.url)) {
+            allSources.push({
+              url: result.url,
+              title: result.title,
+              snippet: result.description,
+              type: "discovery",
+              relevance: 0.75,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      }
+    }
+
+    // Collect URLs to scrape - prioritize high-relevance and unscraped
+    const urlsToScrape: string[] = [];
     
-    // Add high-relevance search citations
+    // Add high-relevance search citations not yet scraped
     allSources
-      .filter(s => s.type === "search" && s.relevance > 0.7)
-      .slice(0, 5)
-      .forEach(s => urlsToScrape.add(s.url));
+      .filter(s => s.relevance > 0.6 && !scrapedUrls.has(s.url))
+      .sort((a, b) => b.relevance - a.relevance)
+      .slice(0, 10)
+      .forEach(s => urlsToScrape.push(s.url));
     
     // Add planned follow-up scrapes
-    plan.follow_up_scrapes?.forEach(url => urlsToScrape.add(url));
+    plan.follow_up_scrapes?.forEach(url => {
+      if (!scrapedUrls.has(url) && !urlsToScrape.includes(url)) {
+        urlsToScrape.push(url);
+      }
+    });
 
-    // Scrape in parallel (batch of 3)
-    const urlArray = Array.from(urlsToScrape).slice(0, DEEP_SEARCH_CONFIG.MAX_SCRAPE_PER_ROUND);
+    // Scrape in parallel (batch of 4 for speed)
+    const urlArray = urlsToScrape.slice(0, DEEP_SEARCH_CONFIG.MAX_SCRAPE_PER_ROUND);
     
-    for (let i = 0; i < urlArray.length; i += 3) {
+    for (let i = 0; i < urlArray.length; i += 4) {
       if (credits >= DEEP_SEARCH_CONFIG.MAX_CREDITS) break;
       
-      const batch = urlArray.slice(i, i + 3);
+      const batch = urlArray.slice(i, i + 4);
       const scrapePromises = batch.map(url => scrapeWithFirecrawl(apis.firecrawl, url));
       const results = await Promise.allSettled(scrapePromises);
 
       for (let j = 0; j < results.length; j++) {
         const res = results[j];
         const url = batch[j];
+        scrapedUrls.add(url); // Mark as attempted
         
         if (res.status === "fulfilled" && res.value.success && res.value.content) {
-          const truncated = res.value.content.slice(0, 6000);
-          totalContent += `\n\n### Scraped: ${res.value.title}\n${truncated}`;
+          const truncated = res.value.content.slice(0, 8000); // More content per scrape
+          totalContent += `\n\n### Scraped: ${res.value.title} [${new Date().toISOString().split('T')[0]}]\n${truncated}`;
           
           // Update or add source
           const existingSource = allSources.find(s => s.url === url);
           if (existingSource) {
-            existingSource.snippet = truncated.slice(0, 400);
+            existingSource.snippet = truncated.slice(0, 500);
             existingSource.type = "scrape";
+            existingSource.relevance = Math.max(existingSource.relevance, 0.9);
           } else {
             allSources.push({
               url,
               title: res.value.title || extractDomain(url),
-              snippet: truncated.slice(0, 400),
+              snippet: truncated.slice(0, 500),
               type: "scrape",
-              relevance: 0.9
+              relevance: 0.9,
+              timestamp: new Date().toISOString()
             });
           }
           
@@ -724,19 +836,36 @@ async function executeDeepResearch(
       }
     }
 
-    // Check if we have enough content
-    if (totalContent.length >= DEEP_SEARCH_CONFIG.MIN_CONTENT_LENGTH && 
-        allSources.length >= DEEP_SEARCH_CONFIG.MIN_SOURCES) {
+    // ============ PHASE 4: MID-LOOP VALIDATION ============
+    // Calculate confidence based on coverage and content
+    const uniqueDomains = new Set(allSources.map(s => extractDomain(s.url))).size;
+    const contentScore = Math.min(totalContent.length / 15000, 1); // More content needed
+    const sourceScore = Math.min(allSources.length / DEEP_SEARCH_CONFIG.TARGET_SOURCES, 1);
+    const scrapeScore = Math.min(scrapeCount / 15, 1);
+    const domainDiversity = Math.min(uniqueDomains / 20, 1);
+    
+    confidence = (contentScore * 0.3 + sourceScore * 0.3 + scrapeScore * 0.2 + domainDiversity * 0.2);
+
+    send({ 
+      phase: "extracting", 
+      message: `Confidence: ${Math.round(confidence * 100)}% — ${allSources.length} sources from ${uniqueDomains} domains`,
+      confidence: Math.round(confidence * 100),
+      sourceCount: allSources.length,
+      iteration
+    });
+
+    // Check if we have enough content and sources
+    if (
+      totalContent.length >= DEEP_SEARCH_CONFIG.MIN_CONTENT_LENGTH && 
+      allSources.length >= DEEP_SEARCH_CONFIG.MIN_SOURCES &&
+      confidence >= DEEP_SEARCH_CONFIG.CONFIDENCE_THRESHOLD
+    ) {
       break;
     }
 
-    // Generate additional searches if needed
-    if (iteration < DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS && 
-        totalContent.length < DEEP_SEARCH_CONFIG.MIN_CONTENT_LENGTH) {
-      send({ phase: "searching", message: "Expanding search coverage...", iteration: iteration + 1 });
-      
-      // Add more specific searches based on query type
-      const additionalSearches = generateAdditionalSearches(query, queryType, iteration);
+    // Generate additional searches if needed for next iteration
+    if (iteration < DEEP_SEARCH_CONFIG.MAX_SEARCH_ITERATIONS && searches.length < 4) {
+      const additionalSearches = generateIterativeSearches(query, queryType, iteration, allSources);
       searches.push(...additionalSearches);
     }
   }
@@ -746,50 +875,137 @@ async function executeDeepResearch(
     sources: allSources,
     searchCount,
     scrapeCount,
-    credits: Math.min(credits, DEEP_SEARCH_CONFIG.MAX_CREDITS)
+    credits: Math.min(credits, DEEP_SEARCH_CONFIG.MAX_CREDITS),
+    confidence,
+    iterations: iteration
   };
 }
 
-function generateDefaultSearches(query: string, queryType: QueryType): Array<{ query: string; purpose: string }> {
+// ============ COMPREHENSIVE SEARCH GENERATION (FOR TRUE DEEP SEARCH) ============
+function generateComprehensiveSearches(query: string, queryType: QueryType): Array<{ query: string; purpose: string; priority?: number }> {
   const currentYear = new Date().getFullYear();
   const nextYear = currentYear + 1;
   
   switch (queryType) {
     case "supplier":
       return [
-        { query: `${query} manufacturers suppliers ${currentYear}`, purpose: "Primary supplier research" },
-        { query: `${query} MOQ minimum order wholesale pricing`, purpose: "Pricing and MOQ details" },
-        { query: `${query} sustainable certified GOTS OEKO-TEX suppliers`, purpose: "Certified suppliers" },
-        { query: `${query} Europe Asia supplier directory`, purpose: "Regional supplier mapping" },
+        // Primary searches
+        { query: `${query} manufacturers suppliers ${currentYear}`, purpose: "Primary supplier discovery", priority: 1 },
+        { query: `${query} wholesale factory MOQ minimum order quantity`, purpose: "MOQ and pricing research", priority: 1 },
+        { query: `${query} GOTS OEKO-TEX certified sustainable suppliers`, purpose: "Certified sustainable suppliers", priority: 1 },
+        // Regional coverage
+        { query: `${query} suppliers manufacturers Europe Italy Portugal Turkey`, purpose: "European suppliers", priority: 2 },
+        { query: `${query} suppliers manufacturers Asia China India Bangladesh Vietnam`, purpose: "Asian suppliers", priority: 2 },
+        { query: `${query} suppliers USA Americas North America`, purpose: "Americas suppliers", priority: 3 },
+        // Specific data
+        { query: `${query} supplier directory trade fair exhibitors ${currentYear}`, purpose: "Trade directory listings", priority: 2 },
+        { query: `${query} production capacity lead time delivery`, purpose: "Production capabilities", priority: 3 },
+        { query: `${query} quality control certifications ISO 9001`, purpose: "Quality certifications", priority: 3 },
+        { query: `${query} supplier reviews ratings trustworthy`, purpose: "Supplier reputation", priority: 4 },
+        { query: `${query} B2B marketplace Alibaba supplier contact`, purpose: "B2B marketplace research", priority: 4 },
+        { query: `${query} small batch low MOQ samples`, purpose: "Small batch options", priority: 4 },
       ];
     case "trend":
       return [
-        { query: `${query} ${currentYear} ${nextYear} fashion trends`, purpose: "Current trend analysis" },
-        { query: `${query} fashion week runway SS${nextYear % 100} FW${nextYear % 100}`, purpose: "Runway validation" },
-        { query: `${query} street style celebrities wearing`, purpose: "Street style signals" },
-        { query: `${query} brand adoptions designer collections`, purpose: "Brand adoption tracking" },
+        // Season-specific
+        { query: `${query} fashion trends ${currentYear} ${nextYear}`, purpose: "Current trend overview", priority: 1 },
+        { query: `${query} SS${nextYear % 100} Spring Summer ${nextYear} runway`, purpose: "Spring/Summer season", priority: 1 },
+        { query: `${query} FW${nextYear % 100} Fall Winter ${nextYear} collections`, purpose: "Fall/Winter season", priority: 1 },
+        // Fashion week coverage
+        { query: `${query} Paris Fashion Week runway ${currentYear}`, purpose: "Paris Fashion Week", priority: 2 },
+        { query: `${query} Milan Fashion Week collections ${currentYear}`, purpose: "Milan Fashion Week", priority: 2 },
+        { query: `${query} London Fashion Week emerging designers`, purpose: "London Fashion Week", priority: 2 },
+        { query: `${query} New York Fashion Week NYFW trends`, purpose: "New York Fashion Week", priority: 2 },
+        // Street and consumer signals
+        { query: `${query} street style celebrities wearing ${currentYear}`, purpose: "Street style signals", priority: 3 },
+        { query: `${query} Instagram TikTok viral fashion trend`, purpose: "Social media signals", priority: 3 },
+        { query: `${query} brand adoption designer collections luxury`, purpose: "Luxury brand adoption", priority: 3 },
+        { query: `${query} emerging trend forecast prediction ${nextYear}`, purpose: "Trend forecasting", priority: 4 },
+        { query: `${query} consumer behavior shift shopping preferences`, purpose: "Consumer behavior", priority: 4 },
       ];
     case "market":
       return [
-        { query: `${query} market size growth ${currentYear} ${nextYear}`, purpose: "Market overview" },
-        { query: `${query} competition brands market share`, purpose: "Competitive landscape" },
-        { query: `${query} consumer trends demographics`, purpose: "Consumer insights" },
-        { query: `${query} pricing strategy premium luxury`, purpose: "Pricing analysis" },
+        { query: `${query} market size revenue ${currentYear} ${nextYear}`, purpose: "Market size analysis", priority: 1 },
+        { query: `${query} market growth forecast CAGR projection`, purpose: "Growth projections", priority: 1 },
+        { query: `${query} competitive landscape market share brands`, purpose: "Competitive analysis", priority: 1 },
+        { query: `${query} market segmentation demographics consumer`, purpose: "Market segmentation", priority: 2 },
+        { query: `${query} pricing strategy premium mass market`, purpose: "Pricing analysis", priority: 2 },
+        { query: `${query} distribution channels retail e-commerce`, purpose: "Distribution channels", priority: 2 },
+        { query: `${query} industry report market research ${currentYear}`, purpose: "Industry reports", priority: 3 },
+        { query: `${query} key players leading brands manufacturers`, purpose: "Key market players", priority: 3 },
+        { query: `${query} market opportunities challenges barriers`, purpose: "Market opportunities", priority: 3 },
+        { query: `${query} regional market Europe Asia Americas`, purpose: "Regional analysis", priority: 4 },
       ];
     case "sustainability":
       return [
-        { query: `${query} sustainable certifications GOTS OEKO-TEX B Corp`, purpose: "Certification research" },
-        { query: `${query} eco-friendly recycled organic materials`, purpose: "Material options" },
-        { query: `${query} carbon footprint supply chain transparency`, purpose: "Impact analysis" },
-        { query: `${query} circular economy regenerative fashion`, purpose: "Circularity initiatives" },
+        { query: `${query} sustainable certifications GOTS OEKO-TEX GRS`, purpose: "Certification standards", priority: 1 },
+        { query: `${query} eco-friendly recycled organic materials`, purpose: "Sustainable materials", priority: 1 },
+        { query: `${query} carbon footprint emissions reduction`, purpose: "Carbon impact", priority: 1 },
+        { query: `${query} circular economy recycling upcycling`, purpose: "Circularity initiatives", priority: 2 },
+        { query: `${query} supply chain transparency traceability`, purpose: "Supply chain transparency", priority: 2 },
+        { query: `${query} sustainable brands ethical fashion ${currentYear}`, purpose: "Sustainable brands", priority: 2 },
+        { query: `${query} regenerative agriculture natural fibers`, purpose: "Regenerative practices", priority: 3 },
+        { query: `${query} water usage reduction dyeing processes`, purpose: "Water impact", priority: 3 },
+        { query: `${query} fair trade ethical labor practices`, purpose: "Social sustainability", priority: 3 },
+        { query: `${query} sustainability reporting ESG metrics`, purpose: "ESG reporting", priority: 4 },
       ];
     default:
       return [
-        { query: query, purpose: "Primary research" },
-        { query: `${query} ${currentYear} latest news updates`, purpose: "Recent developments" },
-        { query: `${query} industry analysis insights`, purpose: "Industry context" },
+        { query: query, purpose: "Primary research", priority: 1 },
+        { query: `${query} ${currentYear} latest news updates`, purpose: "Recent news", priority: 1 },
+        { query: `${query} industry analysis insights report`, purpose: "Industry analysis", priority: 2 },
+        { query: `${query} expert opinion trends forecast`, purpose: "Expert insights", priority: 2 },
+        { query: `${query} case studies examples best practices`, purpose: "Case studies", priority: 3 },
+        { query: `${query} comparison alternatives options`, purpose: "Comparisons", priority: 3 },
       ];
   }
+}
+
+function generateIterativeSearches(
+  query: string, 
+  queryType: QueryType, 
+  iteration: number,
+  existingSources: Array<{ url: string; title: string }>
+): Array<{ query: string; purpose: string; priority?: number }> {
+  const currentYear = new Date().getFullYear();
+  
+  // Different strategies per iteration
+  const strategies = [
+    // Iteration 2: Go deeper into specific aspects
+    [
+      { mod: "detailed analysis deep dive", purpose: "Deep analysis" },
+      { mod: "specific examples case studies", purpose: "Case studies" },
+      { mod: "expert interviews insights", purpose: "Expert insights" },
+    ],
+    // Iteration 3: Regional and temporal expansion
+    [
+      { mod: `${currentYear} latest recent`, purpose: "Most recent data" },
+      { mod: "regional differences comparison", purpose: "Regional comparison" },
+      { mod: "emerging new innovative", purpose: "Emerging developments" },
+    ],
+    // Iteration 4+: Fill gaps
+    [
+      { mod: "statistics data numbers metrics", purpose: "Quantitative data" },
+      { mod: "challenges problems solutions", purpose: "Challenges and solutions" },
+      { mod: "future outlook prediction forecast", purpose: "Future outlook" },
+    ],
+  ];
+  
+  const strategySet = strategies[Math.min(iteration - 1, strategies.length - 1)];
+  
+  return strategySet.map(s => ({
+    query: `${query} ${s.mod}`,
+    purpose: s.purpose,
+    priority: iteration + 3
+  }));
+}
+
+function generateDefaultSearches(query: string, queryType: QueryType): Array<{ query: string; purpose: string }> {
+  // Use first 4 from comprehensive searches
+  return generateComprehensiveSearches(query, queryType).slice(0, 4).map(s => ({
+    query: s.query,
+    purpose: s.purpose
+  }));
 }
 
 function generateAdditionalSearches(query: string, queryType: QueryType, iteration: number): Array<{ query: string; purpose: string }> {
@@ -819,10 +1035,11 @@ function extractDomain(url: string): string {
 function createFallbackPlan(queryType: QueryType, query: string) {
   return {
     query_type: queryType,
-    complexity: "moderate" as const,
-    parallel_searches: generateDefaultSearches(query, queryType),
+    complexity: "complex" as const,
+    parallel_searches: generateComprehensiveSearches(query, queryType),
     follow_up_scrapes: [],
-    validation_criteria: ["Source reliability", "Data currency", "Information accuracy"],
+    required_data_points: [],
+    validation_criteria: ["Source reliability", "Data currency", "Information accuracy", "Cross-source validation"],
     expected_output_format: queryType === "supplier" ? "table" : "report"
   };
 }
@@ -1047,7 +1264,9 @@ serve(async (req) => {
           sources,
           searchCount,
           scrapeCount: 0,
-          credits: DEEP_SEARCH_CONFIG.BASE_COST + searchCount * DEEP_SEARCH_CONFIG.COST_PER_SEARCH
+          credits: DEEP_SEARCH_CONFIG.BASE_COST + searchCount * DEEP_SEARCH_CONFIG.COST_PER_SEARCH,
+          confidence: 0.6,
+          iterations: 1
         };
       }
 
