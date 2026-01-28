@@ -29,11 +29,11 @@ interface ResearchProgressProps {
 }
 
 const phases = [
-  { key: "planning", label: "Planning", icon: Brain, description: "Analyzing query and creating research plan" },
-  { key: "searching", label: "Searching", icon: Search, description: "Searching web for relevant information" },
-  { key: "browsing", label: "Browsing", icon: Globe, description: "Extracting data from websites" },
-  { key: "validating", label: "Validating", icon: Shield, description: "Cross-referencing and verifying findings" },
-  { key: "generating", label: "Generating", icon: Sparkles, description: "Synthesizing final report" },
+  { key: "planning", label: "Deconstruct", icon: Brain, description: "Analyzing query intent and research objectives" },
+  { key: "searching", label: "Search", icon: Search, description: "Multi-source real-time search in progress" },
+  { key: "browsing", label: "Extract", icon: Globe, description: "Extracting signals from industry sources" },
+  { key: "validating", label: "Validate", icon: Shield, description: "Cross-referencing findings across sources" },
+  { key: "generating", label: "Synthesize", icon: Sparkles, description: "Transforming signals into intelligence" },
 ] as const;
 
 function getPhaseIndex(phase: ResearchPhase): number {
@@ -98,12 +98,12 @@ export function ResearchProgress({
           {isAgentMode ? (
             <>
               <Bot className="h-4 w-4 text-primary" />
-              <span className="font-medium text-sm">Manus Agent Mode</span>
+              <span className="font-medium text-sm">Deep Research Mode</span>
             </>
           ) : (
             <>
               <Zap className="h-4 w-4 text-primary" />
-              <span className="font-medium text-sm">Deep Research Mode</span>
+              <span className="font-medium text-sm">Professional Intelligence Engine</span>
             </>
           )}
         </div>
