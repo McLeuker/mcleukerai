@@ -10,12 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Shield, 
+  ShieldCheck,
   Key, 
   LogOut, 
   Monitor,
-  Smartphone,
   Loader2
 } from "lucide-react";
+import { SupportRequest } from "./SupportRequest";
 
 export function Security() {
   const { user, signOut } = useAuth();
@@ -216,6 +217,14 @@ export function Security() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Leaked Password Protection */}
+      <SupportRequest
+        featureType="leaked_password_protection"
+        title="Leaked Password Protection"
+        description="Check passwords against known breach databases to prevent compromised credentials"
+        icon={ShieldCheck}
+      />
 
       {/* 2FA (Coming Soon) */}
       <Card className="border-border bg-card opacity-60">
