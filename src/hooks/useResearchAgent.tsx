@@ -21,6 +21,9 @@ export interface ResearchState {
   sourceCount: number;
   iteration: number;
   confidence: number;
+  coverage: number;
+  gaps: string[];
+  contradictions: string[];
 }
 
 const initialState: ResearchState = {
@@ -38,6 +41,9 @@ const initialState: ResearchState = {
   sourceCount: 0,
   iteration: 0,
   confidence: 0,
+  coverage: 0,
+  gaps: [],
+  contradictions: [],
 };
 
 export function useResearchAgent() {
@@ -138,6 +144,9 @@ export function useResearchAgent() {
                       sourceCount: parsed.sourceCount ?? prev.sourceCount,
                       iteration: parsed.iteration ?? prev.iteration,
                       confidence: parsed.confidence ?? prev.confidence,
+                      coverage: parsed.coverage ?? prev.coverage,
+                      gaps: parsed.gaps ?? prev.gaps,
+                      contradictions: parsed.contradictions ?? prev.contradictions,
                     }));
                   }
 

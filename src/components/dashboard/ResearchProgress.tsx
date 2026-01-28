@@ -31,6 +31,9 @@ interface ResearchProgressProps {
   sourceCount?: number;
   iteration?: number;
   confidence?: number;
+  coverage?: number;
+  gaps?: string[];
+  contradictions?: string[];
 }
 
 const phases = [
@@ -79,7 +82,10 @@ export function ResearchProgress({
   scrapeCount,
   sourceCount,
   iteration,
-  confidence
+  confidence,
+  coverage,
+  gaps,
+  contradictions
 }: ResearchProgressProps) {
   const currentPhaseIndex = getPhaseIndex(phase);
   const queryTypeInfo = getQueryTypeLabel(queryType);
