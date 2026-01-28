@@ -15,6 +15,15 @@ export interface TaskFile {
   description: string;
 }
 
+export interface GeneratedFile {
+  name: string;
+  type: "excel" | "csv" | "docx" | "pptx" | "pdf";
+  url: string;
+  size: number;
+  path?: string;
+  created_at?: string;
+}
+
 export interface Task {
   id: string;
   prompt: string;
@@ -22,6 +31,7 @@ export interface Task {
   result: { content: string } | null;
   steps: TaskStep[];
   files: TaskFile[];
+  generated_files: GeneratedFile[];
   model_used: string | null;
   credits_used: number | null;
   created_at: string;
@@ -57,6 +67,7 @@ export function useTasks() {
       result: task.result as Task["result"],
       steps: (task.steps as unknown as TaskStep[]) || [],
       files: (task.files as unknown as TaskFile[]) || [],
+      generated_files: (task.generated_files as unknown as GeneratedFile[]) || [],
       model_used: task.model_used || null,
       credits_used: task.credits_used || null,
       created_at: task.created_at,
@@ -93,6 +104,7 @@ export function useTasks() {
             result: updated.result as Task["result"],
             steps: (updated.steps as TaskStep[]) || [],
             files: (updated.files as TaskFile[]) || [],
+            generated_files: (updated.generated_files as GeneratedFile[]) || [],
             model_used: updated.model_used || null,
             credits_used: updated.credits_used || null,
             created_at: updated.created_at,
@@ -149,6 +161,7 @@ export function useTasks() {
       result: null,
       steps: [],
       files: [],
+      generated_files: [],
       model_used: null,
       credits_used: null,
       created_at: data.created_at,
