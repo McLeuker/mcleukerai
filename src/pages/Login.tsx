@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,48 +12,100 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
 
   const redirectPrompt = location.state?.redirectPrompt;
 
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      if (redirectPrompt) {
+        navigate("/dashboard", { state: { initialPrompt: redirectPrompt } });
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [user, navigate, redirectPrompt]);
+
+  const getReadableErrorMessage = (error: Error): string => {
+    const message = error.message.toLowerCase();
+    
+    if (message.includes("invalid login credentials") || message.includes("invalid_credentials")) {
+      return "Invalid email or password. Please check your credentials and try again.";
+    }
+    if (message.includes("email not confirmed")) {
+      return "Please verify your email address before signing in.";
+    }
+    if (message.includes("too many requests") || message.includes("rate limit")) {
+      return "Too many login attempts. Please wait a moment and try again.";
+    }
+    if (message.includes("network") || message.includes("fetch")) {
+      return "Network error. Please check your connection and try again.";
+    }
+    if (message.includes("user not found")) {
+      return "No account found with this email. Please sign up first.";
+    }
+    
+    return "Something went wrong. Please try again or contact support.";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await signIn(email, password);
+    try {
+      const { error } = await signIn(email, password);
 
-    if (error) {
+      if (error) {
+        toast({
+          title: "Sign in failed",
+          description: getReadableErrorMessage(error),
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      toast({
+        title: "Welcome back",
+        description: "You have successfully signed in.",
+      });
+
+      if (redirectPrompt) {
+        navigate("/dashboard", { state: { initialPrompt: redirectPrompt } });
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (err) {
       toast({
         title: "Sign in failed",
-        description: error.message,
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
       setLoading(false);
-      return;
-    }
-
-    toast({
-      title: "Welcome back",
-      description: "You have successfully signed in.",
-    });
-
-    if (redirectPrompt) {
-      navigate("/dashboard", { state: { initialPrompt: redirectPrompt } });
-    } else {
-      navigate("/dashboard");
     }
   };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    const { error } = await signInWithGoogle();
-    if (error) {
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        toast({
+          title: "Sign in failed",
+          description: getReadableErrorMessage(error),
+          variant: "destructive",
+        });
+        setLoading(false);
+      }
+      // Note: On success, user will be redirected by OAuth flow
+    } catch (err) {
       toast({
         title: "Sign in failed",
-        description: error.message,
+        description: "Unable to connect to Google. Please try again.",
         variant: "destructive",
       });
       setLoading(false);
