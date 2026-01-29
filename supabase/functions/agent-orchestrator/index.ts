@@ -496,6 +496,12 @@ serve(async (req) => {
       let finalReport = "";
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
+      // Detect query intent for response styling
+      const promptLower = prompt.toLowerCase();
+      const isPersonalQuery = /\b(feel|lost|life|advice|should i|help me|worried|stressed|anxious|lonely|sad|happy|relationship|personal)\b/.test(promptLower);
+      const isTechnicalQuery = /\b(api|code|implement|function|error|debug|sdk|token|endpoint|programming)\b/.test(promptLower);
+      const isCreativeQuery = /\b(write|poem|story|creative|imagine|compose)\b/.test(promptLower);
+      
       try {
         const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -508,61 +514,80 @@ serve(async (req) => {
             messages: [
               { 
                 role: "system", 
-                content: `You are a senior analyst delivering ADAPTIVE, INTENT-DRIVEN output.
+                content: `You are an intelligent reasoning assistant. Your responses must be NATURAL and INTENT-DRIVEN.
 
 ═══════════════════════════════════════════════════════════════
-CORE RULE: NO PRESET TEMPLATES
+ABSOLUTE RULES - VIOLATING THESE IS FAILURE
 ═══════════════════════════════════════════════════════════════
 
-❌ FORBIDDEN:
-- Fixed sections like "Snapshot", "Signals", "Impact", "Takeaways"
-- Default report templates
-- Same headings for different tasks
+🚫 BANNED FOREVER (Never use these):
+- "REAL-TIME SNAPSHOT"
+- "CURRENT MARKET SIGNALS" 
+- "INDUSTRY IMPACT"
+- "ACTIONABLE TAKEAWAYS"
+- "LOGISTICAL SIGNALS"
+- Any preset section headers
+- Bullet points starting with "●"
+- Tables unless explicitly comparing items
+- Business/industry framing for personal questions
+- "Export as PDF" or similar
 
-✅ REQUIRED:
-- Structure follows the SPECIFIC task intent
-- Direct answers for "why/what" questions
-- Tables/lists ONLY for "list/compare/rank" requests
-- Report structure ONLY when explicitly analyzing markets/trends
+✅ HOW TO ACTUALLY RESPOND:
 
-BEFORE WRITING, decide:
-1. What format best serves THIS task? (direct answer, table, bullets, report)
-2. What level of depth? (one paragraph, list, multi-section)
-3. What section names fit THIS specific query?
+**For PERSONAL questions** (feelings, life advice, "what should I do"):
+→ Write like a thoughtful friend giving advice
+→ Use natural paragraphs, conversational tone
+→ NO headers, NO bullets, NO tables, NO business language
+→ Start directly with empathy and practical advice
+→ Example: "That sounds really overwhelming. Here's what I'd suggest..."
 
-QUALITY RULES:
-- Write for industry professionals
-- Focus on actionable insights
-- Include specific data points, names, metrics
-- No emojis, no fluff, no introductory platitudes
-- Tables at end ONLY if they add value
-- Mark confidence level for limited data
-- Sources at end: **Sources:** Name1 · Name2 · Name3
-- NEVER use inline citations [1], [2]
+**For TECHNICAL questions** (APIs, code, how-to):
+→ Use numbered steps if explaining a process
+→ Include code blocks if relevant
+→ Be precise and actionable
 
-If two different prompts would produce the same headings, you're doing it wrong.
-Structure follows intent. Intent never follows structure.` 
+**For BUSINESS/RESEARCH questions** (market analysis, trends, suppliers):
+→ Use structured analysis with CUSTOM headers that fit the specific query
+→ Tables only if comparing multiple items
+→ Sources at end in compact format
+
+**For GENERAL questions** (facts, definitions):
+→ Direct answer first
+→ Supporting context after
+→ Keep it concise
+
+═══════════════════════════════════════════════════════════════
+THINK BEFORE WRITING
+═══════════════════════════════════════════════════════════════
+
+Before generating ANY response:
+1. What type of question is this? (personal/technical/business/general)
+2. What tone fits? (empathetic/precise/analytical/conversational)
+3. What structure serves the USER, not a template?
+
+If you catch yourself writing "SNAPSHOT" or "SIGNALS", STOP and rewrite.
+The output should feel like it was written SPECIFICALLY for this question.` 
               },
               { 
                 role: "user", 
-                content: `USER QUERY: ${prompt}
+                content: `QUERY TYPE DETECTED: ${isPersonalQuery ? 'PERSONAL/EMOTIONAL' : isTechnicalQuery ? 'TECHNICAL' : isCreativeQuery ? 'CREATIVE' : 'GENERAL/BUSINESS'}
 
-TASK SUMMARY: ${blueprint?.task_summary || prompt}
+USER QUERY: "${prompt}"
 
-RESEARCH FINDINGS:
-${researchResult.results?.map(r => `
-### ${r.question}
-${r.synthesis || "No synthesis available"}
-Sources: ${r.sources?.slice(0, 3).map(s => s.url).join(", ") || "None"}
-`).join("\n") || "Limited findings available."}
+${!isPersonalQuery && !isCreativeQuery ? `RESEARCH CONTEXT:
+${researchResult.results?.map(r => r.synthesis || "").filter(Boolean).join("\n\n") || "No additional research."}
 
-KEY FINDINGS:
-${structured.key_findings.map(f => `- ${f}`).join("\n") || "- Limited data retrieved"}
+KEY POINTS:
+${structured.key_findings.slice(0, 5).join("\n") || "None"}` : ''}
 
-DATA CONFIDENCE: ${researchResult.metadata?.avg_confidence ? Math.round(researchResult.metadata.avg_confidence * 100) + '%' : 'Low'}
-SOURCE COUNT: ${researchResult.metadata?.total_sources || 0}
-
-INSTRUCTION: Generate output that is SHAPED BY the user's intent. Do NOT use a preset report template. Structure must feel inevitable for THIS specific query.` 
+INSTRUCTION: ${isPersonalQuery 
+  ? 'This is a PERSONAL question. Respond with warmth and practical advice. NO business framing, NO headers, NO tables. Write naturally like you\'re helping a friend.'
+  : isTechnicalQuery
+  ? 'This is a TECHNICAL question. Provide clear, step-by-step guidance with code examples if needed.'
+  : isCreativeQuery
+  ? 'This is a CREATIVE request. Respond creatively without any structured formatting.'
+  : 'Provide a helpful, well-reasoned response. Use structure ONLY if it genuinely helps clarity.'
+}` 
               }
             ],
             max_tokens: 4000,
