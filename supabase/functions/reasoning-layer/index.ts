@@ -77,28 +77,33 @@ const reasonTaskTool = {
   }
 };
 
-// Intent classification categories
+// Intent classification categories - expanded for universal coverage
 type IntentCategory = 
-  | "fashion_business" 
-  | "marketing_tech" 
-  | "personal_life" 
-  | "api_integration"
-  | "education_career"
-  | "general_knowledge";
+  | "personal_emotional"      // Personal advice, relationships, life decisions, well-being
+  | "technical_programming"   // APIs, code, tools, technical implementation
+  | "academic_learning"       // Education, explanations, learning concepts
+  | "professional_business"   // Business, industry, market analysis, strategy
+  | "general_factual"         // Facts, definitions, quick answers
+  | "creative_entertainment"; // Writing, stories, creative content
 
-// Intent classification tool schema
+// Intent classification tool schema - Step 1 of 4-step pipeline
 const classifyIntentTool = {
   type: "function",
   function: {
     name: "classify_intent",
-    description: "Classify the user's query intent and topic before reasoning. This MUST happen first.",
+    description: "STEP 1: INPUT ANALYSIS - Classify the user's query intent, topic, and tone BEFORE any reasoning.",
     parameters: {
       type: "object",
       properties: {
         primary_intent: {
           type: "string",
-          enum: ["fashion_business", "marketing_tech", "personal_life", "api_integration", "education_career", "general_knowledge"],
+          enum: ["personal_emotional", "technical_programming", "academic_learning", "professional_business", "general_factual", "creative_entertainment"],
           description: "The primary category of the user's query"
+        },
+        secondary_intent: {
+          type: "string",
+          enum: ["personal_emotional", "technical_programming", "academic_learning", "professional_business", "general_factual", "creative_entertainment", "none"],
+          description: "Secondary category if query spans multiple domains"
         },
         confidence: {
           type: "number",
@@ -110,82 +115,127 @@ const classifyIntentTool = {
         },
         clarifying_question: {
           type: "string",
-          description: "If ambiguous, the question to ask the user"
+          description: "If ambiguous, ONE specific clarifying question to ask"
         },
         detected_signals: {
           type: "array",
           items: { type: "string" },
           description: "Key phrases or signals that led to this classification"
+        },
+        explicit_question: {
+          type: "string",
+          description: "What is the explicit question or statement from the user"
+        },
+        implied_intent: {
+          type: "string",
+          description: "What is the user actually trying to achieve (advice, facts, instructions, creativity)"
+        },
+        tone: {
+          type: "string",
+          enum: ["seeking_help", "curious", "frustrated", "neutral", "creative", "urgent"],
+          description: "The emotional tone of the query"
         }
       },
-      required: ["primary_intent", "confidence", "is_ambiguous"]
+      required: ["primary_intent", "confidence", "is_ambiguous", "explicit_question", "implied_intent", "tone"]
     }
   }
 };
 
-const SYSTEM_PROMPT = `You are the Universal Reasoning Layer of an agentic AI platform.
+const SYSTEM_PROMPT = `You are the Universal Reasoning Layer of Lovable AI.
 
-CRITICAL: You must FIRST classify the user's intent before any reasoning.
+Your mission: Provide **intent-aware, contextually appropriate, and actionable responses** across ALL domains. 
+NEVER assume a default domain—ALWAYS detect intent from the input.
 
-## STEP 1: INTENT CLASSIFICATION (MANDATORY)
+═══════════════════════════════════════════════════════════════
+4-STEP REASONING PIPELINE (MANDATORY FOR EVERY QUERY)
+═══════════════════════════════════════════════════════════════
 
-Before ANY reasoning, classify the query into one of these categories:
+## STEP 1: INPUT ANALYSIS
 
-1. **fashion_business**: Fashion industry, luxury, brands, trends, supply chain, merchandising, retail
-2. **marketing_tech**: Digital marketing, social media strategy, analytics, content optimization
-3. **api_integration**: APIs, technical integration, authentication, endpoints, code implementation
-4. **education_career**: Schools, programs, career paths, learning, professional development
-5. **personal_life**: Personal advice, relationships, life decisions, well-being, non-professional topics
-6. **general_knowledge**: Facts, definitions, explanations not fitting above categories
+Parse the input to understand:
+1. **Explicit Question**: What is the literal question or statement?
+2. **Implied Intent**: What is the user actually trying to achieve?
+   - Seeking advice/help
+   - Wanting facts/information
+   - Needing instructions/steps
+   - Requesting creative content
+3. **Classify Domain/Intent**:
+   - **personal_emotional**: Relationships, life decisions, feelings, well-being, personal advice
+   - **technical_programming**: APIs, code, tools, integration, debugging, implementation
+   - **academic_learning**: Education, explanations, concepts, learning, courses, schools
+   - **professional_business**: Business, industry, market analysis, strategy, brands, trends
+   - **general_factual**: Facts, definitions, quick answers, history, "what is"
+   - **creative_entertainment**: Stories, poems, creative writing, entertainment content
 
-## CLASSIFICATION SIGNALS
+4. **Ambiguity Check**: If unclear, ask ONE clarifying question before proceeding.
 
-- Fashion/Business: brands, collections, trends, suppliers, luxury, retail, fashion weeks
-- Marketing/Tech: Instagram, TikTok, engagement, analytics, campaigns, influencers
-- API/Integration: API, authentication, tokens, endpoints, SDK, integration, code
-- Education/Career: schools, programs, degrees, internships, career, courses
-- Personal/Life: relationship, health, personal decision, life advice, feelings
-- General: facts, definitions, "what is", "explain", history
+## STEP 2: INTERNAL REASONING
 
-## STEP 2: DOMAIN-APPROPRIATE REASONING
+Think logically BEFORE responding:
+1. What knowledge or logic is needed?
+2. Break complex queries into sub-parts
+3. Recall factual knowledge accurately
+4. For follow-ups: Check if related to previous context
+5. AVOID irrelevance: Don't force unrelated domain context
 
-After classification, apply domain-specific reasoning:
+## STEP 3: OUTPUT STRUCTURE
 
-**Fashion/Business**: 
-- Focus on industry dynamics, market positioning, trend analysis
-- Structure outputs for buyers, merchandisers, brand strategists
+Match structure to the classified intent:
 
-**Marketing/Tech**:
-- Focus on platform-specific best practices, metrics, ROI
-- Include tools, automation options, analytics frameworks
+**personal_emotional**:
+- Empathetic, supportive tone
+- Practical, safe advice
+- NO forced business/industry framing
+- Human-centered guidance
 
-**API/Integration**:
-- Focus on step-by-step technical implementation
-- Include authentication, permissions, error handling
+**technical_programming**:
+- Step-by-step implementation guides
+- Code blocks with syntax highlighting
+- Authentication, permissions, error handling
+- Troubleshooting tips
 
-**Education/Career**:
-- Focus on comparison, requirements, outcomes
-- Include practical next steps, application guidance
+**academic_learning**:
+- Clear explanations with examples
+- Structured comparisons (tables)
+- Requirements, outcomes, next steps
+- Sources and references
 
-**Personal/Life**:
-- DO NOT force industry context
-- Provide empathetic, supportive, human-centered guidance
-- Keep advice practical and safe
+**professional_business**:
+- Industry dynamics, market positioning
+- Strategic analysis with data
+- Structured for professionals
+- Tables, charts, actionable insights
 
-**General Knowledge**:
-- Provide factual, concise answers
-- Cite sources when possible
+**general_factual**:
+- Concise, factual answers
+- Sources cited when possible
+- No unnecessary elaboration
 
-## NON-NEGOTIABLE RULES
+**creative_entertainment**:
+- Imaginative, engaging content
+- Coherent structure
+- Original creative output
 
-1. NEVER force fashion/business framing on personal questions
-2. NEVER assume industry context without clear signals
-3. ALWAYS classify before reasoning
-4. If confidence < 0.7, mark as ambiguous and suggest clarification
-5. Match output structure to the detected intent category
+## STEP 4: FOLLOW-UP AND ITERATION
 
-Your role is to think, plan, and structure — not to execute.
-Always respond using the function reason_task after classification.`;
+- For "more details" or "expand": Stay in same context
+- If topic shifts: Re-classify from Step 1
+- Don't carry over unrelated elements
+- Reset automatically on explicit topic change
+
+═══════════════════════════════════════════════════════════════
+NON-NEGOTIABLE PRINCIPLES
+═══════════════════════════════════════════════════════════════
+
+1. NEVER hallucinate facts, sources, or irrelevant content
+2. NEVER force industry context on personal questions
+3. NEVER assume domain without clear signals
+4. ALWAYS classify before reasoning
+5. If confidence < 0.7, mark as ambiguous and ask ONE clarifying question
+6. For sensitive topics (mental health), respond empathetically and suggest professional help
+
+Your role is to THINK, PLAN, and STRUCTURE — not to execute.
+Use classify_intent first, then reason_task.`;
 
 interface TaskPlan {
   intent: string;
@@ -201,10 +251,14 @@ interface TaskPlan {
 
 interface IntentClassification {
   primary_intent: IntentCategory;
+  secondary_intent?: IntentCategory | "none";
   confidence: number;
   is_ambiguous: boolean;
   clarifying_question?: string;
   detected_signals: string[];
+  explicit_question?: string;
+  implied_intent?: string;
+  tone?: "seeking_help" | "curious" | "frustrated" | "neutral" | "creative" | "urgent";
 }
 
 interface ReasoningBlueprint {
@@ -222,7 +276,7 @@ interface ReasoningBlueprint {
   logic_steps: string[];
   quality_criteria: string[];
   risk_flags: string[];
-  response_style: "structured_analysis" | "step_by_step_guide" | "empathetic_advice" | "factual_summary";
+  response_style: "structured_analysis" | "step_by_step_guide" | "empathetic_advice" | "factual_summary" | "creative_output";
 }
 
 serve(async (req) => {
@@ -411,7 +465,7 @@ FIRST classify the intent, then generate the reasoning blueprint.`;
 });
 
 function createFallbackBlueprint(prompt: string, taskPlan: TaskPlan, classification: IntentClassification | null): ReasoningBlueprint {
-  const intent = classification?.primary_intent || "general_knowledge";
+  const intent: IntentCategory = classification?.primary_intent || "general_factual";
   
   return {
     intent_classification: classification || inferIntentClassification(prompt, taskPlan),
@@ -430,82 +484,83 @@ function createFallbackBlueprint(prompt: string, taskPlan: TaskPlan, classificat
 function inferIntentClassification(prompt: string, taskPlan: TaskPlan): IntentClassification {
   const promptLower = prompt.toLowerCase();
   
-  // Personal/life indicators
-  const personalSignals = ["feel", "relationship", "advice", "should i", "my life", "personal", "help me decide", "worried", "stressed", "happy", "sad"];
+  // Personal/emotional indicators
+  const personalSignals = ["feel", "relationship", "advice", "should i", "my life", "personal", "help me decide", "worried", "stressed", "happy", "sad", "anxious", "lonely", "lost"];
   if (personalSignals.some(s => promptLower.includes(s))) {
     return {
-      primary_intent: "personal_life",
+      primary_intent: "personal_emotional",
       confidence: 0.8,
       is_ambiguous: false,
       detected_signals: personalSignals.filter(s => promptLower.includes(s))
     };
   }
 
-  // API/Tech indicators
-  const apiSignals = ["api", "endpoint", "authentication", "token", "sdk", "integration", "code", "implement", "developer"];
-  if (apiSignals.some(s => promptLower.includes(s))) {
+  // Technical/programming indicators
+  const techSignals = ["api", "endpoint", "authentication", "token", "sdk", "integration", "code", "implement", "developer", "debug", "error", "function", "programming", "script"];
+  if (techSignals.some(s => promptLower.includes(s))) {
     return {
-      primary_intent: "api_integration",
+      primary_intent: "technical_programming",
       confidence: 0.85,
       is_ambiguous: false,
-      detected_signals: apiSignals.filter(s => promptLower.includes(s))
+      detected_signals: techSignals.filter(s => promptLower.includes(s))
     };
   }
 
-  // Marketing/Social Media indicators
-  const marketingSignals = ["instagram", "tiktok", "social media", "engagement", "followers", "campaign", "influencer", "analytics", "content strategy"];
-  if (marketingSignals.some(s => promptLower.includes(s))) {
+  // Creative/entertainment indicators
+  const creativeSignals = ["write a story", "poem", "creative", "fiction", "imagine", "compose", "lyrics", "script", "narrative", "tale"];
+  if (creativeSignals.some(s => promptLower.includes(s))) {
     return {
-      primary_intent: "marketing_tech",
+      primary_intent: "creative_entertainment",
       confidence: 0.85,
       is_ambiguous: false,
-      detected_signals: marketingSignals.filter(s => promptLower.includes(s))
+      detected_signals: creativeSignals.filter(s => promptLower.includes(s))
     };
   }
 
-  // Education/Career indicators
-  const educationSignals = ["school", "university", "program", "degree", "career", "internship", "course", "masters", "mba", "study"];
-  if (educationSignals.some(s => promptLower.includes(s))) {
+  // Academic/learning indicators
+  const academicSignals = ["school", "university", "program", "degree", "career", "internship", "course", "masters", "mba", "study", "explain", "learn", "teach", "education"];
+  if (academicSignals.some(s => promptLower.includes(s))) {
     return {
-      primary_intent: "education_career",
+      primary_intent: "academic_learning",
       confidence: 0.8,
       is_ambiguous: false,
-      detected_signals: educationSignals.filter(s => promptLower.includes(s))
+      detected_signals: academicSignals.filter(s => promptLower.includes(s))
     };
   }
 
-  // Fashion/Business indicators
-  const fashionSignals = ["fashion", "brand", "collection", "trend", "supplier", "luxury", "retail", "merchandise", "textile", "fabric", "designer"];
-  if (fashionSignals.some(s => promptLower.includes(s)) || taskPlan.domains.includes("fashion")) {
+  // Professional/business indicators (includes fashion, marketing, etc.)
+  const businessSignals = ["fashion", "brand", "collection", "trend", "supplier", "luxury", "retail", "merchandise", "textile", "fabric", "designer", "market", "strategy", "business", "company", "instagram", "tiktok", "social media", "engagement", "campaign", "analytics"];
+  if (businessSignals.some(s => promptLower.includes(s)) || taskPlan.domains.some(d => ["fashion", "market", "marketing", "social_media", "supply_chain"].includes(d))) {
     return {
-      primary_intent: "fashion_business",
+      primary_intent: "professional_business",
       confidence: 0.8,
       is_ambiguous: false,
-      detected_signals: fashionSignals.filter(s => promptLower.includes(s))
+      detected_signals: businessSignals.filter(s => promptLower.includes(s))
     };
   }
 
-  // Default to general knowledge
+  // Default to general factual
   return {
-    primary_intent: "general_knowledge",
+    primary_intent: "general_factual",
     confidence: 0.6,
     is_ambiguous: false,
     detected_signals: []
   };
 }
 
-function getResponseStyle(intent: IntentCategory): "structured_analysis" | "step_by_step_guide" | "empathetic_advice" | "factual_summary" {
+function getResponseStyle(intent: IntentCategory): "structured_analysis" | "step_by_step_guide" | "empathetic_advice" | "factual_summary" | "creative_output" {
   switch (intent) {
-    case "fashion_business":
-    case "marketing_tech":
+    case "professional_business":
       return "structured_analysis";
-    case "api_integration":
+    case "technical_programming":
       return "step_by_step_guide";
-    case "personal_life":
+    case "personal_emotional":
       return "empathetic_advice";
-    case "education_career":
+    case "academic_learning":
       return "structured_analysis";
-    case "general_knowledge":
+    case "creative_entertainment":
+      return "creative_output";
+    case "general_factual":
     default:
       return "factual_summary";
   }
