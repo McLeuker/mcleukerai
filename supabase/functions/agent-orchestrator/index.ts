@@ -8,6 +8,92 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
+// ═══════════════════════════════════════════════════════════════
+// NO-SILENCE, ALWAYS-DELIVER MODE - MCLEUKER AI BEHAVIORAL CONTRACT
+// ═══════════════════════════════════════════════════════════════
+const NO_SILENCE_CONFIG = {
+  HEARTBEAT_INTERVAL: 5000,      // Send progress every 5 seconds
+  MAX_SILENT_TIME: 10000,        // Max 10 seconds without update
+  PARTIAL_OUTPUT_THRESHOLD: 3000, // Deliver partial after 30s of no progress
+  ALWAYS_DELIVER_FALLBACK: true,  // Always return something usable
+};
+
+// Confidence levels for transparency
+type ConfidenceLevel = "high" | "medium" | "low" | "exploratory";
+
+interface ConfidenceAnnotation {
+  level: ConfidenceLevel;
+  score: number;
+  reasoning: string;
+  source_count: number;
+  data_freshness: "real-time" | "recent" | "historical" | "mixed";
+  gaps: string[];
+}
+
+function calculateConfidence(metadata: {
+  total_sources: number;
+  avg_confidence: number;
+  duration_ms: number;
+}): ConfidenceAnnotation {
+  const score = metadata.avg_confidence;
+  let level: ConfidenceLevel;
+  
+  if (score >= 0.85 && metadata.total_sources >= 10) {
+    level = "high";
+  } else if (score >= 0.7 && metadata.total_sources >= 5) {
+    level = "medium";
+  } else if (score >= 0.5 && metadata.total_sources >= 2) {
+    level = "low";
+  } else {
+    level = "exploratory";
+  }
+
+  return {
+    level,
+    score,
+    reasoning: level === "high" 
+      ? "Multiple corroborating sources with consistent data" 
+      : level === "medium"
+      ? "Good source coverage with some verification gaps"
+      : level === "low"
+      ? "Limited sources - findings should be verified independently"
+      : "Exploratory results - treat as starting point for deeper research",
+    source_count: metadata.total_sources,
+    data_freshness: metadata.duration_ms < 60000 ? "real-time" : "recent",
+    gaps: [],
+  };
+}
+
+// Generate fallback output when research fails or is incomplete
+function generateFallbackOutput(prompt: string, phase: string, partialData?: unknown): string {
+  const timestamp = new Date().toISOString();
+  
+  return `## Research Status: Partial Results Available
+
+**Query:** ${prompt}
+**Status:** ${phase === "failed" ? "Research encountered issues" : "Research in progress"}
+**Timestamp:** ${timestamp}
+
+### What We Found
+
+${partialData ? `Based on available data:\n${JSON.stringify(partialData, null, 2).slice(0, 2000)}` : "Limited data retrieved - research tools encountered temporary issues."}
+
+### Confidence Assessment
+
+- **Level:** Exploratory
+- **Reasoning:** Data collection was incomplete. Results should be verified with additional research.
+- **Recommendation:** Consider running the search again or breaking into smaller queries.
+
+### Next Steps
+
+1. **Retry the search** - Temporary issues may be resolved
+2. **Narrow the query** - More specific questions often yield better results
+3. **Verify independently** - Cross-check any findings with authoritative sources
+
+---
+*This is a best-effort output. McLeuker AI never leaves you empty-handed.*`;
+}
+
 // Types
 interface TaskPlan {
   intent: string;
@@ -221,153 +307,208 @@ serve(async (req) => {
 
   const { stream, send, close } = createSSEStream();
 
-  // Process in background
+  // NO-SILENCE: Background processor with heartbeat
   (async () => {
+    const startTime = Date.now();
+    let lastUpdate = Date.now();
+    let currentPhase = "starting";
+    let partialData: Record<string, unknown> = {};
+    let creditsUsed = 0;
+    let prompt = "";
+
+    // Heartbeat interval to prevent silence
+    const heartbeatInterval = setInterval(() => {
+      const silentTime = Date.now() - lastUpdate;
+      if (silentTime > NO_SILENCE_CONFIG.HEARTBEAT_INTERVAL) {
+        send("heartbeat", { 
+          phase: currentPhase, 
+          message: `Still working on ${currentPhase}...`,
+          elapsed_ms: Date.now() - startTime,
+          partial_available: Object.keys(partialData).length > 0,
+        });
+        lastUpdate = Date.now();
+      }
+    }, NO_SILENCE_CONFIG.HEARTBEAT_INTERVAL);
+
+    // Helper to update state and prevent silence
+    const updatePhase = (phase: string, message: string, progress: number, data?: unknown) => {
+      currentPhase = phase;
+      lastUpdate = Date.now();
+      if (data) {
+        partialData = { ...partialData, [phase]: data };
+      }
+      send("phase", { phase, message, progress, data });
+    };
+
     try {
-      const { prompt, deep_mode = false, user_id } = await req.json();
+      const body = await req.json();
+      prompt = body.prompt;
+      const deep_mode = body.deep_mode || false;
+      const user_id = body.user_id;
 
       if (!prompt) {
         send("error", { message: "Prompt is required" });
+        clearInterval(heartbeatInterval);
         close();
         return;
       }
 
-      const startTime = Date.now();
-      let creditsUsed = 0;
-
       // ========== PHASE 1: Task Interpretation ==========
-      send("phase", { 
-        phase: "interpreting", 
-        message: "Understanding your request...", 
-        progress: 10 
-      });
+      updatePhase("interpreting", "Understanding your request...", 10);
 
-      const interpretResult = await callEdgeFunction("task-interpreter", { prompt }) as {
-        success: boolean;
-        taskPlan: TaskPlan;
-      };
+      let taskPlan: TaskPlan | null = null;
+      try {
+        const interpretResult = await callEdgeFunction("task-interpreter", { prompt }) as {
+          success: boolean;
+          taskPlan: TaskPlan;
+        };
 
-      if (!interpretResult.success || !interpretResult.taskPlan) {
-        throw new Error("Task interpretation failed");
+        if (interpretResult.success && interpretResult.taskPlan) {
+          taskPlan = interpretResult.taskPlan;
+          creditsUsed += 1;
+          updatePhase("interpreting", `Detected: ${taskPlan.intent}`, 20, { taskPlan });
+        }
+      } catch (err) {
+        console.error("Task interpretation error:", err);
+        // NO-SILENCE: Continue with fallback plan
+        taskPlan = {
+          intent: "general research",
+          domains: ["general"],
+          requires_real_time_research: true,
+          research_depth: deep_mode ? "deep" : "standard",
+          outputs: ["report"],
+          execution_plan: ["search", "synthesize"],
+          confidence: 0.5,
+          estimated_credits: 5,
+        };
+        updatePhase("interpreting", "Using standard research approach", 20, { taskPlan, fallback: true });
       }
-
-      const taskPlan = interpretResult.taskPlan;
-      creditsUsed += 1;
-
-      send("phase", { 
-        phase: "interpreting", 
-        message: `Detected: ${taskPlan.intent}`, 
-        progress: 20,
-        data: { taskPlan }
-      });
 
       // ========== PHASE 2: Reasoning ==========
-      send("phase", { 
-        phase: "reasoning", 
-        message: "Planning research strategy...", 
-        progress: 25 
-      });
+      updatePhase("reasoning", "Planning research strategy...", 25);
 
-      const reasoningResult = await callEdgeFunction("reasoning-layer", { 
-        prompt, 
-        taskPlan 
-      }) as {
-        success: boolean;
-        blueprint: ReasoningBlueprint;
-      };
+      let blueprint: ReasoningBlueprint | null = null;
+      try {
+        const reasoningResult = await callEdgeFunction("reasoning-layer", { 
+          prompt, 
+          taskPlan 
+        }) as {
+          success: boolean;
+          blueprint: ReasoningBlueprint;
+        };
 
-      if (!reasoningResult.success || !reasoningResult.blueprint) {
-        throw new Error("Reasoning failed");
-      }
-
-      const blueprint = reasoningResult.blueprint;
-      creditsUsed += 2;
-
-      send("phase", { 
-        phase: "reasoning", 
-        message: `${blueprint.research_questions.length} research questions defined`, 
-        progress: 35,
-        data: { 
-          objectives: blueprint.reasoning_objectives,
-          questions: blueprint.research_questions.slice(0, 3)
+        if (reasoningResult.success && reasoningResult.blueprint) {
+          blueprint = reasoningResult.blueprint;
+          creditsUsed += 2;
+          updatePhase("reasoning", `${blueprint.research_questions.length} research questions defined`, 35, { 
+            objectives: blueprint.reasoning_objectives,
+            questions: blueprint.research_questions.slice(0, 3)
+          });
         }
-      });
+      } catch (err) {
+        console.error("Reasoning error:", err);
+        // NO-SILENCE: Create fallback blueprint
+        blueprint = {
+          task_summary: prompt,
+          reasoning_objectives: ["Find relevant information", "Synthesize findings"],
+          research_questions: [prompt],
+          required_data_entities: [],
+          data_structure_plan: { tables: [], documents: ["report"], presentations: [], web_outputs: [] },
+          logic_steps: ["search", "synthesize"],
+          quality_criteria: ["accuracy", "relevance"],
+          risk_flags: ["using fallback reasoning"],
+        };
+        updatePhase("reasoning", "Using simplified research plan", 35, { blueprint, fallback: true });
+      }
 
       // ========== PHASE 3: Web Research ==========
-      send("phase", { 
-        phase: "researching", 
-        message: "Executing real-time research...", 
-        progress: 40 
-      });
+      updatePhase("researching", "Executing real-time research...", 40);
 
-      const researchResult = await callEdgeFunction("web-research", {
-        research_questions: blueprint.research_questions,
-        deep_mode: deep_mode || taskPlan.research_depth === "deep",
-        max_sources: deep_mode ? 50 : 20,
-      }) as {
+      interface WebResearchResponse {
         success: boolean;
         results: ResearchResult[];
-        metadata: {
-          total_sources: number;
-          avg_confidence: number;
-          duration_ms: number;
-        };
-      };
-
-      if (!researchResult.success) {
-        throw new Error("Research failed");
+        metadata: { total_sources: number; avg_confidence: number; duration_ms: number };
       }
 
-      creditsUsed += deep_mode ? 10 : 3;
+      let researchResult: WebResearchResponse = {
+        success: false,
+        results: [],
+        metadata: { total_sources: 0, avg_confidence: 0.3, duration_ms: 0 },
+      };
 
-      send("phase", { 
-        phase: "researching", 
-        message: `Found ${researchResult.metadata.total_sources} sources`, 
-        progress: 65,
-        data: {
-          sourceCount: researchResult.metadata.total_sources,
-          confidence: researchResult.metadata.avg_confidence,
+      try {
+        const webResearchResponse = await callEdgeFunction("web-research", {
+          research_questions: blueprint?.research_questions || [prompt],
+          deep_mode: deep_mode || taskPlan?.research_depth === "deep",
+          max_sources: deep_mode ? 50 : 20,
+        }) as WebResearchResponse;
+
+        if (webResearchResponse?.success) {
+          researchResult = webResearchResponse;
+          creditsUsed += deep_mode ? 10 : 3;
+          updatePhase("researching", `Found ${researchResult.metadata.total_sources} sources`, 65, {
+            sourceCount: researchResult.metadata.total_sources,
+            confidence: researchResult.metadata.avg_confidence,
+          });
+        } else {
+          throw new Error("Research returned unsuccessful");
         }
-      });
+      } catch (err) {
+        console.error("Research error:", err);
+        // NO-SILENCE: Create minimal research result
+        researchResult = {
+          success: true,
+          results: [{
+            question: prompt,
+            sources: [],
+            synthesis: "Research tools encountered temporary issues. Please try again.",
+            confidence: 0.2,
+          }],
+          metadata: { total_sources: 0, avg_confidence: 0.2, duration_ms: Date.now() - startTime },
+        };
+        updatePhase("researching", "Limited data available - proceeding with best effort", 65, {
+          sourceCount: 0,
+          confidence: 0.2,
+          fallback: true,
+        });
+      }
 
       // ========== PHASE 4: Structuring ==========
-      send("phase", { 
-        phase: "structuring", 
-        message: "Organizing findings...", 
-        progress: 70 
-      });
+      updatePhase("structuring", "Organizing findings...", 70);
 
-      const structured = await structureData(blueprint, researchResult.results, taskPlan);
-      creditsUsed += 2;
-
-      send("phase", { 
-        phase: "structuring", 
-        message: `Created ${structured.tables.length} tables, ${structured.key_findings.length} findings`, 
-        progress: 85,
-        data: structured
-      });
+      let structured = { tables: [] as unknown[], report_outline: [] as unknown[], key_findings: [] as string[] };
+      try {
+        if (blueprint && researchResult) {
+          structured = await structureData(blueprint, researchResult.results, taskPlan!);
+          creditsUsed += 2;
+        }
+        updatePhase("structuring", `Created ${structured.tables.length} tables, ${structured.key_findings.length} findings`, 85, structured);
+      } catch (err) {
+        console.error("Structuring error:", err);
+        // NO-SILENCE: Continue with empty structure
+        structured.key_findings = ["Research completed with limited data - verify findings independently"];
+        updatePhase("structuring", "Using simplified output structure", 85, { structured, fallback: true });
+      }
 
       // ========== PHASE 5: Final Synthesis ==========
-      send("phase", { 
-        phase: "executing", 
-        message: "Generating final report...", 
-        progress: 90 
-      });
+      updatePhase("executing", "Generating final report...", 90);
 
-      // Generate final markdown report
+      let finalReport = "";
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { 
-              role: "system", 
-              content: `You are a professional analyst. Generate a comprehensive, well-structured report.
+
+      try {
+        const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages: [
+              { 
+                role: "system", 
+                content: `You are a professional analyst. Generate a comprehensive, well-structured report.
               
 Rules:
 - Write for industry professionals (designers, buyers, strategists)
@@ -375,49 +516,70 @@ Rules:
 - Include specific data points, names, and metrics
 - No emojis, no fluff, no introductory platitudes
 - Structure with clear headers and bullet points
-- Tables should appear at the end as summaries` 
-            },
-            { 
-              role: "user", 
-              content: `Generate a professional report based on:
+- Tables should appear at the end as summaries
+- ALWAYS include a confidence assessment section
+- If data is limited, say so clearly but still provide value` 
+              },
+              { 
+                role: "user", 
+                content: `Generate a professional report based on:
 
-Task: ${blueprint.task_summary}
+Task: ${blueprint?.task_summary || prompt}
 
 Research Findings:
-${researchResult.results.map(r => `
+${researchResult?.results?.map(r => `
 ### ${r.question}
 ${r.synthesis || "No synthesis available"}
-Sources: ${r.sources.slice(0, 3).map(s => s.url).join(", ")}
-`).join("\n")}
+Sources: ${r.sources?.slice(0, 3).map(s => s.url).join(", ") || "None"}
+`).join("\n") || "Limited findings available."}
 
 Key Findings:
-${structured.key_findings.map(f => `- ${f}`).join("\n")}
+${structured.key_findings.map(f => `- ${f}`).join("\n") || "- Limited data retrieved"}
 
-Tables:
-${JSON.stringify(structured.tables, null, 2)}` 
-            }
-          ],
-          max_tokens: 4000,
-        }),
-      });
+Data Confidence: ${researchResult?.metadata?.avg_confidence ? Math.round(researchResult.metadata.avg_confidence * 100) + '%' : 'Low'}
+Source Count: ${researchResult?.metadata?.total_sources || 0}` 
+              }
+            ],
+            max_tokens: 4000,
+          }),
+        });
 
-      const synthesisData = await synthesisResponse.json();
-      const finalReport = synthesisData.choices?.[0]?.message?.content || "";
-      creditsUsed += 3;
+        const synthesisData = await synthesisResponse.json();
+        finalReport = synthesisData.choices?.[0]?.message?.content || "";
+        creditsUsed += 3;
+      } catch (err) {
+        console.error("Synthesis error:", err);
+        // NO-SILENCE: Generate fallback report
+        finalReport = generateFallbackOutput(prompt, "synthesis", partialData);
+      }
+
+      // If report is empty, use fallback
+      if (!finalReport.trim()) {
+        finalReport = generateFallbackOutput(prompt, "empty_response", partialData);
+      }
 
       // Compile sources
-      const allSources = researchResult.results.flatMap(r => 
-        r.sources.slice(0, 5).map(s => ({
+      const allSources = researchResult?.results?.flatMap(r => 
+        r.sources?.slice(0, 5).map(s => ({
           title: s.title,
           url: s.url,
           snippet: s.snippet,
           relevance: s.relevance_score,
-        }))
-      );
+        })) || []
+      ) || [];
 
       const duration = Date.now() - startTime;
 
-      // ========== COMPLETED ==========
+      // Calculate confidence annotation
+      const confidence = calculateConfidence(researchResult?.metadata || {
+        total_sources: 0,
+        avg_confidence: 0.3,
+        duration_ms: duration,
+      });
+
+      // ========== COMPLETED - ALWAYS DELIVER ==========
+      clearInterval(heartbeatInterval);
+      
       send("phase", { 
         phase: "completed", 
         message: "Research complete", 
@@ -426,11 +588,13 @@ ${JSON.stringify(structured.tables, null, 2)}`
           report: finalReport,
           sources: allSources,
           structured,
+          confidence,
           metadata: {
             duration_ms: duration,
             credits_used: creditsUsed,
-            source_count: researchResult.metadata.total_sources,
-            confidence: researchResult.metadata.avg_confidence,
+            source_count: researchResult?.metadata?.total_sources || 0,
+            confidence_score: researchResult?.metadata?.avg_confidence || 0.3,
+            confidence_level: confidence.level,
             deep_mode,
           }
         }
@@ -439,11 +603,38 @@ ${JSON.stringify(structured.tables, null, 2)}`
       close();
 
     } catch (error) {
+      // NO-SILENCE: Even on total failure, deliver something
       console.error("Agent orchestrator error:", error);
+      clearInterval(heartbeatInterval);
+      
+      const fallbackReport = generateFallbackOutput(prompt || "unknown query", "failed", partialData);
+      
       send("phase", { 
-        phase: "failed", 
-        message: error instanceof Error ? error.message : "Unknown error",
-        progress: 0 
+        phase: "completed",  // Note: "completed" not "failed" - we always deliver
+        message: "Research completed with limitations",
+        progress: 100,
+        data: {
+          report: fallbackReport,
+          sources: [],
+          structured: { tables: [], report_outline: [], key_findings: [] },
+          confidence: {
+            level: "exploratory" as ConfidenceLevel,
+            score: 0.1,
+            reasoning: "Research encountered issues - results are best-effort",
+            source_count: 0,
+            data_freshness: "mixed" as const,
+            gaps: ["Full research not completed due to technical issues"],
+          },
+          metadata: {
+            duration_ms: Date.now() - startTime,
+            credits_used: creditsUsed,
+            source_count: 0,
+            confidence_score: 0.1,
+            confidence_level: "exploratory",
+            deep_mode: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          }
+        }
       });
       close();
     }
