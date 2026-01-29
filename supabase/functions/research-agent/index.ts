@@ -661,11 +661,33 @@ async function webSearchPerplexity(
   }
 }
 
-// ============ FIRECRAWL SCRAPING (Enhanced) ============
+// ============ FIRECRAWL ADVANCED SCRAPING ============
+interface ScrapeOptions {
+  formats?: string[];
+  onlyMainContent?: boolean;
+  waitFor?: number;
+  timeout?: number;
+  location?: { country?: string; languages?: string[] };
+  extractSchema?: Record<string, unknown>;
+  extractPrompt?: string;
+}
+
+interface ScrapeResult {
+  success: boolean;
+  content?: string;
+  title?: string;
+  html?: string;
+  links?: string[];
+  structured?: Record<string, unknown>;
+  screenshot?: string;
+  error?: string;
+}
+
 async function scrapeWithFirecrawl(
   apiKey: string,
-  url: string
-): Promise<{ success: boolean; content?: string; title?: string; error?: string }> {
+  url: string,
+  options?: ScrapeOptions
+): Promise<ScrapeResult> {
   try {
     let formattedUrl = url.trim();
     if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
@@ -684,6 +706,31 @@ async function scrapeWithFirecrawl(
       return { success: false, error: "Invalid URL" };
     }
 
+    // Build formats array - always include markdown, add others as needed
+    const formats: (string | { type: string; schema?: Record<string, unknown>; prompt?: string })[] = 
+      options?.formats || ["markdown"];
+    
+    // Add JSON extraction if schema or prompt provided
+    if (options?.extractSchema || options?.extractPrompt) {
+      const jsonFormat: { type: string; schema?: Record<string, unknown>; prompt?: string } = { type: "json" };
+      if (options.extractSchema) jsonFormat.schema = options.extractSchema;
+      if (options.extractPrompt) jsonFormat.prompt = options.extractPrompt;
+      formats.push(jsonFormat);
+    }
+
+    const scrapeBody: Record<string, unknown> = {
+      url: formattedUrl,
+      formats,
+      onlyMainContent: options?.onlyMainContent ?? true,
+      waitFor: options?.waitFor ?? 5000,  // Increased for JS-heavy sites
+      timeout: options?.timeout ?? 90000,
+    };
+
+    // Add location for geo-targeted content
+    if (options?.location) {
+      scrapeBody.location = options.location;
+    }
+
     const response = await withTimeout(
       fetch("https://api.firecrawl.dev/v1/scrape", {
         method: "POST",
@@ -691,13 +738,7 @@ async function scrapeWithFirecrawl(
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          url: formattedUrl,
-          formats: ["markdown"],
-          onlyMainContent: true,
-          waitFor: 3000,
-          timeout: 60000,
-        }),
+        body: JSON.stringify(scrapeBody),
       }),
       DEEP_SEARCH_CONFIG.FIRECRAWL_TIMEOUT,
       "Firecrawl scrape"
@@ -706,17 +747,178 @@ async function scrapeWithFirecrawl(
     if (!response.ok) {
       const errorData = await response.text();
       console.error("Firecrawl API error:", response.status, errorData);
+      
+      // Retry with longer wait for JS-heavy sites
+      if (response.status === 408 || errorData.includes("timeout")) {
+        console.log("Retrying with extended timeout...");
+        return await scrapeWithFirecrawlExtended(apiKey, formattedUrl);
+      }
+      
       return { success: false, error: `Scrape failed: ${response.status}` };
     }
 
     const data = await response.json();
-    const content = data.data?.markdown || data.markdown || "";
-    const title = data.data?.metadata?.title || data.metadata?.title || url;
-
-    return { success: true, content, title };
+    const result = data.data || data;
+    
+    return { 
+      success: true, 
+      content: result.markdown || "",
+      title: result.metadata?.title || url,
+      html: result.html || result.rawHtml,
+      links: result.links || [],
+      structured: result.json,
+    };
   } catch (error) {
     console.error("Scrape error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Scrape failed" };
+  }
+}
+
+// Extended scrape for JS-heavy sites (China platforms, SPAs, etc.)
+async function scrapeWithFirecrawlExtended(
+  apiKey: string,
+  url: string
+): Promise<ScrapeResult> {
+  try {
+    const response = await withTimeout(
+      fetch("https://api.firecrawl.dev/v1/scrape", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url,
+          formats: ["markdown", "links"],
+          onlyMainContent: true,
+          waitFor: 10000,   // 10 seconds for heavy JS
+          timeout: 120000,  // 2 minute timeout
+        }),
+      }),
+      180000, // 3 minute total timeout
+      "Firecrawl extended scrape"
+    );
+
+    if (!response.ok) {
+      return { success: false, error: `Extended scrape failed: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const result = data.data || data;
+    
+    return { 
+      success: true, 
+      content: result.markdown || "",
+      title: result.metadata?.title || url,
+      links: result.links || [],
+    };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Extended scrape failed" };
+  }
+}
+
+// Structured data extraction for supplier/trend data
+async function extractStructuredData(
+  apiKey: string,
+  url: string,
+  dataType: "supplier" | "trend" | "product"
+): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
+  const schemas: Record<string, Record<string, unknown>> = {
+    supplier: {
+      type: "object",
+      properties: {
+        company_name: { type: "string" },
+        location: { type: "string" },
+        country: { type: "string" },
+        certifications: { type: "array", items: { type: "string" } },
+        product_types: { type: "array", items: { type: "string" } },
+        moq: { type: "string" },
+        contact_email: { type: "string" },
+        website: { type: "string" },
+        year_established: { type: "string" },
+        specializations: { type: "array", items: { type: "string" } },
+      },
+    },
+    trend: {
+      type: "object",
+      properties: {
+        trend_name: { type: "string" },
+        category: { type: "string" },
+        season: { type: "string" },
+        brands_adopting: { type: "array", items: { type: "string" } },
+        key_characteristics: { type: "array", items: { type: "string" } },
+        origin: { type: "string" },
+        trajectory: { type: "string" },
+      },
+    },
+    product: {
+      type: "object",
+      properties: {
+        product_name: { type: "string" },
+        price: { type: "string" },
+        materials: { type: "array", items: { type: "string" } },
+        brand: { type: "string" },
+        category: { type: "string" },
+      },
+    },
+  };
+
+  const result = await scrapeWithFirecrawl(apiKey, url, {
+    extractSchema: schemas[dataType],
+    extractPrompt: `Extract ${dataType} information from this page. Be thorough and include all available details.`,
+  });
+
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+
+  return { 
+    success: true, 
+    data: result.structured || {},
+  };
+}
+
+// Map website to discover all relevant URLs
+async function mapWebsite(
+  apiKey: string,
+  url: string,
+  options?: { search?: string; limit?: number; includeSubdomains?: boolean }
+): Promise<{ success: boolean; urls?: string[]; error?: string }> {
+  try {
+    let formattedUrl = url.trim();
+    if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
+      formattedUrl = `https://${formattedUrl}`;
+    }
+
+    const response = await withTimeout(
+      fetch("https://api.firecrawl.dev/v1/map", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: formattedUrl,
+          search: options?.search,
+          limit: options?.limit || 100,
+          includeSubdomains: options?.includeSubdomains ?? false,
+        }),
+      }),
+      60000,
+      "Firecrawl map"
+    );
+
+    if (!response.ok) {
+      return { success: false, error: `Map failed: ${response.status}` };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      urls: data.links || data.data || [],
+    };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Map failed" };
   }
 }
 
@@ -724,9 +926,27 @@ async function scrapeWithFirecrawl(
 async function searchWithFirecrawl(
   apiKey: string,
   query: string,
-  limit: number = 15
-): Promise<{ success: boolean; results?: Array<{ url: string; title: string; description: string }>; error?: string }> {
+  limit: number = 15,
+  options?: { lang?: string; country?: string; scrapeResults?: boolean }
+): Promise<{ success: boolean; results?: Array<{ url: string; title: string; description: string; content?: string }>; error?: string }> {
   try {
+    const searchBody: Record<string, unknown> = {
+      query,
+      limit,
+      lang: options?.lang || "en",
+    };
+
+    if (options?.country) {
+      searchBody.country = options.country;
+    }
+
+    // Optionally scrape content from search results
+    if (options?.scrapeResults) {
+      searchBody.scrapeOptions = {
+        formats: ["markdown"],
+      };
+    }
+
     const response = await withTimeout(
       fetch("https://api.firecrawl.dev/v1/search", {
         method: "POST",
@@ -734,11 +954,7 @@ async function searchWithFirecrawl(
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          query,
-          limit,
-          lang: "en",
-        }),
+        body: JSON.stringify(searchBody),
       }),
       DEEP_SEARCH_CONFIG.FIRECRAWL_TIMEOUT,
       "Firecrawl search"
@@ -753,10 +969,11 @@ async function searchWithFirecrawl(
     const data = await response.json();
     return {
       success: true,
-      results: data.data?.map((r: { url: string; title?: string; description?: string }) => ({
+      results: data.data?.map((r: { url: string; title?: string; description?: string; markdown?: string }) => ({
         url: r.url,
         title: r.title || r.url,
         description: r.description || "",
+        content: r.markdown,
       })) || [],
     };
   } catch (error) {
@@ -945,7 +1162,7 @@ async function executeDeepResearch(
       }
     }
 
-    // ============ FIRECRAWL DISCOVERY ============
+    // ============ FIRECRAWL DISCOVERY + SITE MAPPING ============
     send({ 
       phase: "browsing", 
       message: `Discovering and crawling sources (${scrapeCount} scraped)...`, 
@@ -954,7 +1171,7 @@ async function executeDeepResearch(
       iteration
     });
 
-    // Discover new URLs via Firecrawl search
+    // Discover new URLs via Firecrawl search (with content scraping for efficiency)
     if (iteration <= 3 && credits < DEEP_SEARCH_CONFIG.MAX_CREDITS - 10) {
       const discoveryQueries = [
         query,
@@ -963,16 +1180,55 @@ async function executeDeepResearch(
       ];
       
       for (const dq of discoveryQueries.slice(0, 2)) {
-        const discoveryResult = await searchWithFirecrawl(apis.firecrawl, dq, 20);
+        // Use enhanced search with scraping to get content directly
+        const discoveryResult = await searchWithFirecrawl(apis.firecrawl, dq, 20, {
+          scrapeResults: true,  // Get content in one call
+        });
+        
         if (discoveryResult.success && discoveryResult.results) {
           for (const result of discoveryResult.results) {
             if (!allSources.some(s => s.url === result.url)) {
               allSources.push({
                 url: result.url,
                 title: result.title,
-                snippet: result.description,
+                snippet: result.description || result.content?.slice(0, 500) || "",
                 type: "discovery",
                 relevance: 0.7,
+                timestamp: new Date().toISOString()
+              });
+              
+              // If content was scraped, add to totalContent
+              if (result.content && result.content.length > 500) {
+                totalContent += `\n\n### ${result.title} (discovered)\n${result.content.slice(0, 5000)}`;
+                scrapedUrls.add(result.url);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Site mapping for authority domains (find all relevant pages)
+    if (iteration === 1 && deconstruction?.search_strategy?.authority_domains?.length) {
+      const mappingPromises = deconstruction.search_strategy.authority_domains.slice(0, 3).map(async (domain) => {
+        const mapResult = await mapWebsite(apis.firecrawl, domain, {
+          search: query.split(' ').slice(0, 3).join(' '),  // Use key terms
+          limit: 50,
+        });
+        return { domain, result: mapResult };
+      });
+
+      const mappingResults = await Promise.allSettled(mappingPromises);
+      for (const res of mappingResults) {
+        if (res.status === "fulfilled" && res.value.result.success && res.value.result.urls) {
+          for (const url of res.value.result.urls.slice(0, 20)) {
+            if (!allSources.some(s => s.url === url)) {
+              allSources.push({
+                url,
+                title: extractDomain(url),
+                snippet: "",
+                type: "discovery",
+                relevance: 0.75,  // Slightly higher for mapped authority sites
                 timestamp: new Date().toISOString()
               });
             }
@@ -981,7 +1237,7 @@ async function executeDeepResearch(
       }
     }
 
-    // ============ DEEP SCRAPING ============
+    // ============ ENHANCED DEEP SCRAPING ============
     const urlsToScrape: string[] = [];
     
     // Prioritize high-relevance, unscraped sources
@@ -1006,14 +1262,27 @@ async function executeDeepResearch(
       }
     });
 
-    // Scrape in parallel batches
+    // Scrape in parallel batches with enhanced options
     const scrapeUrls = urlsToScrape.slice(0, DEEP_SEARCH_CONFIG.MAX_SCRAPE_PER_ROUND);
     
     for (let i = 0; i < scrapeUrls.length; i += 5) {
       if (credits >= DEEP_SEARCH_CONFIG.MAX_CREDITS) break;
       
       const batch = scrapeUrls.slice(i, i + 5);
-      const scrapePromises = batch.map(url => scrapeWithFirecrawl(apis.firecrawl, url));
+      
+      // Determine scrape options based on query type
+      const scrapeOptions: ScrapeOptions = {
+        formats: ["markdown", "links"],
+        onlyMainContent: true,
+        waitFor: 5000,  // 5s for JS-heavy sites
+      };
+
+      // For supplier queries, use structured extraction
+      if (queryType === "supplier" && iteration <= 2) {
+        scrapeOptions.extractPrompt = "Extract supplier/manufacturer details: company name, location, certifications, MOQ, contact info, specializations";
+      }
+
+      const scrapePromises = batch.map(url => scrapeWithFirecrawl(apis.firecrawl, url, scrapeOptions));
       const results = await Promise.allSettled(scrapePromises);
 
       for (let j = 0; j < results.length; j++) {
@@ -1022,9 +1291,40 @@ async function executeDeepResearch(
         scrapedUrls.add(url);
         
         if (res.status === "fulfilled" && res.value.success && res.value.content) {
-          const truncated = res.value.content.slice(0, 10000);
+          const truncated = res.value.content.slice(0, 12000);  // Increased content limit
           const timestamp = new Date().toISOString();
           totalContent += `\n\n### Scraped: ${res.value.title} [${timestamp.split('T')[0]}]\n${truncated}`;
+          
+          // Add structured data if extracted
+          if (res.value.structured && Object.keys(res.value.structured).length > 0) {
+            totalContent += `\n\n**Extracted Data:**\n\`\`\`json\n${JSON.stringify(res.value.structured, null, 2)}\n\`\`\``;
+          }
+
+          // Track discovered links for potential follow-up
+          if (res.value.links && res.value.links.length > 0) {
+            for (const link of res.value.links.slice(0, 10)) {
+              if (!allSources.some(s => s.url === link) && !scrapedUrls.has(link)) {
+                // Only add relevant-looking links
+                const linkLower = link.toLowerCase();
+                if (
+                  linkLower.includes('supplier') || 
+                  linkLower.includes('manufacturer') ||
+                  linkLower.includes('product') ||
+                  linkLower.includes('about') ||
+                  linkLower.includes('contact')
+                ) {
+                  allSources.push({
+                    url: link,
+                    title: extractDomain(link),
+                    snippet: "",
+                    type: "discovery",
+                    relevance: 0.6,
+                    timestamp,
+                  });
+                }
+              }
+            }
+          }
           
           const existingSource = allSources.find(s => s.url === url);
           if (existingSource) {
