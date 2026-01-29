@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.code-runner]
 verify_jwt = false
+
+[functions.task-interpreter]
+verify_jwt = false
+
+[functions.reasoning-layer]
+verify_jwt = false
