@@ -147,12 +147,28 @@ Your mission: Provide **intent-aware, contextually appropriate, and actionable r
 NEVER assume a default domain—ALWAYS detect intent from the input.
 
 ═══════════════════════════════════════════════════════════════
-4-STEP REASONING PIPELINE (MANDATORY FOR EVERY QUERY)
+CORE PHILOSOPHY: NO FORCED STRUCTURE
+═══════════════════════════════════════════════════════════════
+
+❌ FORBIDDEN:
+- Mandatory sections (REAL-TIME SNAPSHOT, MARKET SIGNALS, INDUSTRY IMPACT, ACTIONABLE TAKEAWAYS)
+- Preset templates that don't fit the query
+- Tables when they don't add value
+- Sources sections unless citing verifiable facts
+- Forcing industry/business context on personal queries
+
+✅ REQUIRED:
+- Natural, flexible responses shaped by intent
+- Structure ONLY when it improves clarity (bullets for lists, paragraphs for narratives)
+- Reasoning-first: THINK before responding
+- Domain neutrality: Handle ALL domains based on detected intent
+
+═══════════════════════════════════════════════════════════════
+4-STEP REASONING PIPELINE (INTERNAL ONLY)
 ═══════════════════════════════════════════════════════════════
 
 ## STEP 1: INPUT ANALYSIS
 
-Parse the input to understand:
 1. **Explicit Question**: What is the literal question or statement?
 2. **Implied Intent**: What is the user actually trying to achieve?
    - Seeking advice/help
@@ -160,68 +176,37 @@ Parse the input to understand:
    - Needing instructions/steps
    - Requesting creative content
 3. **Classify Domain/Intent**:
-   - **personal_emotional**: Relationships, life decisions, feelings, well-being, personal advice
-   - **technical_programming**: APIs, code, tools, integration, debugging, implementation
-   - **academic_learning**: Education, explanations, concepts, learning, courses, schools
-   - **professional_business**: Business, industry, market analysis, strategy, brands, trends
-   - **general_factual**: Facts, definitions, quick answers, history, "what is"
-   - **creative_entertainment**: Stories, poems, creative writing, entertainment content
-
-4. **Ambiguity Check**: If unclear, ask ONE clarifying question before proceeding.
+   - **personal_emotional**: Relationships, life decisions, feelings, well-being
+   - **technical_programming**: APIs, code, tools, integration, debugging
+   - **academic_learning**: Education, explanations, concepts, learning
+   - **professional_business**: Business, industry, market analysis, strategy
+   - **general_factual**: Facts, definitions, quick answers
+   - **creative_entertainment**: Stories, poems, creative writing
+4. **Ambiguity Check**: If confidence < 0.7, ask ONE clarifying question.
 
 ## STEP 2: INTERNAL REASONING
 
-Think logically BEFORE responding:
-1. What knowledge or logic is needed?
-2. Break complex queries into sub-parts
-3. Recall factual knowledge accurately
-4. For follow-ups: Check if related to previous context
-5. AVOID irrelevance: Don't force unrelated domain context
+- What knowledge or logic is needed?
+- Break complex queries into sub-parts
+- Check if related to previous context
+- AVOID forcing unrelated domain context
 
-## STEP 3: OUTPUT STRUCTURE
+## STEP 3: OUTPUT STRUCTURE (FLEXIBLE)
 
-Match structure to the classified intent:
+Match structure to intent—NO preset templates:
 
-**personal_emotional**:
-- Empathetic, supportive tone
-- Practical, safe advice
-- NO forced business/industry framing
-- Human-centered guidance
+**personal_emotional**: Empathetic tone, practical advice, NO business framing
+**technical_programming**: Step-by-step guides, code blocks, troubleshooting
+**academic_learning**: Clear explanations, examples, comparisons IF useful
+**professional_business**: Insights, analysis—tables/lists only if data-heavy
+**general_factual**: Concise answers, sources only for verifiable facts
+**creative_entertainment**: Imaginative, engaging, original content
 
-**technical_programming**:
-- Step-by-step implementation guides
-- Code blocks with syntax highlighting
-- Authentication, permissions, error handling
-- Troubleshooting tips
+## STEP 4: FOLLOW-UP HANDLING
 
-**academic_learning**:
-- Clear explanations with examples
-- Structured comparisons (tables)
-- Requirements, outcomes, next steps
-- Sources and references
-
-**professional_business**:
-- Industry dynamics, market positioning
-- Strategic analysis with data
-- Structured for professionals
-- Tables, charts, actionable insights
-
-**general_factual**:
-- Concise, factual answers
-- Sources cited when possible
-- No unnecessary elaboration
-
-**creative_entertainment**:
-- Imaginative, engaging content
-- Coherent structure
-- Original creative output
-
-## STEP 4: FOLLOW-UP AND ITERATION
-
-- For "more details" or "expand": Stay in same context
-- If topic shifts: Re-classify from Step 1
+- "More details" or "expand" → Stay in same context
+- Topic shift → Re-classify from Step 1
 - Don't carry over unrelated elements
-- Reset automatically on explicit topic change
 
 ═══════════════════════════════════════════════════════════════
 NON-NEGOTIABLE PRINCIPLES
@@ -229,12 +214,12 @@ NON-NEGOTIABLE PRINCIPLES
 
 1. NEVER hallucinate facts, sources, or irrelevant content
 2. NEVER force industry context on personal questions
-3. NEVER assume domain without clear signals
+3. NEVER use forced structure templates
 4. ALWAYS classify before reasoning
-5. If confidence < 0.7, mark as ambiguous and ask ONE clarifying question
-6. For sensitive topics (mental health), respond empathetically and suggest professional help
+5. If confidence < 0.7, ask ONE clarifying question
+6. Responses should feel natural and intent-driven, not template-based
 
-Your role is to THINK, PLAN, and STRUCTURE — not to execute.
+Your role is to THINK, PLAN, and STRUCTURE flexibly — not to execute.
 Use classify_intent first, then reason_task.`;
 
 interface TaskPlan {
@@ -276,7 +261,14 @@ interface ReasoningBlueprint {
   logic_steps: string[];
   quality_criteria: string[];
   risk_flags: string[];
-  response_style: "structured_analysis" | "step_by_step_guide" | "empathetic_advice" | "factual_summary" | "creative_output";
+  response_style: "structured_analysis" | "step_by_step_guide" | "empathetic_advice" | "factual_summary" | "creative_output" | "flexible_natural";
+  output_format: {
+    use_tables: boolean;
+    use_sections: boolean;
+    use_sources: boolean;
+    preferred_structure: "paragraphs" | "bullets" | "numbered_steps" | "mixed" | "adaptive";
+    avoid_elements: string[];
+  };
 }
 
 serve(async (req) => {
@@ -477,8 +469,63 @@ function createFallbackBlueprint(prompt: string, taskPlan: TaskPlan, classificat
     logic_steps: ["Classify intent", "Gather relevant information", "Structure response appropriately"],
     quality_criteria: ["Response matches user intent", "Information is accurate and relevant"],
     risk_flags: ["none"],
-    response_style: getResponseStyle(intent)
+    response_style: getResponseStyle(intent),
+    output_format: getOutputFormat(intent)
   };
+}
+
+function getOutputFormat(intent: IntentCategory): ReasoningBlueprint["output_format"] {
+  switch (intent) {
+    case "personal_emotional":
+      return {
+        use_tables: false,
+        use_sections: false,
+        use_sources: false,
+        preferred_structure: "paragraphs",
+        avoid_elements: ["SNAPSHOT", "MARKET SIGNALS", "INDUSTRY IMPACT", "tables", "forced sections"]
+      };
+    case "technical_programming":
+      return {
+        use_tables: false,
+        use_sections: true,
+        use_sources: true,
+        preferred_structure: "numbered_steps",
+        avoid_elements: ["SNAPSHOT", "MARKET SIGNALS"]
+      };
+    case "academic_learning":
+      return {
+        use_tables: true,
+        use_sections: true,
+        use_sources: true,
+        preferred_structure: "mixed",
+        avoid_elements: ["INDUSTRY IMPACT", "MARKET SIGNALS"]
+      };
+    case "professional_business":
+      return {
+        use_tables: true,
+        use_sections: true,
+        use_sources: true,
+        preferred_structure: "adaptive",
+        avoid_elements: []
+      };
+    case "creative_entertainment":
+      return {
+        use_tables: false,
+        use_sections: false,
+        use_sources: false,
+        preferred_structure: "paragraphs",
+        avoid_elements: ["tables", "sources", "structured sections", "analysis framing"]
+      };
+    case "general_factual":
+    default:
+      return {
+        use_tables: false,
+        use_sections: false,
+        use_sources: true,
+        preferred_structure: "adaptive",
+        avoid_elements: ["forced templates"]
+      };
+  }
 }
 
 function inferIntentClassification(prompt: string, taskPlan: TaskPlan): IntentClassification {
@@ -548,7 +595,7 @@ function inferIntentClassification(prompt: string, taskPlan: TaskPlan): IntentCl
   };
 }
 
-function getResponseStyle(intent: IntentCategory): "structured_analysis" | "step_by_step_guide" | "empathetic_advice" | "factual_summary" | "creative_output" {
+function getResponseStyle(intent: IntentCategory): ReasoningBlueprint["response_style"] {
   switch (intent) {
     case "professional_business":
       return "structured_analysis";
@@ -562,7 +609,7 @@ function getResponseStyle(intent: IntentCategory): "structured_analysis" | "step
       return "creative_output";
     case "general_factual":
     default:
-      return "factual_summary";
+      return "flexible_natural";
   }
 }
 
@@ -577,9 +624,16 @@ function enhanceBlueprint(blueprint: ReasoningBlueprint, taskPlan: TaskPlan): Re
     };
   }
 
+  // Ensure output_format is set based on response style
+  if (!blueprint.output_format) {
+    blueprint.output_format = getOutputFormat(blueprint.intent_classification?.primary_intent || "general_factual");
+  }
+
   // Skip structured outputs for personal/empathetic responses
-  if (blueprint.response_style === "empathetic_advice") {
-    // Personal queries don't need tables/documents unless specifically requested
+  if (blueprint.response_style === "empathetic_advice" || blueprint.response_style === "creative_output") {
+    // Personal/creative queries don't need tables/documents unless specifically requested
+    blueprint.output_format.use_tables = false;
+    blueprint.output_format.use_sections = false;
     return blueprint;
   }
 
