@@ -5,6 +5,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Follow-up detection patterns
+const FOLLOW_UP_INDICATORS = [
+  /^(tell me more|expand|details|explain further|more details|elaborate|go deeper)/i,
+  /^(examples?|how to|what about|can you|show me)/i,
+  /^(continue|keep going|and\?|what else|anything else)/i,
+  /^(why|how|when|where|who) (is|are|was|were|do|does|did|can|could|would|should)/i,
+];
+
+function isFollowUp(prompt: string): boolean {
+  const trimmed = prompt.trim();
+  return FOLLOW_UP_INDICATORS.some(pattern => pattern.test(trimmed)) || trimmed.length < 30;
+}
+
 // Task interpretation tool schema
 const interpretTaskTool = {
   type: "function",
@@ -18,11 +31,15 @@ const interpretTaskTool = {
           type: "string",
           description: "Clear, action-oriented description of what the user wants to accomplish"
         },
+        is_follow_up: {
+          type: "boolean",
+          description: "Whether this appears to be a follow-up to a previous query"
+        },
         domains: {
           type: "array",
           items: {
             type: "string",
-            enum: ["fashion", "beauty", "textile", "sustainability", "lifestyle", "technology", "market", "supply_chain", "general"]
+            enum: ["fashion", "beauty", "textile", "sustainability", "lifestyle", "technology", "market", "supply_chain", "marketing", "social_media", "api_integration", "education", "research", "general"]
           },
           description: "Industry domains relevant to the task"
         },
@@ -71,37 +88,71 @@ const interpretTaskTool = {
   }
 };
 
-const SYSTEM_PROMPT = `You are the Task Interpretation Layer of an agentic AI platform.
+const SYSTEM_PROMPT = `You are the Task Interpretation Layer of McLeuker Agentic AI.
 
-Your job is to convert user prompts into structured, executable task plans.
+═══════════════════════════════════════════════════════════════
+UNIVERSAL CONTEXT HANDLING — ANY TOPIC
+═══════════════════════════════════════════════════════════════
 
-Rules:
+Your job is to convert ANY user prompt into structured, executable task plans.
+You handle ALL topics: fashion, business, luxury, sustainability, marketing, social media, 
+digital tools, APIs, technology, textiles, lifestyle, education, and creative industries.
+
+FOLLOW-UP DETECTION RULES:
+1. Detect follow-up cues: "tell me more", "expand", "details", "explain further", "examples", "how to"
+2. Short queries (<30 chars) with no explicit topic = likely follow-up
+3. Mark is_follow_up: true if detected
+4. Follow-ups should maintain the previous topic context
+
+CORE RULES:
 1. Identify the core intent in action-oriented language
 2. Detect all relevant domains (can be multiple)
 3. Determine if real-time web research is needed (most professional tasks do)
 4. Assess research depth: quick (1-2 sources), standard (5-10 sources), deep (20+ sources)
-5. Identify requested output formats (Excel for lists/data, PDF for reports, PPT for presentations)
+5. Identify requested output formats
 6. Create an ordered execution plan
 7. Generate initial search queries
 8. Extract time context (seasons like SS26, FW25, years, quarters)
 9. Identify geographic focus
 
-Domain detection guide:
+DOMAIN DETECTION GUIDE:
+Fashion & Luxury:
 - "supplier", "factory", "manufacturer" → supply_chain
-- "trend", "forecast", "prediction" → market
-- "sustainable", "eco", "ethical" → sustainability
-- "fabric", "material", "fiber" → textile
-- "brand", "collection", "runway" → fashion
-- "skincare", "cosmetic", "makeup" → beauty
+- "brand", "collection", "runway", "designer" → fashion
+- "fabric", "material", "fiber", "textile" → textile
+
+Business & Market:
+- "trend", "forecast", "prediction", "market" → market
+- "sustainable", "eco", "ethical", "circular" → sustainability
 - "lifestyle", "wellness", "consumer" → lifestyle
 
-Output format detection:
+Marketing & Social:
+- "instagram", "tiktok", "social media", "content", "engagement" → social_media
+- "marketing", "campaign", "brand strategy", "advertising" → marketing
+- "influencer", "creator", "audience", "reach" → social_media + marketing
+
+Technology & APIs:
+- "api", "integration", "webhook", "authentication" → api_integration
+- "code", "development", "software", "app" → technology
+- "automation", "scraping", "data extraction" → technology + api_integration
+
+Education & Research:
+- "school", "program", "university", "course" → education
+- "research", "study", "analysis", "deep dive" → research
+- "learn", "tutorial", "guide", "how to" → education
+
+Beauty & Lifestyle:
+- "skincare", "cosmetic", "makeup", "beauty" → beauty
+- "lifestyle", "wellness", "health" → lifestyle
+
+OUTPUT FORMAT DETECTION:
 - "list", "table", "spreadsheet", "data" → excel
 - "report", "analysis", "document" → pdf
 - "presentation", "deck", "slides" → pptx
 - "compare", "comparison" → excel + pdf
+- "step-by-step", "guide", "tutorial" → text
 
-Research depth guide:
+RESEARCH DEPTH GUIDE:
 - Simple questions, single data points → quick
 - Multi-faceted analysis, multiple sources needed → standard  
 - Comprehensive research, competitor analysis, trend forecasting → deep
@@ -110,6 +161,7 @@ Always respond using the interpret_task function.`;
 
 interface TaskPlan {
   intent: string;
+  is_follow_up: boolean;
   domains: string[];
   requires_real_time_research: boolean;
   research_depth: "quick" | "standard" | "deep";
@@ -222,6 +274,11 @@ serve(async (req) => {
 function enhanceTaskPlan(plan: TaskPlan, prompt: string): TaskPlan {
   const lowerPrompt = prompt.toLowerCase();
 
+  // Detect follow-up status
+  if (plan.is_follow_up === undefined) {
+    plan.is_follow_up = isFollowUp(prompt);
+  }
+
   // Ensure outputs are detected from prompt
   if (!plan.outputs || plan.outputs.length === 0) {
     plan.outputs = ["text"];
@@ -237,6 +294,41 @@ function enhanceTaskPlan(plan: TaskPlan, prompt: string): TaskPlan {
   if ((lowerPrompt.includes("ppt") || lowerPrompt.includes("presentation") || lowerPrompt.includes("deck") || lowerPrompt.includes("slides")) && !plan.outputs.includes("pptx")) {
     plan.outputs.push("pptx");
   }
+
+  // Enhanced domain detection for universal topics
+  const domainPatterns = [
+    // Marketing & Social Media
+    { pattern: /\b(instagram|tiktok|pinterest|xiaohongshu|linkedin|youtube|social\s*media)\b/i, domain: "social_media" },
+    { pattern: /\b(marketing|campaign|advertising|brand\s*strategy|content\s*strategy|engagement)\b/i, domain: "marketing" },
+    { pattern: /\b(influencer|creator|follower|reach|viral|hashtag)\b/i, domain: "social_media" },
+    
+    // Technology & APIs
+    { pattern: /\b(api|webhook|oauth|authentication|token|endpoint|integration)\b/i, domain: "api_integration" },
+    { pattern: /\b(code|develop|software|app|programming|automation)\b/i, domain: "technology" },
+    
+    // Education
+    { pattern: /\b(school|university|program|course|degree|MBA|master|bachelor|internship)\b/i, domain: "education" },
+    { pattern: /\b(learn|tutorial|guide|how\s*to|training)\b/i, domain: "education" },
+    
+    // Research
+    { pattern: /\b(research|study|analysis|deep\s*dive|investigate|explore)\b/i, domain: "research" },
+    
+    // Existing domains enhanced
+    { pattern: /\b(sustainable|eco|ethical|circular|recycled|organic|carbon)\b/i, domain: "sustainability" },
+    { pattern: /\b(fashion|designer|runway|collection|couture|luxury|brand)\b/i, domain: "fashion" },
+    { pattern: /\b(textile|fabric|material|fiber|yarn|denim|silk|cotton)\b/i, domain: "textile" },
+    { pattern: /\b(supplier|manufacturer|factory|sourcing|MOQ|production)\b/i, domain: "supply_chain" },
+    { pattern: /\b(beauty|skincare|cosmetic|makeup|fragrance)\b/i, domain: "beauty" },
+    { pattern: /\b(market|trend|forecast|consumer|retail|sales)\b/i, domain: "market" },
+    { pattern: /\b(lifestyle|wellness|health|fitness)\b/i, domain: "lifestyle" },
+  ];
+
+  // Add detected domains
+  domainPatterns.forEach(({ pattern, domain }) => {
+    if (pattern.test(prompt) && !plan.domains.includes(domain)) {
+      plan.domains.push(domain);
+    }
+  });
 
   // Detect time context
   if (!plan.time_context) {

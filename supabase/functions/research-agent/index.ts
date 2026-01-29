@@ -478,6 +478,16 @@ const DOMAIN_RESEARCH_PROMPTS: Record<string, string> = {
   culture: "\n\nDOMAIN: CULTURE\nPrioritize cultural influences, art collaborations, social movements.",
   textile: "\n\nDOMAIN: TEXTILE\nPrioritize fibers, mills, material innovation, sourcing, MOQ.",
   lifestyle: "\n\nDOMAIN: LIFESTYLE\nPrioritize consumer behavior, wellness, luxury lifestyle.",
+  
+  // NEW UNIVERSAL DOMAINS
+  marketing: "\n\nDOMAIN: MARKETING\nPrioritize brand strategy, campaigns, advertising effectiveness, market positioning, competitive analysis.",
+  social_media: "\n\nDOMAIN: SOCIAL MEDIA\nPrioritize Instagram, TikTok, Pinterest, Xiaohongshu, LinkedIn, YouTube. Include best practices, analytics, engagement metrics, influencer partnerships, content strategy.",
+  api_integration: "\n\nDOMAIN: APIs & TECHNOLOGY\nInclude step-by-step guides for official APIs (Instagram Graph API, TikTok API, Twitter/X API, Google Search API, YouTube API). Cover authentication, access tokens, permissions, API calls, troubleshooting, and practical integration examples.",
+  technology: "\n\nDOMAIN: TECHNOLOGY\nPrioritize software development, automation, digital tools, code examples, technical implementation guides.",
+  education: "\n\nDOMAIN: EDUCATION\nFocus on schools, programs, universities, courses. Include comparisons, internships, alumni networks, industry connections, career paths. Provide tables for multiple options.",
+  research: "\n\nDOMAIN: RESEARCH & DATA INTELLIGENCE\nFor market trends, competitor insights, or real-time search, provide structured, verified, actionable insights. Present tables, summaries, source lists. Include confidence levels, timestamps, multiple sources.",
+  supply_chain: "\n\nDOMAIN: SUPPLY CHAIN\nPrioritize suppliers, manufacturers, factories, MOQ, certifications, regional sourcing, trade directories.",
+  market: "\n\nDOMAIN: MARKET ANALYSIS\nPrioritize trends, forecasts, consumer behavior, retail data, competitive landscape.",
 };
 
 function getSynthesizerPromptWithDomain(domain: string): string {
