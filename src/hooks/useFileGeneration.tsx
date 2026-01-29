@@ -10,12 +10,16 @@ interface ExcelSheet {
 }
 
 interface FileGenerationRequest {
-  output_type: "excel" | "csv" | "docx" | "pptx";
+  output_type: "excel" | "csv" | "docx" | "pptx" | "pdf";
   filename: string;
   sheets?: ExcelSheet[];
   sections?: { title: string; content: string; type?: string }[];
   slides?: { title: string; content: string[]; type?: string }[];
   taskId?: string;
+  styling?: {
+    theme?: "professional" | "modern" | "minimal";
+    primaryColor?: string;
+  };
 }
 
 export function useFileGeneration() {

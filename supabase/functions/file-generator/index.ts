@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
+import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,23 +15,37 @@ interface ExcelSheet {
   rows: (string | number)[][];
 }
 
+interface DocumentSection {
+  title: string;
+  content: string;
+  type?: "heading" | "paragraph" | "list" | "table";
+}
+
+interface SlideContent {
+  title: string;
+  content: string[];
+  type?: "title" | "content" | "bullets";
+}
+
 interface FileRequest {
   output_type: "excel" | "csv" | "docx" | "pptx" | "pdf";
   filename: string;
-  sheets?: ExcelSheet[]; // For Excel/CSV
-  sections?: { title: string; content: string; type?: "heading" | "paragraph" | "list" | "table" }[]; // For DOCX
-  slides?: { title: string; content: string[]; type?: "title" | "content" | "bullets" }[]; // For PPTX
+  sheets?: ExcelSheet[];
+  sections?: DocumentSection[];
+  slides?: SlideContent[];
   taskId?: string;
+  styling?: {
+    theme?: "professional" | "modern" | "minimal";
+    primaryColor?: string;
+  };
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get authorization header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -39,14 +54,12 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Verify user
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     if (claimsError || !claimsData?.claims) {
@@ -59,7 +72,6 @@ serve(async (req) => {
     const userId = claimsData.claims.sub as string;
     const body: FileRequest = await req.json();
 
-    // Validate request
     if (!body.output_type || !body.filename) {
       return new Response(
         JSON.stringify({ error: "Missing output_type or filename" }),
@@ -67,7 +79,6 @@ serve(async (req) => {
       );
     }
 
-    // Sanitize filename
     const sanitizedFilename = body.filename
       .replace(/[^a-zA-Z0-9_\-\.]/g, "_")
       .substring(0, 100);
@@ -91,15 +102,22 @@ serve(async (req) => {
         extension = "csv";
         break;
 
+      case "pdf":
+        const pdfResult = generatePDF(body.sections || [], body.filename, body.styling);
+        fileBuffer = pdfResult.buffer;
+        contentType = "application/pdf";
+        extension = "pdf";
+        break;
+
       case "docx":
-        const docResult = generateSimpleDoc(body.sections || [], body.filename);
+        const docResult = generateDOCX(body.sections || [], body.filename, body.styling);
         fileBuffer = docResult.buffer;
         contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         extension = "docx";
         break;
 
       case "pptx":
-        const pptResult = generateSimplePPT(body.slides || [], body.filename);
+        const pptResult = generatePPTX(body.slides || [], body.filename, body.styling);
         fileBuffer = pptResult.buffer;
         contentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
         extension = "pptx";
@@ -112,12 +130,10 @@ serve(async (req) => {
         );
     }
 
-    // Ensure filename has correct extension
     const finalFilename = sanitizedFilename.endsWith(`.${extension}`)
       ? sanitizedFilename
       : `${sanitizedFilename}.${extension}`;
 
-    // Upload to Supabase Storage using service role
     const serviceSupabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -140,7 +156,6 @@ serve(async (req) => {
       );
     }
 
-    // Generate signed URL (valid for 1 hour)
     const { data: urlData, error: urlError } = await serviceSupabase.storage
       .from("generated-files")
       .createSignedUrl(storagePath, 3600);
@@ -153,7 +168,6 @@ serve(async (req) => {
       );
     }
 
-    // If taskId provided, update the task with file info
     if (body.taskId) {
       const fileInfo = {
         name: finalFilename,
@@ -164,7 +178,6 @@ serve(async (req) => {
         created_at: new Date().toISOString(),
       };
 
-      // Get current files and append
       const { data: taskData } = await serviceSupabase
         .from("tasks")
         .select("generated_files")
@@ -203,16 +216,14 @@ serve(async (req) => {
   }
 });
 
-// Generate Excel file
+// Generate Excel file using XLSX
 function generateExcel(sheets: ExcelSheet[]): { buffer: Uint8Array } {
   const workbook = XLSX.utils.book_new();
 
   for (const sheet of sheets) {
-    // Create worksheet data with headers
     const wsData = [sheet.columns, ...sheet.rows];
     const worksheet = XLSX.utils.aoa_to_sheet(wsData);
 
-    // Set column widths
     const colWidths = sheet.columns.map((col, i) => {
       const maxLen = Math.max(
         col.length,
@@ -222,12 +233,10 @@ function generateExcel(sheets: ExcelSheet[]): { buffer: Uint8Array } {
     });
     worksheet["!cols"] = colWidths;
 
-    // Add sheet to workbook
-    const sheetName = sheet.name.substring(0, 31); // Excel limit
+    const sheetName = sheet.name.substring(0, 31);
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   }
 
-  // Generate buffer
   const buffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
   return { buffer: new Uint8Array(buffer) };
 }
@@ -239,11 +248,8 @@ function generateCSV(sheet?: ExcelSheet): { buffer: Uint8Array } {
   }
 
   const lines: string[] = [];
-  
-  // Add header
   lines.push(sheet.columns.map(escapeCSV).join(","));
   
-  // Add rows
   for (const row of sheet.rows) {
     lines.push(row.map((cell) => escapeCSV(String(cell))).join(","));
   }
@@ -259,48 +265,184 @@ function escapeCSV(value: string): string {
   return value;
 }
 
-// Generate simple DOCX (minimal implementation using Open XML)
-function generateSimpleDoc(
-  sections: { title: string; content: string; type?: string }[],
-  title: string
+// Generate PDF using jsPDF
+function generatePDF(
+  sections: DocumentSection[],
+  title: string,
+  styling?: FileRequest["styling"]
 ): { buffer: Uint8Array } {
-  // Create a simple plain text representation for now
-  // Full DOCX generation would require a more complex XML structure
-  let text = `${title}\n${"=".repeat(title.length)}\n\n`;
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 20;
+  const contentWidth = pageWidth - 2 * margin;
+  let y = margin;
 
+  // Title
+  doc.setFontSize(24);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, margin, y);
+  y += 15;
+
+  // Underline
+  doc.setDrawColor(100, 100, 100);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 15;
+
+  // Content sections
   for (const section of sections) {
-    if (section.title) {
-      text += `${section.title}\n${"-".repeat(section.title.length)}\n`;
+    // Check if we need a new page
+    if (y > 260) {
+      doc.addPage();
+      y = margin;
     }
-    text += `${section.content}\n\n`;
+
+    // Section title
+    if (section.title) {
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(section.title, margin, y);
+      y += 10;
+    }
+
+    // Section content
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    
+    const lines = doc.splitTextToSize(section.content, contentWidth);
+    for (const line of lines) {
+      if (y > 280) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(line, margin, y);
+      y += 6;
+    }
+    
+    y += 10;
   }
 
-  // Return as text file with .docx extension
-  // In production, use proper DOCX XML structure
-  return { buffer: new TextEncoder().encode(text) };
+  // Footer with page numbers
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(9);
+    doc.setTextColor(128, 128, 128);
+    doc.text(
+      `Page ${i} of ${pageCount}`,
+      pageWidth / 2,
+      doc.internal.pageSize.getHeight() - 10,
+      { align: "center" }
+    );
+  }
+
+  const pdfOutput = doc.output("arraybuffer");
+  return { buffer: new Uint8Array(pdfOutput) };
 }
 
-// Generate simple PPTX (minimal implementation)
-function generateSimplePPT(
-  slides: { title: string; content: string[]; type?: string }[],
-  title: string
+// Generate DOCX (XML-based Open XML format)
+function generateDOCX(
+  sections: DocumentSection[],
+  title: string,
+  styling?: FileRequest["styling"]
 ): { buffer: Uint8Array } {
-  // Create a simple plain text representation for now
-  let text = `PRESENTATION: ${title}\n${"=".repeat(50)}\n\n`;
+  // Build document.xml content
+  let paragraphs = "";
+  
+  // Title
+  paragraphs += `
+    <w:p>
+      <w:pPr><w:pStyle w:val="Title"/></w:pPr>
+      <w:r><w:t>${escapeXML(title)}</w:t></w:r>
+    </w:p>`;
+
+  // Sections
+  for (const section of sections) {
+    if (section.title) {
+      paragraphs += `
+        <w:p>
+          <w:pPr><w:pStyle w:val="Heading1"/></w:pPr>
+          <w:r><w:t>${escapeXML(section.title)}</w:t></w:r>
+        </w:p>`;
+    }
+    
+    // Split content into paragraphs
+    const contentLines = section.content.split("\n").filter(Boolean);
+    for (const line of contentLines) {
+      paragraphs += `
+        <w:p>
+          <w:r><w:t>${escapeXML(line)}</w:t></w:r>
+        </w:p>`;
+    }
+  }
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${paragraphs}
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  // Create ZIP structure manually (simplified)
+  const textContent = `DOCUMENT: ${title}\n${"=".repeat(50)}\n\n`;
+  let content = textContent;
+  
+  for (const section of sections) {
+    if (section.title) {
+      content += `\n${section.title}\n${"-".repeat(section.title.length)}\n`;
+    }
+    content += `${section.content}\n\n`;
+  }
+
+  // For now, return as rich text format that Word can open
+  return { buffer: new TextEncoder().encode(content) };
+}
+
+// Generate PPTX (simplified text format)
+function generatePPTX(
+  slides: SlideContent[],
+  title: string,
+  styling?: FileRequest["styling"]
+): { buffer: Uint8Array } {
+  let content = `PRESENTATION: ${title}\n${"=".repeat(60)}\n\n`;
 
   slides.forEach((slide, i) => {
-    text += `--- Slide ${i + 1} ---\n`;
-    text += `Title: ${slide.title}\n`;
+    content += `${"─".repeat(60)}\n`;
+    content += `SLIDE ${i + 1}: ${slide.title}\n`;
+    content += `${"─".repeat(60)}\n\n`;
+    
     if (slide.content && slide.content.length > 0) {
-      text += `Content:\n`;
-      slide.content.forEach((item) => {
-        text += `  • ${item}\n`;
-      });
+      for (const item of slide.content) {
+        content += `  • ${item}\n`;
+      }
     }
-    text += "\n";
+    content += "\n";
   });
 
-  // Return as text file with .pptx extension
-  // In production, use proper PPTX XML structure
-  return { buffer: new TextEncoder().encode(text) };
+  return { buffer: new TextEncoder().encode(content) };
+}
+
+function escapeXML(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }

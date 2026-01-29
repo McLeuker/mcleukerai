@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, FileSpreadsheet, FileText, Presentation, Loader2, Check } from "lucide-react";
+import { Download, FileSpreadsheet, FileText, Presentation, Loader2, Check, FileIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,7 @@ interface FileDownloadCardProps {
   className?: string;
 }
 
-const fileIcons = {
+const fileIcons: Record<string, typeof FileText> = {
   excel: FileSpreadsheet,
   csv: FileSpreadsheet,
   docx: FileText,
