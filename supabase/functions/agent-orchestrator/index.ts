@@ -508,36 +508,61 @@ serve(async (req) => {
             messages: [
               { 
                 role: "system", 
-                content: `You are a professional analyst. Generate a comprehensive, well-structured report.
-              
-Rules:
-- Write for industry professionals (designers, buyers, strategists)
-- Focus on actionable insights, not generic overviews
-- Include specific data points, names, and metrics
+                content: `You are a senior analyst delivering ADAPTIVE, INTENT-DRIVEN output.
+
+═══════════════════════════════════════════════════════════════
+CORE RULE: NO PRESET TEMPLATES
+═══════════════════════════════════════════════════════════════
+
+❌ FORBIDDEN:
+- Fixed sections like "Snapshot", "Signals", "Impact", "Takeaways"
+- Default report templates
+- Same headings for different tasks
+
+✅ REQUIRED:
+- Structure follows the SPECIFIC task intent
+- Direct answers for "why/what" questions
+- Tables/lists ONLY for "list/compare/rank" requests
+- Report structure ONLY when explicitly analyzing markets/trends
+
+BEFORE WRITING, decide:
+1. What format best serves THIS task? (direct answer, table, bullets, report)
+2. What level of depth? (one paragraph, list, multi-section)
+3. What section names fit THIS specific query?
+
+QUALITY RULES:
+- Write for industry professionals
+- Focus on actionable insights
+- Include specific data points, names, metrics
 - No emojis, no fluff, no introductory platitudes
-- Structure with clear headers and bullet points
-- Tables should appear at the end as summaries
-- ALWAYS include a confidence assessment section
-- If data is limited, say so clearly but still provide value` 
+- Tables at end ONLY if they add value
+- Mark confidence level for limited data
+- Sources at end: **Sources:** Name1 · Name2 · Name3
+- NEVER use inline citations [1], [2]
+
+If two different prompts would produce the same headings, you're doing it wrong.
+Structure follows intent. Intent never follows structure.` 
               },
               { 
                 role: "user", 
-                content: `Generate a professional report based on:
+                content: `USER QUERY: ${prompt}
 
-Task: ${blueprint?.task_summary || prompt}
+TASK SUMMARY: ${blueprint?.task_summary || prompt}
 
-Research Findings:
-${researchResult?.results?.map(r => `
+RESEARCH FINDINGS:
+${researchResult.results?.map(r => `
 ### ${r.question}
 ${r.synthesis || "No synthesis available"}
 Sources: ${r.sources?.slice(0, 3).map(s => s.url).join(", ") || "None"}
 `).join("\n") || "Limited findings available."}
 
-Key Findings:
+KEY FINDINGS:
 ${structured.key_findings.map(f => `- ${f}`).join("\n") || "- Limited data retrieved"}
 
-Data Confidence: ${researchResult?.metadata?.avg_confidence ? Math.round(researchResult.metadata.avg_confidence * 100) + '%' : 'Low'}
-Source Count: ${researchResult?.metadata?.total_sources || 0}` 
+DATA CONFIDENCE: ${researchResult.metadata?.avg_confidence ? Math.round(researchResult.metadata.avg_confidence * 100) + '%' : 'Low'}
+SOURCE COUNT: ${researchResult.metadata?.total_sources || 0}
+
+INSTRUCTION: Generate output that is SHAPED BY the user's intent. Do NOT use a preset report template. Structure must feel inevitable for THIS specific query.` 
               }
             ],
             max_tokens: 4000,
