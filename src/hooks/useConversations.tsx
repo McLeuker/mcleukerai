@@ -20,6 +20,15 @@ export interface ChatMessage {
   // Research agent fields
   sources?: Source[];
   isResearched?: boolean;
+  // Generated files
+  generatedFiles?: Array<{
+    name: string;
+    type: "excel" | "csv" | "docx" | "pptx" | "pdf";
+    url: string;
+    size: number;
+    path?: string;
+    created_at?: string;
+  }>;
 }
 
 export interface Conversation {

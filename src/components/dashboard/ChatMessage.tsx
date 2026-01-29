@@ -8,6 +8,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "react-markdown";
 import DOMPurify from "dompurify";
 import { TrendIndicator, parseTrendFromText } from "./TrendIndicator";
+import { ExportActions } from "./ExportActions";
+import { FileDownloadCard, FileDownloadList, GeneratedFile } from "./FileDownloadCard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +34,7 @@ interface ChatMessageProps {
   onDelete: (messageId: string) => void;
   isStreaming?: boolean;
   streamingContent?: string;
+  onCodeRun?: (code: string, language: string) => void;
 }
 
 export function ChatMessageComponent({
@@ -40,8 +43,10 @@ export function ChatMessageComponent({
   onDelete,
   isStreaming = false,
   streamingContent = "",
+  onCodeRun,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
+  const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>(message.generatedFiles || []);
 
   const displayContent = isStreaming ? streamingContent : message.content;
 
@@ -289,6 +294,20 @@ export function ChatMessageComponent({
                     ))}
                   </ol>
                 </div>
+              )}
+              
+              {/* Generated Files */}
+              {generatedFiles.length > 0 && (
+                <FileDownloadList files={generatedFiles} />
+              )}
+              
+              {/* Export Actions - only for completed assistant messages */}
+              {!isUser && !isStreaming && displayContent.length > 100 && (
+                <ExportActions
+                  content={displayContent}
+                  onFileGenerated={(file) => setGeneratedFiles(prev => [...prev, file])}
+                  onCodeRun={onCodeRun}
+                />
               )}
               
               {isStreaming && (
