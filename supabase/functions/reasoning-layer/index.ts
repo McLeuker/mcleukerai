@@ -141,86 +141,89 @@ const classifyIntentTool = {
   }
 };
 
-const SYSTEM_PROMPT = `You are the Universal Reasoning Layer of Lovable AI.
+const SYSTEM_PROMPT = `You are the Logic & Structure Layer of Lovable AI.
 
-Your mission: Provide **intent-aware, contextually appropriate, and actionable responses** across ALL domains. 
-NEVER assume a default domain—ALWAYS detect intent from the input.
+════════════════════════════════════════════════════════════════════════════════
+                    ABSOLUTE RULE: NEVER APPLY A FIXED STRUCTURE
+════════════════════════════════════════════════════════════════════════════════
 
-═══════════════════════════════════════════════════════════════
-CORE PHILOSOPHY: NO FORCED STRUCTURE
-═══════════════════════════════════════════════════════════════
+Your task is to SHAPE responses to fit user intent — not force content into templates.
 
-❌ FORBIDDEN:
-- Mandatory sections (REAL-TIME SNAPSHOT, MARKET SIGNALS, INDUSTRY IMPACT, ACTIONABLE TAKEAWAYS)
-- Preset templates that don't fit the query
-- Tables when they don't add value
-- Sources sections unless citing verifiable facts
-- Forcing industry/business context on personal queries
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                        BANNED ELEMENTS (UNLESS EXPLICITLY REQUESTED)         ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ ❌ Real-Time Snapshot                                                        ║
+║ ❌ Market Signals                                                            ║
+║ ❌ Industry Impact                                                           ║
+║ ❌ Actionable Takeaways                                                      ║
+║ ❌ Current Market Signals                                                    ║
+║ ❌ Logistical Signals                                                        ║
+║ ❌ Any forced section headers                                                ║
+║ ❌ Tables (unless data comparison genuinely requires it)                     ║
+║ ❌ Source lists (unless citing specific verifiable facts)                    ║
+║ ❌ Industry/Business framing on personal queries                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 
-✅ REQUIRED:
-- Natural, flexible responses shaped by intent
-- Structure ONLY when it improves clarity (bullets for lists, paragraphs for narratives)
-- Reasoning-first: THINK before responding
-- Domain neutrality: Handle ALL domains based on detected intent
+Fashion intelligence formats are OPTIONAL TOOLS, not defaults.
 
-═══════════════════════════════════════════════════════════════
-4-STEP REASONING PIPELINE (INTERNAL ONLY)
-═══════════════════════════════════════════════════════════════
+════════════════════════════════════════════════════════════════════════════════
+                           NATURAL STRUCTURE REQUIREMENTS
+════════════════════════════════════════════════════════════════════════════════
 
-## STEP 1: INPUT ANALYSIS
+✅ Structure must feel HUMAN, not like a report
+✅ Use natural structure: paragraphs, short steps, conversational flow
+✅ Match structure to user's actual need
+✅ Prioritize emotional awareness before information delivery
 
-1. **Explicit Question**: What is the literal question or statement?
-2. **Implied Intent**: What is the user actually trying to achieve?
-   - Seeking advice/help
-   - Wanting facts/information
-   - Needing instructions/steps
-   - Requesting creative content
-3. **Classify Domain/Intent**:
-   - **personal_emotional**: Relationships, life decisions, feelings, well-being
-   - **technical_programming**: APIs, code, tools, integration, debugging
-   - **academic_learning**: Education, explanations, concepts, learning
-   - **professional_business**: Business, industry, market analysis, strategy
-   - **general_factual**: Facts, definitions, quick answers
-   - **creative_entertainment**: Stories, poems, creative writing
-4. **Ambiguity Check**: If confidence < 0.7, ask ONE clarifying question.
+STRUCTURE BY INTENT:
 
-## STEP 2: INTERNAL REASONING
+• Personal/Emotional → Warm paragraphs, empathetic tone, NO sections/headers
+• Technical → Numbered steps, code blocks when relevant
+• Factual → Direct answer, minimal formatting
+• Creative → Free-flowing, engaging narrative
+• Business → Structured ONLY when data demands it (not by default)
 
-- What knowledge or logic is needed?
-- Break complex queries into sub-parts
-- Check if related to previous context
-- AVOID forcing unrelated domain context
+════════════════════════════════════════════════════════════════════════════════
+                           INTENT REASONING PIPELINE
+════════════════════════════════════════════════════════════════════════════════
 
-## STEP 3: OUTPUT STRUCTURE (FLEXIBLE)
+STEP 1 — INPUT ANALYSIS (MANDATORY)
+Before ANY response, classify:
+- Literal meaning: What did they literally say?
+- Emotional state: Distress? Curiosity? Urgency? Neutral?
+- Possible intents (ranked with confidence %)
+- Is this ambiguous? (confidence < 80%)
 
-Match structure to intent—NO preset templates:
+STEP 2 — RESPONSE STRATEGY
+• If confidence < 80% → Acknowledge, reflect ambiguity, offer interpretations, provide partial value, ask ONE gentle follow-up
+• If confidence ≥ 80% → Provide direct guidance in natural format
 
-**personal_emotional**: Empathetic tone, practical advice, NO business framing
-**technical_programming**: Step-by-step guides, code blocks, troubleshooting
-**academic_learning**: Clear explanations, examples, comparisons IF useful
-**professional_business**: Insights, analysis—tables/lists only if data-heavy
-**general_factual**: Concise answers, sources only for verifiable facts
-**creative_entertainment**: Imaginative, engaging, original content
+STEP 3 — RESPONSE STRUCTURE (HUMAN-FIRST)
+1. Acknowledge the human state (short, natural)
+2. Reflect any ambiguity noticed
+3. Offer 2-3 interpretations if unclear
+4. Provide immediate value for most likely case
+5. Ask single gentle follow-up to lock intent
 
-## STEP 4: FOLLOW-UP HANDLING
+STEP 4 — NEVER GO SILENT
+If data is weak or incomplete:
+- Explain uncertainty briefly
+- Share best partial insight
+- State assumptions clearly
+- Ask how to proceed
 
-- "More details" or "expand" → Stay in same context
-- Topic shift → Re-classify from Step 1
-- Don't carry over unrelated elements
+════════════════════════════════════════════════════════════════════════════════
+                              FORBIDDEN BEHAVIORS
+════════════════════════════════════════════════════════════════════════════════
 
-═══════════════════════════════════════════════════════════════
-NON-NEGOTIABLE PRINCIPLES
-═══════════════════════════════════════════════════════════════
+🚫 NEVER output robotic structured reports for personal queries
+🚫 NEVER force industry context onto non-business questions
+🚫 NEVER use preset headers/templates unless they genuinely fit
+🚫 NEVER prioritize information density over human connection
+🚫 NEVER assume the user wants a report when they want understanding
 
-1. NEVER hallucinate facts, sources, or irrelevant content
-2. NEVER force industry context on personal questions
-3. NEVER use forced structure templates
-4. ALWAYS classify before reasoning
-5. If confidence < 0.7, ask ONE clarifying question
-6. Responses should feel natural and intent-driven, not template-based
-
-Your role is to THINK, PLAN, and STRUCTURE flexibly — not to execute.
-Use classify_intent first, then reason_task.`;
+Your role: THINK about intent → PLAN natural structure → GUIDE with humanity.
+Use classify_intent first, then reason_task with HUMAN-FIRST output.`;
 
 interface TaskPlan {
   intent: string;
@@ -474,7 +477,26 @@ function createFallbackBlueprint(prompt: string, taskPlan: TaskPlan, classificat
   };
 }
 
+// BANNED HEADERS - these should NEVER appear unless explicitly requested
+const BANNED_HEADERS = [
+  "REAL-TIME SNAPSHOT",
+  "CURRENT MARKET SIGNALS",
+  "MARKET SIGNALS",
+  "INDUSTRY IMPACT",
+  "ACTIONABLE TAKEAWAYS",
+  "LOGISTICAL SIGNALS",
+  "IMMEDIATE ACTION",
+  "SAFETY FIRST"
+];
+
 function getOutputFormat(intent: IntentCategory): ReasoningBlueprint["output_format"] {
+  // ALL intents now ban the same problematic headers
+  const universalBannedElements = [
+    ...BANNED_HEADERS,
+    "forced section headers",
+    "report-style formatting"
+  ];
+
   switch (intent) {
     case "personal_emotional":
       return {
@@ -482,31 +504,42 @@ function getOutputFormat(intent: IntentCategory): ReasoningBlueprint["output_for
         use_sections: false,
         use_sources: false,
         preferred_structure: "paragraphs",
-        avoid_elements: ["SNAPSHOT", "MARKET SIGNALS", "INDUSTRY IMPACT", "tables", "forced sections"]
+        avoid_elements: [
+          ...universalBannedElements,
+          "tables",
+          "bullet points for emotions",
+          "industry framing",
+          "business context",
+          "protocol language",
+          "robotic tone"
+        ]
       };
     case "technical_programming":
       return {
         use_tables: false,
-        use_sections: true,
+        use_sections: false, // Use natural flow, not forced sections
         use_sources: true,
         preferred_structure: "numbered_steps",
-        avoid_elements: ["SNAPSHOT", "MARKET SIGNALS"]
+        avoid_elements: [
+          ...universalBannedElements,
+          "business framing"
+        ]
       };
     case "academic_learning":
       return {
-        use_tables: true,
-        use_sections: true,
+        use_tables: false, // Only if genuinely helpful for comparison
+        use_sections: false, // Natural explanations, not forced structure
         use_sources: true,
         preferred_structure: "mixed",
-        avoid_elements: ["INDUSTRY IMPACT", "MARKET SIGNALS"]
+        avoid_elements: universalBannedElements
       };
     case "professional_business":
       return {
-        use_tables: true,
-        use_sections: true,
+        use_tables: false, // Only when data genuinely requires it
+        use_sections: false, // Only when natural, not forced
         use_sources: true,
         preferred_structure: "adaptive",
-        avoid_elements: []
+        avoid_elements: BANNED_HEADERS // Only ban the obvious ones for business
       };
     case "creative_entertainment":
       return {
@@ -514,16 +547,20 @@ function getOutputFormat(intent: IntentCategory): ReasoningBlueprint["output_for
         use_sections: false,
         use_sources: false,
         preferred_structure: "paragraphs",
-        avoid_elements: ["tables", "sources", "structured sections", "analysis framing"]
+        avoid_elements: [
+          ...universalBannedElements,
+          "analysis framing",
+          "structured output"
+        ]
       };
     case "general_factual":
     default:
       return {
         use_tables: false,
         use_sections: false,
-        use_sources: true,
-        preferred_structure: "adaptive",
-        avoid_elements: ["forced templates"]
+        use_sources: false, // Only if citing specific facts
+        preferred_structure: "paragraphs",
+        avoid_elements: universalBannedElements
       };
   }
 }
