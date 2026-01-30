@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
+import { mcLeukerAPI } from "@/lib/mcLeukerAPI";
 
 export interface TaskStep {
   step: string;
@@ -36,6 +37,29 @@ export interface Task {
   credits_used: number | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Map Railway file format to UI-expected type
+ */
+function mapFileFormat(format: string): "excel" | "csv" | "docx" | "pptx" | "pdf" {
+  const formatLower = format.toLowerCase();
+  if (formatLower === "xlsx" || formatLower === "excel" || formatLower === "xls") {
+    return "excel";
+  }
+  if (formatLower === "csv") {
+    return "csv";
+  }
+  if (formatLower === "docx" || formatLower === "doc") {
+    return "docx";
+  }
+  if (formatLower === "pptx" || formatLower === "ppt") {
+    return "pptx";
+  }
+  if (formatLower === "pdf") {
+    return "pdf";
+  }
+  return "pdf";
 }
 
 export function useTasks() {
@@ -131,7 +155,7 @@ export function useTasks() {
     setLoading(true);
     setStreamingContent("");
 
-    // Create task in database
+    // Create task in database with pending status
     const { data, error } = await supabase
       .from("tasks")
       .insert({
@@ -171,108 +195,69 @@ export function useTasks() {
     setCurrentTask(newTask);
     setTasks((prev) => [newTask, ...prev]);
 
-    // Start AI processing
+    // Call Railway backend for AI processing
     try {
-      const session = await supabase.auth.getSession();
-      if (!session.data.session?.access_token) {
-        throw new Error("Please log in to continue");
+      // Update status to processing
+      await supabase
+        .from("tasks")
+        .update({ status: "understanding" })
+        .eq("id", data.id);
+
+      // Call Railway API for synchronous task processing
+      const taskResult = await mcLeukerAPI.createTask(prompt, user.id);
+
+      // Map Railway's GeneratedFile format to existing format with proper download URLs
+      const generatedFiles: GeneratedFile[] = (taskResult.files || []).map((file) => ({
+        name: file.filename,
+        type: mapFileFormat(file.format),
+        url: mcLeukerAPI.getFileDownloadUrl(file.filename),
+        size: file.size_bytes || 0,
+        path: file.filepath,
+        created_at: new Date().toISOString(),
+      }));
+
+      // Update the content for streaming display
+      if (taskResult.message) {
+        setStreamingContent(taskResult.message);
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fashion-ai`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.data.session.access_token}`,
-          },
-          body: JSON.stringify({ prompt, taskId: data.id }),
-        }
+      // Prepare update payload - cast to Json-compatible format
+      const taskStatus = taskResult.status === "completed" ? "completed" : "failed";
+      const taskResultContent = taskResult.message ? { content: taskResult.message } : null;
+      const modelUsed = taskResult.interpretation 
+        ? `Railway AI (${taskResult.interpretation.complexity})` 
+        : "Railway AI";
+
+      // Update task in database with result
+      await supabase
+        .from("tasks")
+        .update({
+          status: taskStatus,
+          result: taskResultContent,
+          generated_files: generatedFiles as unknown as null, // Cast for Supabase Json type
+          updated_at: new Date().toISOString(),
+          model_used: modelUsed,
+        })
+        .eq("id", data.id);
+
+      // Update local state
+      const updatedTask: Task = {
+        ...newTask,
+        status: taskStatus,
+        result: taskResultContent,
+        generated_files: generatedFiles,
+        model_used: modelUsed,
+      };
+
+      setCurrentTask(updatedTask);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
       );
-
-      // Handle non-OK responses
-      if (!response.ok) {
-        let errorMessage = "AI processing failed";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          // Response might not be JSON, use status text
-          errorMessage = `Request failed: ${response.status} ${response.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      // Check content type to ensure we have a stream
-      const contentType = response.headers.get("content-type") || "";
-      if (!contentType.includes("text/event-stream")) {
-        // Might be a JSON error response
-        try {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Unexpected response format");
-        } catch (e) {
-          if (e instanceof Error && e.message !== "Unexpected response format") {
-            throw new Error("Failed to process AI response");
-          }
-          throw e;
-        }
-      }
-
-      // Stream the response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let content = "";
-      let hasReceivedContent = false;
-
-      if (reader) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split("\n");
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const eventData = line.slice(6).trim();
-                if (eventData === "[DONE]") continue;
-                try {
-                  const parsed = JSON.parse(eventData);
-                  if (parsed.content) {
-                    hasReceivedContent = true;
-                    content += parsed.content;
-                    setStreamingContent(content);
-                  }
-                  // Check for error in stream
-                  if (parsed.error) {
-                    throw new Error(parsed.error);
-                  }
-                } catch (parseError) {
-                  // Only skip if it's a JSON parse error, not a thrown error
-                  if (parseError instanceof SyntaxError) {
-                    // Skip malformed JSON
-                    continue;
-                  }
-                  throw parseError;
-                }
-              }
-            }
-          }
-        } finally {
-          reader.releaseLock();
-        }
-      }
-
-      // Check if we received any content
-      if (!hasReceivedContent && !content) {
-        console.warn("No content received from AI stream");
-      }
 
       // Refresh to get final state
       await fetchTasks();
     } catch (error) {
-      console.error("AI processing error:", error);
+      console.error("Railway API processing error:", error);
       
       const errorMessage = error instanceof Error ? error.message : "AI processing failed";
       
@@ -287,6 +272,16 @@ export function useTasks() {
         .from("tasks")
         .update({ status: "failed" })
         .eq("id", data.id);
+
+      // Update local state
+      const failedTask: Task = {
+        ...newTask,
+        status: "failed",
+      };
+      setCurrentTask(failedTask);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === failedTask.id ? failedTask : t))
+      );
     }
 
     setLoading(false);
