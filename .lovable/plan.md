@@ -1,105 +1,254 @@
 
-<goal>
-Stop the “Are you looking for general inquiry?” loop and make Quick mode correctly understand simple prompts like “I lost my wallet in Paris, what should I do?”.
-</goal>
+# Updated Plan: Replace Hooks/API with Railway Backend Integration
 
-<what-i-found>
-1) Your UI sends Quick-mode requests to the backend function <code>fashion-ai</code> with <code>model: "grok-4-latest"</code> (see <code>src/hooks/useConversations.tsx</code>).
-2) <code>fashion-ai</code> currently does NOT support <code>grok-4-latest</code>. It only recognizes:
-   - grok-2-latest
-   - grok-2
-   - grok-beta
-   (see <code>supabase/functions/fashion-ai/index.ts</code>)
-3) Because the requested model isn’t recognized, <code>fashion-ai</code> silently falls back to <code>grok-2-latest</code>.
-4) Your Grok key does not have access to <code>grok-2-latest</code>, causing 404s:
-   - “The model grok-2-latest does not exist or your team … does not have access to it.”
-   (confirmed in backend logs)
-5) When Layer-0 classification fails, it returns a default classification whose only interpretation is “general inquiry”.
-   That default triggers the fallback clarification response:
-   “Are you looking for general inquiry?”
-   which repeats forever as the user replies “yes / im looking for solutions”.
-</what-i-found>
+## Overview
+This plan replaces the current Supabase Edge Function-based API with your Railway backend, with special attention to the **file download URL construction** you specified.
 
-<root-cause>
-The loop is caused by an invalid Quick-mode model mapping:
-UI requests <code>grok-4-latest</code> → <code>fashion-ai</code> downgrades to <code>grok-2-latest</code> → Grok 404 → classifier defaults to “general inquiry” → clarification fallback repeats.
+---
 
-This is not a “prompt structure” issue; it’s a model routing + error-handling issue.
-</root-cause>
+## Critical Addition: File Download URL Handling
 
-<plan>
-<step id="1" title="Fix Quick-mode model routing in fashion-ai">
-- Update <code>supabase/functions/fashion-ai/index.ts</code>:
-  - Add <code>"grok-4-latest"</code> to <code>GROK_MODELS</code>
-  - Change the default model from <code>grok-2-latest</code> to <code>grok-4-latest</code>
-  - Ensure <code>requestedModel</code> = <code>"grok-4-latest"</code> actually selects Grok-4, not Grok-2
-  - Update labels like <code>modelUsed: "Grok-2"</code> to <code>"Grok-4"</code> where appropriate, so the UI doesn’t misreport
-</step>
+When mapping Railway's `TaskResult` response to the existing `Task` interface, all generated files will have their download URLs constructed using the Railway file endpoint:
 
-<step id="2" title="Fix Layer-0 classifier to use Grok-4 (and avoid hardcoded Grok-2)">
-- Update <code>supabase/functions/_shared/intent-classifier.ts</code>:
-  - Replace <code>CLASSIFIER_MODEL = "grok-2-latest"</code> with <code>"grok-4-latest"</code>
-  - Even better: remove the hard-coded classifier model entirely and pass the selected model into:
-    - <code>classifyIntent(...)</code>
-    - <code>generateClarificationResponse(...)</code>
-  so Layer 0 always uses the same model the user selected (or the same one <code>fashion-ai</code> is using).
-</step>
+```typescript
+// In src/lib/mcLeukerAPI.ts
+const API_BASE_URL = import.meta.env.VITE_RAILWAY_API_URL || 'https://your-backend.railway.app';
 
-<step id="3" title="Add a ‘no-loop’ safety so failures never produce the same clarifying question forever">
-Even after fixing the model, we should prevent this class of failure from ever reappearing.
+// Method to construct download URLs
+getFileDownloadUrl(filename: string): string {
+  return `${API_BASE_URL}/api/files/${filename}`;
+}
+```
 
-- If Grok classification fails (non-OK response):
-  - Do NOT default to “general inquiry” + “Are you looking for general inquiry?”
-  - Instead, use a deterministic local fallback classifier for obvious practical intents (wallet/passport/lost/urgent, etc.) to return:
-    - <code>primary_intent: "practical_problem"</code>
-    - <code>confidence: 0.9</code>
-    - <code>response_strategy: "step_by_step"</code>
-  This guarantees “lost wallet” becomes “help steps” even if a model is temporarily unavailable.
+This URL construction will be applied in:
+1. **useTasks.tsx** - When mapping `TaskResult.files` to `Task.generated_files`
+2. **FileDownloadCard.tsx** - Already uses `file.url` directly, so mapping handles it
 
-- Additionally: if the user’s message is a short follow-up (“yes”, “no”, “that one”), treat it as a continuation of the last assistant question rather than re-classifying it in isolation.
-</step>
+---
 
-<step id="4" title="(Optional but recommended) Use conversation context for classification continuity">
-Right now Layer 0 classifies only the single prompt string.
+## Files to Create
 
-Improve robustness by:
-- In <code>fashion-ai</code>, if <code>conversationId</code> exists:
-  - Fetch last ~6 messages from <code>public.chat_messages</code> for that conversation (user + assistant)
-  - Provide that context to the classifier (so “yes” can be interpreted)
-  - Provide that context to response generation (so the assistant continues the same topic naturally)
+### 1. `src/lib/mcLeukerAPI.ts` - API Client
 
-This will directly address the “yes / im looking for solutions” scenario if clarification ever occurs.
-</step>
+Core API client class with all endpoints:
 
-<step id="5" title="Testing (backend + UI)">
-Because these functions stream SSE, automated tool-testing is limited, but we can still validate in two ways:
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `getHealth()` | `GET /health` | Health check |
+| `getStatus()` | `GET /api/status` | System status |
+| `getConfigStatus()` | `GET /api/config/status` | Configuration status |
+| `createTask(prompt, userId)` | `POST /api/tasks/sync` | Synchronous task execution |
+| `createTaskAsync(prompt, userId)` | `POST /api/tasks` | Async task creation |
+| `getTaskStatus(taskId)` | `GET /api/tasks/{taskId}` | Poll task status |
+| `chat(message, conversationId)` | `POST /api/chat` | Chat interaction |
+| `search(query, options)` | `POST /api/search` | AI-powered search |
+| `quickAnswer(question)` | `POST /api/search/quick` | Quick Q&A |
+| `research(topic, depth)` | `POST /api/research` | Deep research |
+| `interpret(prompt)` | `POST /api/interpret` | Task interpretation |
+| `getFileDownloadUrl(filename)` | Returns URL | **File download URL construction** |
 
-A) Backend log validation (after deployment)
-- Confirm no more:
-  - “Grok classification error: 404 … grok-2-latest …”
-  - “Clarification generation error: 404”
-- Confirm logs show Grok-4 being selected for Quick mode.
+### 2. `src/types/mcLeuker.ts` - TypeScript Interfaces
 
-B) End-to-end UI tests (most important)
-In Quick mode:
-1) “I lost my wallet in paris, what should I do”
-   - Expected: immediate practical steps (freeze cards, police report, embassy if documents, etc.)
-   - Must NOT ask “Are you looking for general inquiry?”
-2) “im looking for solutions to my problem”
-   - Expected: continues with steps, not a reset question.
-3) “yes”
-   - Expected: continues; does not loop into the same clarification.
+```text
+Interfaces:
+- Message (id, role, content, timestamp, files)
+- GeneratedFile (filename, filepath, format, size_bytes, download_url)
+- TaskInterpretation (intent, domain, complexity, required_outputs, requires_research, confidence)
+- TaskResult (task_id, status, interpretation, files, message, error)
+- SearchResult (title, url, snippet, source)
+- AISearchResponse (query, expanded_queries, results, summary, follow_up_questions)
+- ConfigStatus (status, services, default_llm)
+```
 
-Also verify model dropdown:
-- If user picks GPT-4.1, Quick mode should either:
-  - use the Lovable AI gateway for that request, OR
-  - clearly fall back and label the used model accurately.
-</step>
-</plan>
+### 3. `src/hooks/useMcLeukerChat.tsx`
 
-<expected-outcome>
-- “Lost wallet in Paris” is treated as a clear practical request and answered directly.
-- The “general inquiry” loop is eliminated.
-- Quick mode correctly honors <code>grok-4-latest</code> (and doesn’t silently downgrade to an inaccessible Grok model).
-- Even if Grok temporarily fails, the assistant won’t get stuck repeating the same question.
-</expected-outcome>
+Hook for chat functionality:
+- `messages` state
+- `isLoading` state
+- `error` state
+- `sendMessage(content)` - calls Railway `/api/chat`
+- `clearMessages()` - reset state
+
+### 4. `src/hooks/useMcLeukerTask.tsx`
+
+Hook for task processing:
+- `isProcessing` state
+- `result` state (TaskResult)
+- `error` state
+- `submitTask(prompt)` - calls Railway `/api/tasks/sync`
+- Maps `TaskResult.files` to include proper download URLs
+
+### 5. `src/hooks/useMcLeukerSearch.tsx`
+
+Hook for search functionality:
+- `isSearching` state
+- `results` state (AISearchResponse)
+- `error` state
+- `search(query, options)` - calls Railway `/api/search`
+- `quickAnswer(question)` - calls Railway `/api/search/quick`
+
+### 6. `src/hooks/useMcLeukerStatus.tsx`
+
+Hook for backend status monitoring:
+- `status` state
+- `configStatus` state (ConfigStatus)
+- `isConnected` state
+- `isLoading` state
+- Auto-fetches status on mount
+
+### 7. `src/components/dashboard/McLeukerStatusIndicator.tsx`
+
+Status indicator component showing:
+- Connected (green)
+- Disconnected (red)
+- Connecting (yellow/loading)
+- Default LLM model info
+
+---
+
+## Files to Modify
+
+### 8. `src/hooks/useTasks.tsx` - Critical File Download URL Mapping
+
+Current flow:
+```
+User prompt → Supabase Edge Function (fashion-ai) → Stream response
+```
+
+New flow:
+```
+User prompt → Railway /api/tasks/sync → Map response with download URLs
+```
+
+Key changes in `createTask()`:
+1. Replace Supabase Edge Function call with Railway API call
+2. **Map generated files with correct download URLs**:
+
+```typescript
+// Inside useTasks.tsx createTask function
+const taskResult = await mcLeukerAPI.createTask(prompt, user.id);
+
+// Map Railway's GeneratedFile format to existing format with proper URLs
+const generatedFiles: GeneratedFile[] = (taskResult.files || []).map(file => ({
+  name: file.filename,
+  type: mapFileFormat(file.format), // excel, csv, docx, pptx, pdf
+  url: `${import.meta.env.VITE_RAILWAY_API_URL || 'https://your-backend.railway.app'}/api/files/${file.filename}`,
+  size: file.size_bytes || 0,
+  path: file.filepath,
+  created_at: new Date().toISOString(),
+}));
+```
+
+3. Update task in Supabase database with result and files
+4. Keep existing realtime subscription for UI updates
+
+### 9. `src/hooks/useConversations.tsx` - Chat Mode Integration
+
+Current flow:
+```
+Quick mode → fashion-ai Edge Function
+Deep mode → research-agent Edge Function
+```
+
+New flow:
+```
+Quick mode → Railway /api/chat
+Deep mode → Railway /api/research
+```
+
+Key changes in `sendMessage()`:
+1. Replace Edge Function calls with Railway API calls
+2. Keep Supabase database persistence for conversation history
+3. Map Railway response to existing `ChatMessage` interface
+4. **Map any generated files with download URLs**
+
+### 10. `src/components/dashboard/FileDownloadCard.tsx` - No Changes Needed
+
+The component already uses `file.url` directly:
+```typescript
+const response = await fetch(file.url);
+```
+
+Since the URL mapping happens in `useTasks.tsx` during response processing, the FileDownloadCard will automatically receive the correct Railway download URLs.
+
+---
+
+## Implementation Flow
+
+```text
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   User Input    │────▶│  useTasks.tsx    │────▶│  Railway API    │
+│   (Dashboard)   │     │  or              │     │  /api/tasks/sync│
+└─────────────────┘     │  useConversations│     │  /api/chat      │
+                        └──────────────────┘     │  /api/research  │
+                                │                └────────┬────────┘
+                                │                         │
+                                ▼                         ▼
+                        ┌──────────────────┐     ┌─────────────────┐
+                        │  Supabase DB     │     │  Response with  │
+                        │  (persist data)  │◀────│  files array    │
+                        └──────────────────┘     └────────┬────────┘
+                                │                         │
+                                ▼                         ▼
+                        ┌──────────────────────────────────────────┐
+                        │  Map files with Railway download URLs:   │
+                        │  /api/files/{filename}                   │
+                        └──────────────────────────────────────────┘
+                                │
+                                ▼
+                        ┌──────────────────────────────────────────┐
+                        │  FileDownloadCard uses file.url directly │
+                        │  → User can download from Railway        │
+                        └──────────────────────────────────────────┘
+```
+
+---
+
+## File Format Mapping
+
+Railway uses format strings; existing UI expects specific types:
+
+| Railway Format | UI Type |
+|----------------|---------|
+| `xlsx`, `excel` | `excel` |
+| `csv` | `csv` |
+| `docx`, `doc` | `docx` |
+| `pptx`, `ppt` | `pptx` |
+| `pdf` | `pdf` |
+
+---
+
+## Environment Variable Required
+
+Add to your environment:
+```
+VITE_RAILWAY_API_URL=https://your-actual-railway-backend.railway.app
+```
+
+---
+
+## Summary of Changes
+
+| File | Action | Key Changes |
+|------|--------|-------------|
+| `src/lib/mcLeukerAPI.ts` | CREATE | API client with `getFileDownloadUrl()` method |
+| `src/types/mcLeuker.ts` | CREATE | TypeScript interfaces from uploaded file |
+| `src/hooks/useMcLeukerChat.tsx` | CREATE | Chat hook wrapping Railway API |
+| `src/hooks/useMcLeukerTask.tsx` | CREATE | Task hook wrapping Railway API |
+| `src/hooks/useMcLeukerSearch.tsx` | CREATE | Search hook wrapping Railway API |
+| `src/hooks/useMcLeukerStatus.tsx` | CREATE | Status monitoring hook |
+| `src/components/dashboard/McLeukerStatusIndicator.tsx` | CREATE | Connection status indicator |
+| `src/hooks/useTasks.tsx` | MODIFY | Railway API + **file URL mapping** |
+| `src/hooks/useConversations.tsx` | MODIFY | Railway API for chat/research |
+| `src/components/dashboard/FileDownloadCard.tsx` | NO CHANGE | Already uses `file.url` |
+
+---
+
+## Technical Notes
+
+1. **Authentication**: Railway API doesn't require Supabase auth tokens; requests are made directly
+2. **Database Persistence**: Supabase still stores conversations, messages, and tasks
+3. **File Downloads**: All file downloads go through Railway's `/api/files/{filename}` endpoint
+4. **Backward Compatibility**: Existing UI components work without changes
+5. **Error Handling**: Both Railway API errors and network errors are handled gracefully
+6. **CORS**: Ensure your Railway backend allows requests from your Lovable domain
