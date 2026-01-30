@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
+import { mcLeukerAPI } from "@/lib/mcLeukerAPI";
 import type { ResearchPhase } from "@/components/dashboard/ResearchProgress";
 import type { Source } from "@/components/dashboard/SourceCitations";
 
@@ -47,6 +48,29 @@ export interface ResearchState {
   currentStep: number;
   totalSteps: number;
   message: string;
+}
+
+/**
+ * Map Railway file format to UI-expected type
+ */
+function mapFileFormat(format: string): "excel" | "csv" | "docx" | "pptx" | "pdf" {
+  const formatLower = format.toLowerCase();
+  if (formatLower === "xlsx" || formatLower === "excel" || formatLower === "xls") {
+    return "excel";
+  }
+  if (formatLower === "csv") {
+    return "csv";
+  }
+  if (formatLower === "docx" || formatLower === "doc") {
+    return "docx";
+  }
+  if (formatLower === "pptx" || formatLower === "ppt") {
+    return "pptx";
+  }
+  if (formatLower === "pdf") {
+    return "pdf";
+  }
+  return "pdf";
 }
 
 export function useConversations() {
@@ -255,112 +279,60 @@ export function useConversations() {
       );
     }
 
-    // Call appropriate AI endpoint based on mode
+    // Call Railway backend API based on mode
     try {
-      const session = await supabase.auth.getSession();
-      if (!session.data.session?.access_token) {
-        throw new Error("Please log in to continue");
-      }
-
-      abortControllerRef.current = new AbortController();
-
-      const endpoint = mode === "deep" ? "research-agent" : "fashion-ai";
-      const bodyParam = mode === "deep" ? "query" : "prompt";
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${endpoint}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.data.session.access_token}`,
-          },
-          body: JSON.stringify({
-            [bodyParam]: prompt,
-            conversationId: conversation.id,
-            model: model || "grok-4-latest",
-            domain: domain || undefined,
-          }),
-          signal: abortControllerRef.current.signal,
-        }
-      );
-
-      if (!response.ok) {
-        let errorMessage = "AI processing failed";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          errorMessage = `Request failed: ${response.status} ${response.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      // Stream the response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
       let content = "";
-      let modelUsed = "";
-      let creditsUsed = 0;
       let sources: Source[] = [];
       let isResearched = mode === "deep";
+      let generatedFiles: ChatMessage["generatedFiles"] = undefined;
 
-      if (reader) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+      if (mode === "deep") {
+        // Use Railway research endpoint for deep mode
+        setResearchState(prev => ({
+          ...prev,
+          phase: "searching",
+          message: "Researching topic...",
+        }));
 
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split("\n");
+        const researchResult = await mcLeukerAPI.research(prompt, "deep");
+        
+        content = researchResult.findings || researchResult.summary;
+        
+        // Map research sources to our Source format
+        sources = (researchResult.sources || []).map((src) => ({
+          title: src.title,
+          url: src.url,
+          snippet: src.snippet,
+          type: "search" as const,
+        }));
 
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const eventData = line.slice(6).trim();
-                if (eventData === "[DONE]") continue;
-                try {
-                  const parsed = JSON.parse(eventData);
-                  
-                  // Handle research phase updates
-                  if (parsed.phase && mode === "deep") {
-                    setResearchState(prev => ({
-                      ...prev,
-                      phase: parsed.phase as ResearchPhase,
-                      message: parsed.message || prev.message,
-                      currentStep: parsed.step || prev.currentStep,
-                      totalSteps: parsed.total || prev.totalSteps,
-                    }));
-                  }
-                  
-                  if (parsed.content) {
-                    content += parsed.content;
-                    setStreamingContent(content);
-                  }
-                  if (parsed.modelUsed) {
-                    modelUsed = parsed.modelUsed;
-                  }
-                  if (parsed.creditsUsed) {
-                    creditsUsed = parsed.creditsUsed;
-                  }
-                  if (parsed.sources) {
-                    sources = parsed.sources;
-                  }
-                  if (parsed.error) {
-                    throw new Error(parsed.error);
-                  }
-                } catch (parseError) {
-                  if (parseError instanceof SyntaxError) continue;
-                  throw parseError;
-                }
-              }
-            }
-          }
-        } finally {
-          reader.releaseLock();
+        setResearchState(prev => ({
+          ...prev,
+          phase: "completed",
+          message: "Research complete",
+        }));
+      } else {
+        // Use Railway chat endpoint for quick mode
+        const chatResult = await mcLeukerAPI.chat(prompt, conversation.id);
+        content = chatResult.message;
+
+        // Map any generated files with download URLs
+        if (chatResult.files && chatResult.files.length > 0) {
+          generatedFiles = chatResult.files.map((file) => ({
+            name: file.filename,
+            type: mapFileFormat(file.format),
+            url: mcLeukerAPI.getFileDownloadUrl(file.filename),
+            size: file.size_bytes || 0,
+            path: file.filepath,
+            created_at: new Date().toISOString(),
+          }));
         }
       }
 
-      // Save assistant message
+      // Update streaming content for display
+      setStreamingContent(content);
+
+      // Save assistant message to database
       if (content) {
         const { data: assistantMsg, error: assistantError } = await supabase
           .from("chat_messages")
@@ -369,8 +341,8 @@ export function useConversations() {
             user_id: user.id,
             role: "assistant",
             content,
-            model_used: modelUsed || (mode === "deep" ? "Research Agent" : null),
-            credits_used: creditsUsed,
+            model_used: mode === "deep" ? "Railway Research" : "Railway Chat",
+            credits_used: 0, // Railway doesn't use credits
           })
           .select()
           .single();
@@ -388,6 +360,7 @@ export function useConversations() {
             created_at: assistantMsg.created_at,
             sources: sources.length > 0 ? sources : undefined,
             isResearched,
+            generatedFiles,
           };
           setMessages((prev) => [...prev, newAssistantMessage]);
         }
@@ -411,7 +384,7 @@ export function useConversations() {
       if ((error as Error).name === "AbortError") {
         console.log("Request aborted");
       } else {
-        console.error("AI processing error:", error);
+        console.error("Railway API processing error:", error);
         toast({
           title: "Message Failed",
           description: error instanceof Error ? error.message : "AI processing failed",
