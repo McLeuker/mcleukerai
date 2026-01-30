@@ -1,5 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  classifyIntent, 
+  generateClarificationResponse,
+  shouldSkipResearch,
+  needsClarification,
+  sanitizeOutput,
+  buildDynamicSystemPrompt,
+  type IntentClassification 
+} from "../_shared/intent-classifier.ts";
 
 // ============ INPUT VALIDATION & SECURITY ============
 const SQL_INJECTION_PATTERNS = [
@@ -663,7 +672,7 @@ async function webSearchPerplexity(
       messages: [
         { 
           role: "system", 
-          content: "You are a fashion industry research assistant. Provide detailed, factual information with sources. Focus on current, verified data. Include specific names, numbers, dates, and metrics. Be comprehensive." 
+          content: "You are a research assistant. Provide detailed, factual information with sources relevant to the user's query. Focus on current, verified data. Include specific names, numbers, dates, and metrics. Be comprehensive." 
         },
         { role: "user", content: query }
       ],
@@ -1815,6 +1824,110 @@ serve(async (req) => {
       }
 
       const queryType = classifyQuery(sanitizedQuery);
+
+      // ═══════════════════════════════════════════════════════════════
+      // LAYER 0: INTENT CLASSIFICATION (Grok Direct) - INTENT GATE
+      // ═══════════════════════════════════════════════════════════════
+      
+      send({ phase: "planning", message: "Analyzing your query..." });
+      
+      // GROK_API_KEY already declared above in Layer 0
+      let classification: IntentClassification | null = null;
+      
+      if (GROK_API_KEY) {
+        classification = await classifyIntent(sanitizedQuery, GROK_API_KEY);
+        
+        console.log("[Layer 0] Research agent classification:", {
+          intent: classification.primary_intent,
+          domain: classification.detected_domain,
+          confidence: classification.confidence,
+          is_ambiguous: classification.is_ambiguous,
+          strategy: classification.response_strategy
+        });
+        
+        // ═══════════════════════════════════════════════════════════════
+        // INTENT GATE: Skip research for personal/emotional/ambiguous queries
+        // ═══════════════════════════════════════════════════════════════
+        
+        if (shouldSkipResearch(classification)) {
+          console.log("[Layer 0] Skipping deep research - generating human-first response");
+          
+          // Generate empathetic clarification instead of burning research credits
+          const clarificationContent = await generateClarificationResponse(
+            classification,
+            sanitizedQuery,
+            GROK_API_KEY
+          );
+          
+          // Minimal credit cost for clarification
+          await supabase.rpc("deduct_credits", {
+            p_user_id: user.id,
+            p_amount: 1,
+            p_description: `clarification - ${classification.primary_intent}`
+          });
+          
+          // Stream clarification response
+          for (let i = 0; i < clarificationContent.length; i += 50) {
+            send({ phase: "generating", content: clarificationContent.slice(i, i + 50) });
+            await new Promise(r => setTimeout(r, 15));
+          }
+          
+          send({
+            phase: "completed",
+            sources: [],
+            creditsUsed: 1,
+            queryType: "clarification",
+            modelUsed: "Grok-2",
+            searchCount: 0,
+            scrapeCount: 0,
+            iterations: 0,
+            confidence: Math.round(classification.confidence * 100),
+            classification: {
+              intent: classification.primary_intent,
+              domain: classification.detected_domain,
+              is_ambiguous: classification.is_ambiguous
+            }
+          });
+          
+          close();
+          return;
+        }
+        
+        // If low confidence but not skippable, ask for clarification first
+        if (needsClarification(classification) && classification.confidence < 0.6) {
+          const clarificationContent = await generateClarificationResponse(
+            classification,
+            sanitizedQuery,
+            GROK_API_KEY
+          );
+          
+          await supabase.rpc("deduct_credits", {
+            p_user_id: user.id,
+            p_amount: 1,
+            p_description: `pre-research clarification`
+          });
+          
+          for (let i = 0; i < clarificationContent.length; i += 50) {
+            send({ phase: "generating", content: clarificationContent.slice(i, i + 50) });
+            await new Promise(r => setTimeout(r, 15));
+          }
+          
+          send({
+            phase: "completed",
+            sources: [],
+            creditsUsed: 1,
+            queryType: "clarification",
+            modelUsed: "Grok-2",
+            searchCount: 0,
+            scrapeCount: 0,
+            iterations: 0,
+            confidence: Math.round(classification.confidence * 100)
+          });
+          
+          close();
+          return;
+        }
+      }
 
       // Create research task
       const { data: taskData, error: taskError } = await supabase
