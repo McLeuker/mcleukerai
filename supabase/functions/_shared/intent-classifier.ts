@@ -216,12 +216,115 @@ Output JSON only. No markdown, no explanation, no preamble.`;
 // ═══════════════════════════════════════════════════════════════
 
 const GROK_CLASSIFIER_ENDPOINT = "https://api.x.ai/v1/chat/completions";
-const CLASSIFIER_MODEL = "grok-2-latest";
+const DEFAULT_CLASSIFIER_MODEL = "grok-4-latest";
+
+// ═══════════════════════════════════════════════════════════════
+// DETERMINISTIC FALLBACK CLASSIFIER (for when API fails)
+// ═══════════════════════════════════════════════════════════════
+
+const PRACTICAL_PROBLEM_KEYWORDS = [
+  "lost", "stolen", "missing", "emergency", "help", "urgent",
+  "wallet", "passport", "phone", "keys", "luggage", "bag",
+  "what should i do", "what do i do", "how do i", "need help",
+  "stuck", "stranded", "problem", "issue", "trouble"
+];
+
+const EMOTIONAL_KEYWORDS = [
+  "life", "feel", "feeling", "sad", "depressed", "anxious", "worried",
+  "scared", "lonely", "overwhelmed", "stressed", "confused about life",
+  "don't know what to do", "lost in life", "my life"
+];
+
+function detectFallbackIntent(prompt: string): IntentClassification {
+  const lowerPrompt = prompt.toLowerCase();
+  
+  // Check for practical problem indicators (highest priority for actionable queries)
+  const practicalMatches = PRACTICAL_PROBLEM_KEYWORDS.filter(kw => lowerPrompt.includes(kw));
+  if (practicalMatches.length >= 2 || 
+      (practicalMatches.length >= 1 && (lowerPrompt.includes("what") || lowerPrompt.includes("how")))) {
+    console.log("[Fallback Classifier] Detected practical problem from keywords:", practicalMatches);
+    return {
+      primary_intent: "practical_problem",
+      detected_domain: "urgent_assistance",
+      confidence: 0.85,
+      is_ambiguous: false,
+      emotional_state: "urgency",
+      possible_interpretations: [
+        {
+          intent: "practical problem requiring immediate help",
+          domain: "urgent_assistance",
+          confidence: 0.85,
+          signals: practicalMatches
+        }
+      ],
+      response_strategy: "step_by_step",
+      suggested_flow: "provide clear actionable steps → offer additional help",
+      detected_signals: practicalMatches,
+      explicit_question: prompt,
+      implied_need: "immediate practical guidance",
+      tone: "urgent"
+    };
+  }
+  
+  // Check for emotional indicators
+  const emotionalMatches = EMOTIONAL_KEYWORDS.filter(kw => lowerPrompt.includes(kw));
+  if (emotionalMatches.length >= 2) {
+    console.log("[Fallback Classifier] Detected emotional query from keywords:", emotionalMatches);
+    return {
+      primary_intent: "personal_emotional",
+      detected_domain: "personal_wellbeing",
+      confidence: 0.75,
+      is_ambiguous: true,
+      emotional_state: "distress",
+      possible_interpretations: [
+        {
+          intent: "emotional support needed",
+          domain: "personal_wellbeing",
+          confidence: 0.75,
+          signals: emotionalMatches
+        }
+      ],
+      response_strategy: "clarify_with_empathy",
+      suggested_flow: "acknowledge feelings → explore what's happening → offer support",
+      detected_signals: emotionalMatches,
+      explicit_question: prompt,
+      implied_need: "emotional support and understanding",
+      tone: "distressed"
+    };
+  }
+  
+  // Default: treat as general query but with DIRECT ANSWER strategy (not clarification loop)
+  console.log("[Fallback Classifier] No specific pattern detected, treating as general factual");
+  return {
+    primary_intent: "general_factual",
+    detected_domain: "general",
+    confidence: 0.7,
+    is_ambiguous: false, // NOT ambiguous - this prevents the clarification loop
+    emotional_state: "neutral",
+    possible_interpretations: [
+      {
+        intent: "general question requiring direct answer",
+        domain: "general",
+        confidence: 0.7,
+        signals: []
+      }
+    ],
+    response_strategy: "direct_answer", // DIRECT ANSWER, not clarify
+    suggested_flow: "answer the question directly → offer to elaborate",
+    detected_signals: [],
+    explicit_question: prompt,
+    implied_need: prompt,
+    tone: "neutral"
+  };
+}
 
 export async function classifyIntent(
   prompt: string,
-  grokApiKey: string
+  grokApiKey: string,
+  model?: string
 ): Promise<IntentClassification> {
+  const classifierModel = model || DEFAULT_CLASSIFIER_MODEL;
+  
   try {
     const response = await fetch(GROK_CLASSIFIER_ENDPOINT, {
       method: "POST",
@@ -230,7 +333,7 @@ export async function classifyIntent(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: CLASSIFIER_MODEL,
+        model: classifierModel,
         messages: [
           { role: "system", content: CLASSIFIER_SYSTEM_PROMPT },
           { role: "user", content: `Classify this query: "${prompt}"` }
@@ -243,8 +346,9 @@ export async function classifyIntent(
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Grok classification error:", response.status, errorText);
-      // Return a default classification on error
-      return getDefaultClassification(prompt);
+      // USE DETERMINISTIC FALLBACK instead of ambiguous default
+      console.log("[Layer 0] API failed, using deterministic fallback classifier");
+      return detectFallbackIntent(prompt);
     }
 
     const data = await response.json();
@@ -252,7 +356,7 @@ export async function classifyIntent(
 
     if (!content) {
       console.error("Empty classification response from Grok");
-      return getDefaultClassification(prompt);
+      return detectFallbackIntent(prompt);
     }
 
     const classification = JSON.parse(content) as IntentClassification;
@@ -261,7 +365,7 @@ export async function classifyIntent(
     return normalizeClassification(classification, prompt);
   } catch (error) {
     console.error("Classification error:", error);
-    return getDefaultClassification(prompt);
+    return detectFallbackIntent(prompt);
   }
 }
 
@@ -489,8 +593,11 @@ Output the response directly, no JSON, no markdown formatting instructions.`;
 export async function generateClarificationResponse(
   classification: IntentClassification,
   originalPrompt: string,
-  grokApiKey: string
+  grokApiKey: string,
+  model?: string
 ): Promise<string> {
+  const classifierModel = model || DEFAULT_CLASSIFIER_MODEL;
+  
   const interpretationsText = classification.possible_interpretations
     .map(i => `- ${i.intent} (${Math.round(i.confidence * 100)}% likely): ${i.signals.join(', ')}`)
     .join('\n');
@@ -538,7 +645,7 @@ Write the response now. Make it feel like a real person wrote it, not an AI foll
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: CLASSIFIER_MODEL,
+        model: classifierModel,
         messages: [
           { role: "system", content: CLARIFICATION_SYSTEM_PROMPT },
           { role: "user", content: clarifyPrompt }
