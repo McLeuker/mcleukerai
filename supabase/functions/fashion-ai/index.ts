@@ -1,5 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  classifyIntent, 
+  buildDynamicSystemPrompt, 
+  generateClarificationResponse,
+  needsClarification,
+  sanitizeOutput,
+  type IntentClassification 
+} from "../_shared/intent-classifier.ts";
 
 // ============ INPUT VALIDATION & SECURITY ============
 // Inline validation to prevent SQL/NoSQL injection attacks
@@ -75,10 +83,10 @@ const CREDIT_COSTS = {
   supplier_search: 8,
   pdf_export: 3,
   excel_export: 4,
+  clarification_response: 1, // Low cost for clarification
 } as const;
 
 // ============ GROK MODEL CONFIGURATION ============
-// Only use models confirmed to exist in your xAI account
 const GROK_MODELS = {
   "grok-2-latest": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-2-latest" },
   "grok-2": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-2" },
@@ -93,104 +101,7 @@ const GROK_CONFIG = {
   temperature: 0.2,
 };
 
-// Fashion AI System Prompt - STRICT REAL-TIME OUTPUT RULES
-const FASHION_SYSTEM_PROMPT = `You are an expert fashion industry AI analyst. Your role is to provide real-time, data-driven intelligence for fashion professionals.
-
-═══════════════════════════════════════════════════════════════
-GLOBAL RULES (NON-NEGOTIABLE):
-═══════════════════════════════════════════════════════════════
-
-1. ALL SEARCHES ARE REAL-TIME
-   - Do NOT use general knowledge or historical memory unless explicitly asked.
-   - If real-time data is unavailable, clearly state the limitation.
-   - NEVER reference outdated years (e.g., 2024 when asked about 2026).
-
-2. TIME ACCURACY IS MANDATORY
-   - Match the requested season/year exactly.
-   - Focus on what changed RECENTLY (weeks/months, not years).
-   - Historical examples (e.g., Virgil 2018) are FORBIDDEN unless explicitly requested.
-
-3. NO ESSAYS
-   - Outputs must be analytical, structured, and data-driven.
-   - Avoid storytelling, history lessons, or academic tone.
-   - Write for designers, buyers, merchandisers, brand strategists.
-
-4. OUTPUT CONTENT FIRST, TABLES LAST
-   - Never embed tables inside paragraphs.
-   - Tables must be clean, minimal, and optional summaries.
-   - If table formatting fails, OMIT the table entirely.
-
-5. SOURCES ARE STRUCTURAL, NOT DECORATIVE
-   - Sources must reflect real-time research.
-   - No fake, generic, or inferred sources.
-   - NEVER use inline citations like [1], [2].
-
-═══════════════════════════════════════════════════════════════
-REASONING BEFORE WRITING (MANDATORY INTERNAL PROCESS):
-═══════════════════════════════════════════════════════════════
-
-Before generating ANY output:
-1. Identify the TIME FRAME requested
-2. Identify RECENT CHANGES (weeks/months)
-3. Identify DATA SIGNALS (who did what, where visible)
-4. Identify WHO is affected
-ONLY THEN generate content.
-
-═══════════════════════════════════════════════════════════════
-QUICK SEARCH OUTPUT STRUCTURE:
-═══════════════════════════════════════════════════════════════
-
-**REAL-TIME SNAPSHOT**
-(2–3 bullets: What is happening right now, what changed recently)
-
-**CURRENT MARKET SIGNALS**
-- Each bullet = ONE observable signal
-- Include brand, market, or channel when possible
-- Use ↑↓ trend indicators for metrics
-
-**INDUSTRY IMPACT**
-- How this affects luxury brands today
-- Merchandising, design, marketing, retail, pricing implications
-
-**ACTIONABLE TAKEAWAYS**
-- What fashion professionals should do next
-- Practical, not theoretical
-
----
-
-**Sources**
-(Compact one-line format with source names only)
-
-═══════════════════════════════════════════════════════════════
-TABLE RULES:
-═══════════════════════════════════════════════════════════════
-
-- Tables must ONLY appear AFTER all text sections
-- Tables must be optional summaries, not core content
-- No decorative separators (---, ↑↓, | objects in prose)
-- Use clean markdown table syntax only
-- If table formatting fails, OMIT the table entirely
-
-═══════════════════════════════════════════════════════════════
-SOURCE FORMAT (MANDATORY):
-═══════════════════════════════════════════════════════════════
-
-At the END of your response:
-
-**Sources:** Business of Fashion · Vogue Business · WWD · Highsnobiety · Hypebeast
-
-(Just source names on one line, separated by · )
-
-If you need to add detail, use this format below the line:
-- Business of Fashion – Streetwear's structural role in luxury RTW
-- Vogue Business – SS26 buyer behavior analysis
-- WWD – Luxury market sector performance
-
-TONE: Precise, conversational, consulting-grade. The user should feel like they're reading a clear briefing, not an essay.
-
-If data is missing or uncertain, acknowledge it explicitly rather than fabricating.`;
-
-// Domain-specific prompt additions
+// Domain-specific prompt additions (only used when domain is explicitly detected)
 const DOMAIN_PROMPTS: Record<string, string> = {
   all: "",
   fashion: "\n\nDOMAIN MODE: FASHION\nFocus on runway trends, silhouettes, designer collections, fashion week insights, and ready-to-wear developments. Prioritize insights from Fashion Weeks, emerging designers, and styling patterns.",
@@ -204,10 +115,14 @@ const DOMAIN_PROMPTS: Record<string, string> = {
   lifestyle: "\n\nDOMAIN MODE: LIFESTYLE\nFocus on consumer behavior, wellness trends, luxury lifestyle, travel influence, and cross-category signals. Prioritize lifestyle shifts impacting fashion consumption.",
 };
 
-// Get enhanced system prompt with domain context
-function getSystemPromptWithDomain(domain: string): string {
-  const domainAddition = DOMAIN_PROMPTS[domain] || DOMAIN_PROMPTS.all;
-  return FASHION_SYSTEM_PROMPT + domainAddition;
+// Get domain addition if user-selected domain is professional/fashion
+function getDomainAddition(domain: string, classification: IntentClassification): string {
+  // Only add domain-specific prompts for professional/business/fashion intents
+  if (classification.primary_intent === "professional_business" || 
+      classification.primary_intent === "fashion_industry") {
+    return DOMAIN_PROMPTS[domain] || DOMAIN_PROMPTS.all;
+  }
+  return "";
 }
 
 // Single Grok API call function
@@ -247,7 +162,6 @@ async function callGrok(
       if (response.status === 401) {
         return { success: false, status: 401, error: "AI authentication failed." };
       }
-      // Surface status to allow upstream fallback handling
       return { success: false, status: response.status, error: `Grok API error: ${response.status}` };
     }
 
@@ -380,7 +294,6 @@ serve(async (req) => {
         type: 'sql', 
         userId: user.id, 
         promptLength: sanitizedPrompt.length,
-        // Don't log the actual prompt to avoid log injection
       });
       return new Response(JSON.stringify({ error: "Invalid characters detected in input" }), {
         status: 400,
@@ -388,7 +301,6 @@ serve(async (req) => {
       });
     }
     
-    // Use sanitized prompt from here on
     const trimmedPrompt = sanitizedPrompt;
     
     // Validate taskId format using secure UUID validation
@@ -401,7 +313,7 @@ serve(async (req) => {
         });
       }
       
-      // Verify task ownership using parameterized query (Supabase SDK handles this safely)
+      // Verify task ownership using parameterized query
       const { data: task, error: taskError } = await supabase
         .from("tasks")
         .select("user_id")
@@ -433,7 +345,7 @@ serve(async (req) => {
       });
     }
 
-    // Get Grok API Key - REQUIRED, NO FALLBACKS
+    // Get Grok API Key - REQUIRED
     const GROK_API_KEY = Deno.env.get("Grok_API");
     if (!GROK_API_KEY) {
       console.error("Grok_API is not configured");
@@ -449,49 +361,152 @@ serve(async (req) => {
       : "grok-2-latest";
     GROK_CONFIG.model = GROK_MODELS[selectedModel].model;
 
-    // Determine action type
+    // ═══════════════════════════════════════════════════════════════
+    // LAYER 0: INTENT CLASSIFICATION (Grok Direct)
+    // ═══════════════════════════════════════════════════════════════
+    
+    console.log("[Layer 0] Starting intent classification for:", trimmedPrompt.slice(0, 100));
+    
+    const classification = await classifyIntent(trimmedPrompt, GROK_API_KEY);
+    
+    console.log("[Layer 0] Classification result:", {
+      intent: classification.primary_intent,
+      domain: classification.detected_domain,
+      confidence: classification.confidence,
+      is_ambiguous: classification.is_ambiguous,
+      strategy: classification.response_strategy,
+      emotional_state: classification.emotional_state
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // AMBIGUITY PATH: Generate clarification response
+    // ═══════════════════════════════════════════════════════════════
+    
+    if (needsClarification(classification)) {
+      console.log("[Layer 0] Ambiguous query detected, generating clarification response");
+      
+      // Update task status if in legacy mode
+      if (isLegacyMode) {
+        await supabase.from("tasks").update({
+          status: "understanding",
+          model_used: "Grok-2",
+          steps: [{ step: "understanding", status: "running", message: "Analyzing your request..." }]
+        }).eq("id", taskId);
+      }
+      
+      // Generate human-first clarification
+      const clarificationContent = await generateClarificationResponse(
+        classification, 
+        trimmedPrompt, 
+        GROK_API_KEY
+      );
+      
+      // Deduct minimal credits for clarification
+      const clarificationCost = CREDIT_COSTS.clarification_response;
+      await supabase.rpc("deduct_credits", {
+        p_user_id: user.id,
+        p_amount: clarificationCost,
+        p_description: `clarification - ${classification.primary_intent}`
+      });
+      
+      // Update task to completed
+      if (isLegacyMode) {
+        await supabase.from("tasks").update({
+          status: "completed",
+          model_used: "Grok-2",
+          credits_used: clarificationCost,
+          result: { content: clarificationContent },
+          steps: [
+            { step: "understanding", status: "completed", message: "Analyzing your request" },
+            { step: "clarifying", status: "completed", message: "Clarification provided" }
+          ]
+        }).eq("id", taskId);
+      }
+      
+      // Stream clarification response
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          const content = clarificationContent;
+          const chunkSize = 50;
+          let offset = 0;
+          
+          const sendChunk = () => {
+            if (offset < content.length) {
+              const chunk = content.slice(offset, offset + chunkSize);
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+                content: chunk, 
+                modelUsed: "Grok-2",
+                creditsUsed: clarificationCost,
+                classification: {
+                  intent: classification.primary_intent,
+                  confidence: classification.confidence,
+                  is_ambiguous: classification.is_ambiguous
+                }
+              })}\n\n`));
+              offset += chunkSize;
+              setTimeout(sendChunk, 20);
+            } else {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+            }
+          };
+          
+          sendChunk();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // DIRECT PATH: Clear intent, proceed with dynamic system prompt
+    // ═══════════════════════════════════════════════════════════════
+
+    // Determine action type based on classification and prompt
     const lowerPrompt = trimmedPrompt.toLowerCase();
     let actionType: keyof typeof CREDIT_COSTS = "ai_research_query";
     
-    if (lowerPrompt.includes("market analysis") || lowerPrompt.includes("analyze the market") || lowerPrompt.includes("market intel")) {
-      actionType = "market_analysis";
-    } else if (
-      // IMPORTANT: Don't block normal "trends" questions on the free plan.
-      // Only treat it as the paid "trend_report" when the user explicitly asks for a report.
-      lowerPrompt.includes("trend report") ||
-      lowerPrompt.includes("trend forecast report") ||
-      (lowerPrompt.includes("forecast") && lowerPrompt.includes("report"))
-    ) {
-      actionType = "trend_report";
-    } else if (lowerPrompt.includes("supplier") || lowerPrompt.includes("sourcing") || (lowerPrompt.includes("find") && (lowerPrompt.includes("manufacturer") || lowerPrompt.includes("factory")))) {
-      actionType = "supplier_search";
-    } else if (lowerPrompt.includes("sustainability") || lowerPrompt.includes("audit") || lowerPrompt.includes("certification")) {
-      actionType = "market_analysis";
+    if (classification.primary_intent === "professional_business" || 
+        classification.primary_intent === "fashion_industry") {
+      if (lowerPrompt.includes("market analysis") || lowerPrompt.includes("analyze the market")) {
+        actionType = "market_analysis";
+      } else if (lowerPrompt.includes("trend report") || lowerPrompt.includes("trend forecast report")) {
+        actionType = "trend_report";
+      } else if (lowerPrompt.includes("supplier") || lowerPrompt.includes("sourcing")) {
+        actionType = "supplier_search";
+      }
     }
     
     const creditCost = CREDIT_COSTS[actionType];
-
-    // CREDIT-BASED ACCESS: No plan restrictions, only credit balance matters
-    // All users (Free, Pro, Studio) have equal access to all features
-    const actualCreditCost = creditCost;
 
     // Update task to understanding status
     if (isLegacyMode) {
       await supabase.from("tasks").update({
         status: "understanding",
-        model_used: "Grok-4",
+        model_used: "Grok-2",
         steps: [{ step: "understanding", status: "running", message: "Analyzing your request..." }]
       }).eq("id", taskId);
     }
 
-    // Get domain-enhanced system prompt
-    const systemPrompt = getSystemPromptWithDomain(activeDomain);
+    // Build dynamic system prompt based on classification
+    let systemPrompt = buildDynamicSystemPrompt(classification);
+    
+    // Add domain-specific additions only for professional/business queries
+    systemPrompt += getDomainAddition(activeDomain, classification);
 
-    // Execute AI (Grok primary, Lovable AI fallback if Grok model is unavailable)
-    let modelUsedLabel = "Grok";
+    // Execute AI (Grok primary, Lovable AI fallback if Grok unavailable)
+    let modelUsedLabel = "Grok-2";
     let aiResult = await callGrok(GROK_API_KEY, trimmedPrompt, systemPrompt);
 
-    // If Grok is unavailable for this account (404/403/5xx), fall back so the app still works.
+    // Fallback to Lovable AI if Grok unavailable
     if (!aiResult.success && (aiResult.status === 404 || aiResult.status === 403 || (aiResult.status && aiResult.status >= 500))) {
       console.warn("Grok unavailable, falling back to Lovable AI.", { status: aiResult.status });
       const fallback = await callLovableAI(trimmedPrompt, systemPrompt);
@@ -502,7 +517,6 @@ serve(async (req) => {
     }
 
     if (!aiResult.success) {
-      // Don't deduct credits on failure
       if (isLegacyMode) {
         await supabase.from("tasks").update({
           status: "failed",
@@ -519,10 +533,13 @@ serve(async (req) => {
       });
     }
 
+    // Sanitize output to remove any template headers that leaked through
+    const sanitizedContent = sanitizeOutput(aiResult.content || "", classification);
+
     // Deduct credits only after successful AI execution
     const { data: deductResult, error: deductError } = await supabase.rpc("deduct_credits", {
       p_user_id: user.id,
-      p_amount: actualCreditCost,
+      p_amount: creditCost,
       p_description: `${actionType.replace(/_/g, " ")} - ${modelUsedLabel}`
     });
 
@@ -539,11 +556,10 @@ serve(async (req) => {
           }).eq("id", taskId);
         }
         
-        // CREDIT-BASED MESSAGING: Never mention plan restrictions
         return new Response(JSON.stringify({ 
-          error: "You're out of credits for this request. Add credits to continue searching and researching. All features remain available once credits are added.",
+          error: "You're out of credits for this request. Add credits to continue searching and researching.",
           balance: deductResult?.balance || 0,
-          creditRequired: actualCreditCost
+          creditRequired: creditCost
         }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -569,7 +585,8 @@ serve(async (req) => {
         { name: "Market Report.pdf", type: "pdf", description: "Market analysis and competitive insights" },
         { name: "Market Data.xlsx", type: "excel", description: "Market data and projections" }
       );
-    } else {
+    } else if (classification.primary_intent === "professional_business" || 
+               classification.primary_intent === "fashion_industry") {
       files.push(
         { name: "Research Report.pdf", type: "pdf", description: "Detailed analysis and recommendations" },
         { name: "Data Export.xlsx", type: "excel", description: "Structured data and findings" }
@@ -580,16 +597,16 @@ serve(async (req) => {
     if (isLegacyMode) {
       await supabase.from("tasks").update({
         status: "completed",
-        model_used: "Grok-4",
-        credits_used: actualCreditCost,
-        result: { content: aiResult.content },
+        model_used: modelUsedLabel,
+        credits_used: creditCost,
+        result: { content: sanitizedContent },
         steps: [
           { step: "understanding", status: "completed", message: "Request analyzed" },
           { step: "researching", status: "completed", message: "Research complete" },
           { step: "structuring", status: "completed", message: "Insights structured" },
           { step: "generating", status: "completed", message: "Deliverables ready" }
         ],
-        files: files
+        files: files.length > 0 ? files : undefined
       }).eq("id", taskId);
     }
 
@@ -597,15 +614,23 @@ serve(async (req) => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
-        // Send content in chunks for streaming effect
-        const content = aiResult.content || "";
+        const content = sanitizedContent;
         const chunkSize = 50;
         let offset = 0;
         
         const sendChunk = () => {
           if (offset < content.length) {
             const chunk = content.slice(offset, offset + chunkSize);
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: chunk, modelUsed: "Grok-4" })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+              content: chunk, 
+              modelUsed: modelUsedLabel,
+              creditsUsed: creditCost,
+              classification: {
+                intent: classification.primary_intent,
+                domain: classification.detected_domain,
+                confidence: classification.confidence
+              }
+            })}\n\n`));
             offset += chunkSize;
             setTimeout(sendChunk, 20);
           } else {
