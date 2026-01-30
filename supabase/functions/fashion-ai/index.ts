@@ -88,6 +88,10 @@ const CREDIT_COSTS = {
 
 // ============ GROK MODEL CONFIGURATION ============
 const GROK_MODELS = {
+  "grok-4-latest": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4-latest" },
+  "grok-4": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-4" },
+  "grok-3-latest": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-3-latest" },
+  "grok-3": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-3" },
   "grok-2-latest": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-2-latest" },
   "grok-2": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-2" },
   "grok-beta": { endpoint: "https://api.x.ai/v1/chat/completions", model: "grok-beta" },
@@ -95,9 +99,12 @@ const GROK_MODELS = {
 
 type GrokModelId = keyof typeof GROK_MODELS;
 
+// Default to grok-4-latest (the model your API key has access to)
+const DEFAULT_MODEL: GrokModelId = "grok-4-latest";
+
 const GROK_CONFIG = {
   endpoint: "https://api.x.ai/v1/chat/completions",
-  model: "grok-2-latest" as string,
+  model: "grok-4-latest" as string,
   temperature: 0.2,
 };
 
@@ -355,11 +362,13 @@ serve(async (req) => {
       });
     }
 
-    // Set model based on request
+    // Set model based on request - default to grok-4-latest
     const selectedModel = (requestedModel && GROK_MODELS[requestedModel as GrokModelId]) 
       ? requestedModel as GrokModelId 
-      : "grok-2-latest";
+      : DEFAULT_MODEL;
     GROK_CONFIG.model = GROK_MODELS[selectedModel].model;
+    
+    console.log("[Model Selection] Using model:", GROK_CONFIG.model);
 
     // ═══════════════════════════════════════════════════════════════
     // LAYER 0: INTENT CLASSIFICATION (Grok Direct)
@@ -367,7 +376,8 @@ serve(async (req) => {
     
     console.log("[Layer 0] Starting intent classification for:", trimmedPrompt.slice(0, 100));
     
-    const classification = await classifyIntent(trimmedPrompt, GROK_API_KEY);
+    // Pass the selected model to the classifier so it uses the same model
+    const classification = await classifyIntent(trimmedPrompt, GROK_API_KEY, GROK_CONFIG.model);
     
     console.log("[Layer 0] Classification result:", {
       intent: classification.primary_intent,
@@ -389,16 +399,17 @@ serve(async (req) => {
       if (isLegacyMode) {
         await supabase.from("tasks").update({
           status: "understanding",
-          model_used: "Grok-2",
+          model_used: "Grok-4",
           steps: [{ step: "understanding", status: "running", message: "Analyzing your request..." }]
         }).eq("id", taskId);
       }
       
-      // Generate human-first clarification
+      // Generate human-first clarification using the same model
       const clarificationContent = await generateClarificationResponse(
         classification, 
         trimmedPrompt, 
-        GROK_API_KEY
+        GROK_API_KEY,
+        GROK_CONFIG.model
       );
       
       // Deduct minimal credits for clarification
@@ -413,7 +424,7 @@ serve(async (req) => {
       if (isLegacyMode) {
         await supabase.from("tasks").update({
           status: "completed",
-          model_used: "Grok-2",
+          model_used: "Grok-4",
           credits_used: clarificationCost,
           result: { content: clarificationContent },
           steps: [
@@ -436,7 +447,7 @@ serve(async (req) => {
               const chunk = content.slice(offset, offset + chunkSize);
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
                 content: chunk, 
-                modelUsed: "Grok-2",
+                modelUsed: "Grok-4",
                 creditsUsed: clarificationCost,
                 classification: {
                   intent: classification.primary_intent,
@@ -491,7 +502,7 @@ serve(async (req) => {
     if (isLegacyMode) {
       await supabase.from("tasks").update({
         status: "understanding",
-        model_used: "Grok-2",
+        model_used: "Grok-4",
         steps: [{ step: "understanding", status: "running", message: "Analyzing your request..." }]
       }).eq("id", taskId);
     }
@@ -503,7 +514,7 @@ serve(async (req) => {
     systemPrompt += getDomainAddition(activeDomain, classification);
 
     // Execute AI (Grok primary, Lovable AI fallback if Grok unavailable)
-    let modelUsedLabel = "Grok-2";
+    let modelUsedLabel = "Grok-4";
     let aiResult = await callGrok(GROK_API_KEY, trimmedPrompt, systemPrompt);
 
     // Fallback to Lovable AI if Grok unavailable
