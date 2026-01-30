@@ -498,11 +498,171 @@ serve(async (req) => {
 
       // Detect query intent for response styling
       const promptLower = prompt.toLowerCase();
-      const isPersonalQuery = /\b(feel|lost|life|advice|should i|help me|worried|stressed|anxious|lonely|sad|happy|relationship|personal)\b/.test(promptLower);
-      const isTechnicalQuery = /\b(api|code|implement|function|error|debug|sdk|token|endpoint|programming)\b/.test(promptLower);
-      const isCreativeQuery = /\b(write|poem|story|creative|imagine|compose)\b/.test(promptLower);
+      
+      // ═══════════════════════════════════════════════════════════════
+      // UNIFIED REASONING ENGINE - Intent Detection with Confidence
+      // ═══════════════════════════════════════════════════════════════
+      
+      // Intent classification with confidence scoring
+      const intentPatterns = {
+        personal_emotional: {
+          patterns: /\b(feel|lost|life|advice|should i|help me|worried|stressed|anxious|lonely|sad|happy|relationship|personal|stuck|overwhelmed|confused|scared|afraid)\b/i,
+          weight: 0
+        },
+        technical: {
+          patterns: /\b(api|code|implement|function|error|debug|sdk|token|endpoint|programming|javascript|python|typescript|react|sql)\b/i,
+          weight: 0
+        },
+        creative: {
+          patterns: /\b(write|poem|story|creative|imagine|compose|fiction|novel|song|lyrics)\b/i,
+          weight: 0
+        },
+        business_research: {
+          patterns: /\b(market|trend|supplier|manufacturer|industry|analysis|competitor|strategy|revenue|growth|forecast)\b/i,
+          weight: 0
+        },
+        factual: {
+          patterns: /\b(what is|who is|when did|where is|how many|define|explain|meaning)\b/i,
+          weight: 0
+        }
+      };
+
+      // Calculate intent confidence scores
+      Object.keys(intentPatterns).forEach(key => {
+        const pattern = intentPatterns[key as keyof typeof intentPatterns];
+        const matches = promptLower.match(pattern.patterns);
+        pattern.weight = matches ? matches.length * 25 : 0;
+      });
+
+      // Find highest confidence intent
+      const sortedIntents = Object.entries(intentPatterns)
+        .sort(([, a], [, b]) => b.weight - a.weight);
+      
+      const primaryIntent = sortedIntents[0];
+      const primaryConfidence = Math.min(primaryIntent[1].weight, 100);
+      const isAmbiguous = primaryConfidence < 80 || 
+        (sortedIntents[1] && sortedIntents[1][1].weight > primaryConfidence * 0.6);
+
+      const isPersonalQuery = primaryIntent[0] === "personal_emotional" && primaryConfidence >= 30;
+      const isTechnicalQuery = primaryIntent[0] === "technical" && primaryConfidence >= 40;
+      const isCreativeQuery = primaryIntent[0] === "creative" && primaryConfidence >= 30;
+      const isBusinessQuery = primaryIntent[0] === "business_research" && primaryConfidence >= 40;
+
+      // Emotional state detection
+      const emotionalCues = {
+        distress: /\b(lost|stuck|overwhelmed|confused|scared|worried|anxious|stressed|help)\b/i.test(promptLower),
+        seeking_guidance: /\b(should i|what should|how do i|what can i|advice)\b/i.test(promptLower),
+        neutral: !(/\b(lost|stuck|overwhelmed|confused|scared|worried|anxious|stressed|help|should|advice)\b/i.test(promptLower))
+      };
+
+      const emotionalState = emotionalCues.distress ? "distress" : 
+                            emotionalCues.seeking_guidance ? "seeking_guidance" : "neutral";
       
       try {
+        // Build the UNIFIED REASONING PROMPT
+        const unifiedReasoningPrompt = `You are a Unified AI Agent that prioritizes REASONING, INTENT CLARITY, EMOTIONAL AWARENESS, and CONTINUITY.
+
+═══════════════════════════════════════════════════════════════
+CORE RULES (ABSOLUTE - VIOLATING ANY = FAILURE)
+═══════════════════════════════════════════════════════════════
+
+🚫 NEVER:
+- Use preset headers like "REAL-TIME SNAPSHOT", "MARKET SIGNALS", "INDUSTRY IMPACT", "ACTIONABLE TAKEAWAYS"
+- Jump to protocols/procedures without first understanding intent
+- Ignore emotional undertones
+- Output tables unless explicitly comparing data
+- Use business/industry framing for personal questions
+- Go silent or return empty output
+
+✅ ALWAYS:
+- Reason about what the user MEANS, FEELS, and EXPECTS
+- Acknowledge ambiguity when confidence is low
+- Provide something useful even if incomplete
+- Ask clarifying questions when intent is unclear
+
+═══════════════════════════════════════════════════════════════
+INPUT ANALYSIS (ALREADY COMPUTED)
+═══════════════════════════════════════════════════════════════
+
+USER QUERY: "${prompt}"
+
+DETECTED INTENT:
+- Primary: ${primaryIntent[0].replace(/_/g, " ")} (${primaryConfidence}% confidence)
+- Secondary: ${sortedIntents[1] ? sortedIntents[1][0].replace(/_/g, " ") + " (" + sortedIntents[1][1].weight + "%)" : "none"}
+- Ambiguity detected: ${isAmbiguous ? "YES - must clarify" : "No"}
+- Emotional state: ${emotionalState}
+
+═══════════════════════════════════════════════════════════════
+RESPONSE STRATEGY
+═══════════════════════════════════════════════════════════════
+
+${isAmbiguous ? `
+**AMBIGUOUS QUERY - USE THIS STRUCTURE:**
+1. Acknowledge the human state (short, natural, non-robotic)
+2. Reflect the ambiguity (show you noticed it)
+3. Offer 2-3 possible interpretations
+4. Provide immediate value for the most likely case
+5. Ask a single, gentle follow-up question
+
+EXAMPLE (for reference only):
+"Hey — I want to pause for a second, because that sentence sounds heavy.
+When you say "my life got lost in Paris", do you mean:
+- you're emotionally overwhelmed or feeling stuck,
+- you're feeling alone or disoriented,
+- or something practical went wrong?
+If this is emotional: you're not weak for feeling this way.
+Tell me what feels most urgent right now, and we'll tackle it together."
+` : isPersonalQuery ? `
+**PERSONAL/EMOTIONAL QUERY - USE THIS APPROACH:**
+- Write like a thoughtful friend giving advice
+- Use natural paragraphs, conversational warm tone
+- NO headers, NO bullets, NO tables, NO business language
+- Start directly with empathy and validation
+- Offer practical, human advice
+- End with genuine offer to help further
+` : isTechnicalQuery ? `
+**TECHNICAL QUERY - USE THIS APPROACH:**
+- Use numbered steps for processes
+- Include code blocks if relevant
+- Be precise and actionable
+- Focus on solving the technical problem
+` : isCreativeQuery ? `
+**CREATIVE REQUEST - USE THIS APPROACH:**
+- Respond creatively without structured formatting
+- Let the creative work speak for itself
+- No meta-commentary unless asked
+` : isBusinessQuery ? `
+**BUSINESS/RESEARCH QUERY - USE THIS APPROACH:**
+- Use structured analysis with CUSTOM headers that fit THIS query
+- Tables only if comparing multiple items
+- Present findings professionally but naturally
+- Sources at end if citing data
+` : `
+**GENERAL QUERY - USE THIS APPROACH:**
+- Direct answer first
+- Supporting context after
+- Keep it concise and helpful
+`}
+
+${!isPersonalQuery && !isCreativeQuery && !isAmbiguous && researchResult.results?.length > 0 ? `
+═══════════════════════════════════════════════════════════════
+RESEARCH DATA (only use if relevant to query type)
+═══════════════════════════════════════════════════════════════
+
+${researchResult.results.slice(0, 3).map(r => r.synthesis || "").filter(Boolean).join("\n\n") || "Limited research data."}
+
+KEY FINDINGS:
+${structured.key_findings.slice(0, 3).join("\n") || "None available"}
+` : ''}
+
+═══════════════════════════════════════════════════════════════
+NOW GENERATE YOUR RESPONSE
+═══════════════════════════════════════════════════════════════
+
+Remember: The output should feel like it was written SPECIFICALLY for this user and this question.
+${isAmbiguous ? "Since intent is unclear, you MUST ask a clarifying question." : ""}
+${emotionalState === "distress" ? "User may be in distress - lead with empathy." : ""}`;
+
         const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -514,80 +674,11 @@ serve(async (req) => {
             messages: [
               { 
                 role: "system", 
-                content: `You are an intelligent reasoning assistant. Your responses must be NATURAL and INTENT-DRIVEN.
-
-═══════════════════════════════════════════════════════════════
-ABSOLUTE RULES - VIOLATING THESE IS FAILURE
-═══════════════════════════════════════════════════════════════
-
-🚫 BANNED FOREVER (Never use these):
-- "REAL-TIME SNAPSHOT"
-- "CURRENT MARKET SIGNALS" 
-- "INDUSTRY IMPACT"
-- "ACTIONABLE TAKEAWAYS"
-- "LOGISTICAL SIGNALS"
-- Any preset section headers
-- Bullet points starting with "●"
-- Tables unless explicitly comparing items
-- Business/industry framing for personal questions
-- "Export as PDF" or similar
-
-✅ HOW TO ACTUALLY RESPOND:
-
-**For PERSONAL questions** (feelings, life advice, "what should I do"):
-→ Write like a thoughtful friend giving advice
-→ Use natural paragraphs, conversational tone
-→ NO headers, NO bullets, NO tables, NO business language
-→ Start directly with empathy and practical advice
-→ Example: "That sounds really overwhelming. Here's what I'd suggest..."
-
-**For TECHNICAL questions** (APIs, code, how-to):
-→ Use numbered steps if explaining a process
-→ Include code blocks if relevant
-→ Be precise and actionable
-
-**For BUSINESS/RESEARCH questions** (market analysis, trends, suppliers):
-→ Use structured analysis with CUSTOM headers that fit the specific query
-→ Tables only if comparing multiple items
-→ Sources at end in compact format
-
-**For GENERAL questions** (facts, definitions):
-→ Direct answer first
-→ Supporting context after
-→ Keep it concise
-
-═══════════════════════════════════════════════════════════════
-THINK BEFORE WRITING
-═══════════════════════════════════════════════════════════════
-
-Before generating ANY response:
-1. What type of question is this? (personal/technical/business/general)
-2. What tone fits? (empathetic/precise/analytical/conversational)
-3. What structure serves the USER, not a template?
-
-If you catch yourself writing "SNAPSHOT" or "SIGNALS", STOP and rewrite.
-The output should feel like it was written SPECIFICALLY for this question.` 
+                content: unifiedReasoningPrompt
               },
               { 
                 role: "user", 
-                content: `QUERY TYPE DETECTED: ${isPersonalQuery ? 'PERSONAL/EMOTIONAL' : isTechnicalQuery ? 'TECHNICAL' : isCreativeQuery ? 'CREATIVE' : 'GENERAL/BUSINESS'}
-
-USER QUERY: "${prompt}"
-
-${!isPersonalQuery && !isCreativeQuery ? `RESEARCH CONTEXT:
-${researchResult.results?.map(r => r.synthesis || "").filter(Boolean).join("\n\n") || "No additional research."}
-
-KEY POINTS:
-${structured.key_findings.slice(0, 5).join("\n") || "None"}` : ''}
-
-INSTRUCTION: ${isPersonalQuery 
-  ? 'This is a PERSONAL question. Respond with warmth and practical advice. NO business framing, NO headers, NO tables. Write naturally like you\'re helping a friend.'
-  : isTechnicalQuery
-  ? 'This is a TECHNICAL question. Provide clear, step-by-step guidance with code examples if needed.'
-  : isCreativeQuery
-  ? 'This is a CREATIVE request. Respond creatively without any structured formatting.'
-  : 'Provide a helpful, well-reasoned response. Use structure ONLY if it genuinely helps clarity.'
-}` 
+                content: `Generate your response to: "${prompt}"`
               }
             ],
             max_tokens: 4000,
@@ -597,15 +688,44 @@ INSTRUCTION: ${isPersonalQuery
         const synthesisData = await synthesisResponse.json();
         finalReport = synthesisData.choices?.[0]?.message?.content || "";
         creditsUsed += 3;
+
+        // Post-process: Remove any accidentally generated banned headers
+        const bannedHeaders = [
+          /^#+\s*(REAL-TIME SNAPSHOT|CURRENT MARKET SIGNALS|INDUSTRY IMPACT|ACTIONABLE TAKEAWAYS|LOGISTICAL SIGNALS).*$/gim,
+          /^●/gm,
+          /Export as PDF/gi,
+        ];
+        
+        bannedHeaders.forEach(pattern => {
+          finalReport = finalReport.replace(pattern, "");
+        });
+
       } catch (err) {
         console.error("Synthesis error:", err);
         // NO-SILENCE: Generate fallback report
-        finalReport = generateFallbackOutput(prompt, "synthesis", partialData);
+        if (isPersonalQuery || isAmbiguous) {
+          finalReport = `I want to make sure I understand what you're going through.
+
+When you say "${prompt}", I'm not entirely sure if you're looking for:
+- Emotional support and someone to listen
+- Practical guidance on a specific situation
+- General information or advice
+
+Could you tell me a bit more about what's on your mind? I'm here to help however I can.`;
+        } else {
+          finalReport = generateFallbackOutput(prompt, "synthesis", partialData);
+        }
       }
 
-      // If report is empty, use fallback
+      // If report is empty, use appropriate fallback
       if (!finalReport.trim()) {
-        finalReport = generateFallbackOutput(prompt, "empty_response", partialData);
+        if (isPersonalQuery || isAmbiguous) {
+          finalReport = `I hear you, and I want to make sure I respond in a way that's actually helpful.
+
+Could you tell me a bit more about your situation? Whether it's something you're feeling, a decision you're facing, or a practical problem, I'm here to help work through it with you.`;
+        } else {
+          finalReport = generateFallbackOutput(prompt, "empty_response", partialData);
+        }
       }
 
       // Compile sources
