@@ -3,92 +3,99 @@
 export const SUBSCRIPTION_PLANS = {
   free: {
     name: "Free",
-    description: "Discovery access with full AI capabilities",
+    description: "Get started with daily credits",
     monthlyPrice: 0,
     yearlyPrice: 0,
-    monthlyCredits: 40,
+    dailyCredits: 100,
     features: [
-      "40 AI credits per month",
+      "100 credits per day",
+      "Quick Chat (5 credits)",
+      "Quick Search (10 credits)",
       "Full AI research access",
-      "Market analysis & trends",
-      "Supplier search",
       "PDF & Excel exports",
+    ],
+  },
+  starter: {
+    name: "Starter",
+    description: "For individuals who need more power",
+    monthlyPrice: 19,
+    yearlyPrice: 190,
+    dailyCredits: 500,
+    features: [
+      "500 credits per day",
+      "Quick & Deep Chat",
+      "Quick & Deep Search",
+      "Priority support",
+      "All export formats",
     ],
   },
   pro: {
     name: "Pro",
-    description: "For professionals who need more credits",
-    monthlyPrice: 39,
-    yearlyPrice: 384,
-    monthlyCredits: 700,
+    description: "For professionals and power users",
+    monthlyPrice: 49,
+    yearlyPrice: 490,
+    dailyCredits: 1500,
     popular: true,
     features: [
-      "700 AI credits per month",
-      "All features included",
-      "Priority support",
-      "Credit refills available",
-    ],
-    maxRefillsPerMonth: 1,
-  },
-  studio: {
-    name: "Studio",
-    description: "For teams and agencies",
-    monthlyPrice: 89,
-    yearlyPrice: 875,
-    monthlyCredits: 1800,
-    features: [
-      "1,800 AI credits per month",
-      "All features included",
-      "Team collaboration (2–5 seats)",
+      "1,500 credits per day",
+      "All chat & search modes",
+      "Priority processing",
       "Advanced analytics",
-      "Dedicated support",
-      "Credit refills available",
+      "Team collaboration",
     ],
-    maxRefillsPerMonth: 2,
   },
   enterprise: {
     name: "Enterprise",
     description: "Custom solutions for large organizations",
-    monthlyPrice: null,
-    yearlyPrice: null,
-    monthlyCredits: null,
-    hidden: true, // Not shown on pricing page
+    monthlyPrice: 199,
+    yearlyPrice: 1990,
+    dailyCredits: 6000,
     features: [
-      "Custom credit allocation",
+      "6,000 credits per day",
       "Unlimited team seats",
-      "White-label options",
-      "Dedicated account manager",
+      "Dedicated support",
+      "Custom integrations",
       "SLA guarantees",
-      "Custom API access",
+      "White-label options",
     ],
   },
 } as const;
 
 // Stripe price IDs for plans
 export const STRIPE_PRICES = {
+  starter: {
+    monthly: "price_starter_monthly",
+    yearly: "price_starter_yearly",
+  },
   pro: {
     monthly: "price_1St8PXB0LQyHc0cSUfR0Sz7u",
     yearly: "price_1St8PnB0LQyHc0cSxyKT7KkJ",
   },
-  studio: {
-    monthly: "price_1St8QuB0LQyHc0cSHex3exfz",
-    yearly: "price_1St8R4B0LQyHc0cS3NOO4aXq",
+  enterprise: {
+    monthly: "price_enterprise_monthly",
+    yearly: "price_enterprise_yearly",
   },
 } as const;
 
 // Credit refill packs (available for paid plans)
 export const CREDIT_REFILLS = {
+  starter: {
+    credits: 500,
+    price: 15,
+    priceId: "price_refill_starter",
+    perCredit: 0.03,
+  },
   pro: {
     credits: 1000,
-    price: 39,
+    price: 25,
     priceId: "price_1St8RQB0LQyHc0cSaXgacgo8",
-    perCredit: 0.039,
+    perCredit: 0.025,
   },
-  studio: {
-    credits: 1000,
-    price: 45,
-    priceId: "price_1St8hdB0LQyHc0cSBbGILcsV",
-    perCredit: 0.045,
+  enterprise: {
+    credits: 2000,
+    price: 40,
+    priceId: "price_refill_enterprise",
+    perCredit: 0.02,
   },
 } as const;
 
@@ -98,12 +105,13 @@ export const CREDIT_REFILL = CREDIT_REFILLS.pro;
 // Credit consumption per action - SAME FOR ALL USERS
 // Credits are the only gate, not subscription tier
 export const CREDIT_COSTS = {
-  ai_research_query: { name: "AI Research Query", credits: 4 },
-  market_analysis: { name: "Market Analysis", credits: 10 },
-  trend_report: { name: "Trend Report", credits: 18 },
-  supplier_search: { name: "Supplier Search", credits: 8 },
-  pdf_export: { name: "PDF Export", credits: 3 },
-  excel_export: { name: "Excel Export", credits: 4 },
+  quick_chat: { name: "Quick Chat", credits: 5 },
+  deep_chat: { name: "Deep Chat", credits: 50 },
+  quick_search: { name: "Quick Search", credits: 10 },
+  deep_search: { name: "Deep Search", credits: 100 },
+  pdf_export: { name: "PDF Export", credits: 5 },
+  excel_export: { name: "Excel Export", credits: 5 },
+  ppt_export: { name: "PowerPoint Export", credits: 10 },
 } as const;
 
 // For display in UI
