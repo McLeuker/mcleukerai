@@ -36,6 +36,7 @@ interface ChatMessageProps {
   isStreaming?: boolean;
   streamingContent?: string;
   onCodeRun?: (code: string, language: string) => void;
+  onFollowUpClick?: (question: string) => void;
 }
 
 export function ChatMessageComponent({
@@ -45,6 +46,7 @@ export function ChatMessageComponent({
   isStreaming = false,
   streamingContent = "",
   onCodeRun,
+  onFollowUpClick,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>(message.generatedFiles || []);
@@ -333,6 +335,26 @@ export function ChatMessageComponent({
               {/* Generated Files */}
               {generatedFiles.length > 0 && (
                 <FileDownloadList files={generatedFiles} />
+              )}
+              
+              {/* Follow-up Questions */}
+              {message.followUpQuestions && message.followUpQuestions.length > 0 && !isStreaming && onFollowUpClick && (
+                <div className="mt-6 pt-4 border-t border-border">
+                  <p className="text-xs font-medium text-muted-foreground mb-3">
+                    Continue exploring
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {message.followUpQuestions.map((question, index) => (
+                      <button
+                        key={index}
+                        onClick={() => onFollowUpClick(question)}
+                        className="text-left text-sm px-3 py-2 rounded-full border border-border bg-background hover:bg-muted/50 hover:border-foreground/20 transition-all duration-200 text-foreground/80 hover:text-foreground"
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
               
               {/* Export Actions - only for completed assistant messages */}

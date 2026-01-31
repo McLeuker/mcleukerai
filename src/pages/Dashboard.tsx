@@ -207,6 +207,7 @@ const Dashboard = () => {
             onDeleteMessage={deleteMessage}
             onNewChat={createNewConversation}
             onSelectPrompt={(prompt) => handleSendMessage(prompt, "quick")}
+            onFollowUpClick={(question) => handleSendMessage(question, "quick")}
             domainSnapshot={domainSnapshot}
             domainSnapshotLoading={snapshotLoading}
           />
