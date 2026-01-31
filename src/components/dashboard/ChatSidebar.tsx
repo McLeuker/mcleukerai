@@ -75,8 +75,8 @@ export function ChatSidebar({
   // Collapsed state
   if (!isOpen) {
     return (
-      <aside className="hidden lg:flex w-14 border-r border-border bg-sidebar flex-col h-screen fixed left-0 top-0 z-40">
-        <div className="p-2 border-b border-sidebar-border">
+      <aside className="hidden lg:flex w-14 border-r border-border/30 bg-black flex-col h-screen fixed left-0 top-0 z-40">
+        <div className="p-2 border-b border-border/30">
           <Button
             variant="ghost"
             size="icon"
@@ -90,7 +90,7 @@ export function ChatSidebar({
           <Button
             variant="ghost"
             size="icon"
-            className="w-10 h-10"
+            className="w-10 h-10 rounded-full bg-muted text-foreground hover:bg-muted/80"
             onClick={onNewConversation}
           >
             <Plus className="h-4 w-4" />
@@ -102,9 +102,9 @@ export function ChatSidebar({
 
   return (
     <>
-      <aside className="hidden lg:flex w-72 border-r border-border bg-sidebar flex-col h-screen fixed left-0 top-0 z-40">
+      <aside className="hidden lg:flex w-72 border-r border-border/30 bg-black flex-col h-screen fixed left-0 top-0 z-40">
         {/* Header */}
-        <div className="p-4 border-b border-sidebar-border">
+        <div className="p-4 border-b border-border/30">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 bg-foreground rounded-lg flex items-center justify-center shadow-sm">
@@ -125,8 +125,7 @@ export function ChatSidebar({
           </div>
           <Button
             onClick={onNewConversation}
-            variant="default"
-            className="w-full gap-2 justify-center h-10"
+            className="w-full gap-2 justify-center h-10 rounded-full bg-muted text-foreground hover:bg-muted/80 border-0"
           >
             <Plus className="h-4 w-4" />
             New Chat
@@ -141,7 +140,7 @@ export function ChatSidebar({
               placeholder="Search chats..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-9 h-9 text-sm bg-sidebar-accent border-sidebar-border placeholder:text-muted-foreground/60"
+              className="pl-9 pr-9 h-9 text-sm bg-muted border-0 text-foreground placeholder:text-muted-foreground/60 rounded-full"
             />
             {searchQuery && (
               <button
