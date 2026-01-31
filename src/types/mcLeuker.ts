@@ -84,6 +84,24 @@ export interface ChatResponse {
   message: string;
   conversation_id?: string;
   files?: GeneratedFile[];
+  credits_used?: number;
+}
+
+export interface ReasoningStep {
+  step: number;
+  title: string;
+  content: string;
+  duration_ms?: number;
+}
+
+export interface DeepChatResponse {
+  message: string;
+  conversation_id?: string;
+  files?: GeneratedFile[];
+  credits_used?: number;
+  reasoning_steps?: ReasoningStep[];
+  sources?: SearchResult[];
+  confidence?: number;
 }
 
 export interface QuickAnswerResponse {
@@ -91,6 +109,28 @@ export interface QuickAnswerResponse {
   answer: string;
   confidence: number;
   sources?: SearchResult[];
+}
+
+export interface UserCredits {
+  user_id: string;
+  credits: number;
+  plan: string;
+  monthly_limit?: number;
+  credits_used_this_month?: number;
+}
+
+export interface PricingPlan {
+  id: string;
+  name: string;
+  price: number;
+  credits: number;
+  features: string[];
+  popular?: boolean;
+}
+
+export interface PricingResponse {
+  plans: PricingPlan[];
+  currency: string;
 }
 
 export interface SearchOptions {
