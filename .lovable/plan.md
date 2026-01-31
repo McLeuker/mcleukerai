@@ -1,81 +1,60 @@
 
 
-## Domain Hero Layout Fixes
+## Make Intelligence Titles Clickable
 
-Adjusting the hero section based on your feedback: center alignment, straight line separation, and cleaner black/white division.
+Add click-through functionality to the "What's Happening Now" section so users can visit the original source.
 
 ---
 
-## Changes
+## Change Summary
 
-### 1. Center All Content in Hero
+**File:** `src/components/domain/DomainInsights.tsx`
 
-**File:** `src/components/domain/DomainHero.tsx`
+Make the title (`h3`) in each intelligence card clickable by wrapping it in an anchor tag that opens the source URL in a new tab.
 
-Currently left-aligned, will center:
-- Title (h1) → add `text-center`
-- Tagline (p) → add `text-center mx-auto`
-- Search bar container → add `mx-auto` (already has `max-w-2xl`)
-- Suggestion chips → add `justify-center`
+---
 
-### 2. Remove Gradient Fade
+## Implementation Details
 
-**File:** `src/components/domain/DomainHero.tsx`
-
-Delete the bottom fade div:
+### Current (Line 247-249)
 ```jsx
-{/* Remove this entirely */}
-<div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
+<h3 className="text-base font-medium text-foreground leading-snug flex-1">
+  {item.title}
+</h3>
 ```
 
-This creates a clean straight line between black hero and white content.
-
-### 3. Ensure White Background Below
-
-The `DomainInsights` and `DomainModules` sections already have white backgrounds via `bg-background` and `bg-card`. The straight line will be the natural edge of the black hero section.
-
----
-
-## Visual Result
-
-```text
-┌─────────────────────────────────────────────────────────┐
-│                    SOLID BLACK                          │
-│                                                         │
-│                    Sustainability                       │
-│                      (centered)                         │
-│                                                         │
-│      Circularity, materials & supply chain...           │
-│                      (centered)                         │
-│                                                         │
-│         ┌─────────────────────────────────┐             │
-│         │ Ask about sustainability...   ↑ │             │
-│         └─────────────────────────────────┘             │
-│                                                         │
-│      [Chip 1] [Chip 2] [Chip 3] [Chip 4]                │
-│                   (centered)                            │
-│                                                         │
-├─────────────────────────────────────────────────────────┤  ← Straight line
-│                    WHITE                                │
-│                                                         │
-│   What's Happening Now                                  │
-│   [ Intelligence Cards ]                                │
-│                                                         │
-│   Intelligence Modules                                  │
-│   [ Module Grid ]                                       │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+### New
+```jsx
+{item.sourceUrl ? (
+  <a
+    href={item.sourceUrl}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-base font-medium text-foreground leading-snug flex-1 hover:underline underline-offset-2 transition-colors"
+  >
+    {item.title}
+  </a>
+) : (
+  <h3 className="text-base font-medium text-foreground leading-snug flex-1">
+    {item.title}
+  </h3>
+)}
 ```
 
 ---
 
-## Code Changes Summary
+## Behavior
 
-| Line | Current | Change |
-|------|---------|--------|
-| 88 | `<h1 className="font-editorial...">` | Add `text-center` |
-| 91-92 | `<p className="...max-w-2xl">` | Add `text-center mx-auto` |
-| 97 | `<div className="max-w-2xl">` | Add `mx-auto` |
-| 130 | `<div className="flex flex-wrap gap-2">` | Add `justify-center` |
-| 151-152 | Gradient fade div | Delete entirely |
+| Scenario | Behavior |
+|----------|----------|
+| Has `sourceUrl` | Title is clickable, underlines on hover, opens in new tab |
+| No `sourceUrl` | Title displays as normal text (not clickable) |
+
+---
+
+## Visual Feedback
+
+- Hover state: subtle underline appears
+- Cursor changes to pointer when hoverable
+- External link opens in new tab (`target="_blank"`)
 
