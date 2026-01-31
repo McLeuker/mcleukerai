@@ -1,15 +1,10 @@
 import { useState } from "react";
 import { Sector } from "@/contexts/SectorContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ExternalLink, AlertCircle, ChevronDown, ChevronUp, Signal, TrendingUp, Clock } from "lucide-react";
+import { RefreshCw, AlertCircle, Signal, TrendingUp, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { IntelligenceItem } from "@/hooks/useDomainIntelligence";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 
 interface DomainInsightsProps {
@@ -128,7 +123,7 @@ export function DomainInsights({
   seasonContext,
   onRefresh 
 }: DomainInsightsProps) {
-  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  
 
   const formatDate = (dateStr: string) => {
     try {
@@ -146,25 +141,6 @@ export function DomainInsights({
     }
   };
 
-  // Extract unique sources for compact display
-  const uniqueSources = items.reduce((acc, item) => {
-    const name = extractSourceName(item.source, item.sourceUrl);
-    if (!acc.find(s => s.name === name)) {
-      acc.push({
-        name,
-        title: item.title,
-        description: item.description,
-        url: item.sourceUrl || '',
-      });
-    }
-    return acc;
-  }, [] as { name: string; title: string; description: string; url: string }[]);
-
-  // Compact source list text
-  const compactSourceList = uniqueSources
-    .slice(0, 5)
-    .map((s, i) => `${i + 1}. ${s.name}`)
-    .join(' ');
 
   return (
     <section className="w-full max-w-5xl mx-auto px-6 md:px-8 py-16 md:py-20">
@@ -296,64 +272,6 @@ export function DomainInsights({
             ))}
           </div>
 
-          {/* Compact Sources Section */}
-          {uniqueSources.length > 0 && (
-            <Collapsible
-              open={sourcesExpanded}
-              onOpenChange={setSourcesExpanded}
-              className="mt-8 pt-6 border-t border-border"
-            >
-              <CollapsibleTrigger asChild>
-                <button className="w-full flex items-center justify-between text-left py-2 group">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <span className="text-[11px] uppercase tracking-widest font-medium text-muted-foreground shrink-0">
-                      Sources
-                    </span>
-                    <span className="text-[13px] text-muted-foreground/70 truncate">
-                      {uniqueSources.map(s => s.name).join(' · ')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-muted-foreground ml-4 shrink-0">
-                    <span className="group-hover:text-foreground transition-colors">
-                      {sourcesExpanded ? 'Less' : 'More'}
-                    </span>
-                    {sourcesExpanded ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </div>
-                </button>
-              </CollapsibleTrigger>
-
-              <CollapsibleContent>
-                <div className="pt-4 pb-2 space-y-2">
-                  {uniqueSources.map((src, index) => (
-                    <a
-                      key={`${src.url}-${index}`}
-                      href={src.url || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        "block rounded-lg py-2 px-3 -mx-3 transition-colors",
-                        src.url ? "hover:bg-muted/40 cursor-pointer" : "cursor-default"
-                      )}
-                    >
-                      <span className="text-[15px] font-medium text-foreground">
-                        {src.name}
-                      </span>
-                      
-                      {src.title && (
-                        <p className="text-[13px] text-muted-foreground mt-1 line-clamp-1">
-                          {src.title}
-                        </p>
-                      )}
-                    </a>
-                  ))}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center">
