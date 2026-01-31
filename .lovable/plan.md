@@ -1,50 +1,66 @@
 
 
-## Remove Redundant Sources Section
+## Redesign Intelligence Cards
 
-The collapsible "SOURCES" section at the bottom of the "What's Happening Now" area will be removed since each intelligence card already displays its source inline.
+Simplify the card layout to reduce text density and improve readability.
 
 ---
 
-## Change
+## New Card Structure
 
-**File:** `src/components/domain/DomainInsights.tsx`
-
-Remove the entire collapsible Sources section (lines 299-356):
-
-```jsx
-{/* This entire block will be removed */}
-{uniqueSources.length > 0 && (
-  <Collapsible
-    open={sourcesExpanded}
-    onOpenChange={setSourcesExpanded}
-    ...
-  >
-    ...
-  </Collapsible>
-)}
+```text
+┌─────────────────────────────────────────────┐
+│ High                                        │  ← Line 1: Confidence only
+│                                             │
+│ Boots Launches In-Store Wellness Zones      │  ← Title (spans full width,
+│ Amid Beauty-From-Within Surge               │    multiple lines as needed)
+│                                             │
+│ Boots introduces dedicated Wellness Zones   │  ← Description text
+│ and Health & Wellness Specialists...        │    (natural line wrapping)
+│                                             │
+│ 🕐 Today                                    │  ← Clock emoji + date only
+│                                             │
+│ The Industry Beauty                         │  ← Source name only
+└─────────────────────────────────────────────┘
 ```
 
 ---
 
-## Cleanup
+## Changes to `src/components/domain/DomainInsights.tsx`
 
-Also remove unused code that was only needed for the Sources section:
+### Card Structure (Lines 218-274)
 
-1. **Line 131**: Remove `const [sourcesExpanded, setSourcesExpanded] = useState(false);`
-2. **Lines 149-167**: Remove `uniqueSources` and `compactSourceList` calculations
-3. **Line 3**: Remove unused imports: `ChevronDown`, `ChevronUp` from lucide-react
-4. **Lines 8-12**: Remove unused `Collapsible` imports
+**Current layout:**
+- Title + Badge side by side
+- Description
+- Single metadata line with: Type · Date · Source · Category
+
+**New layout:**
+1. Confidence badge alone (top-left)
+2. Title on its own lines (full width, clickable if URL exists)
+3. Description paragraph
+4. Clock emoji + formatted date (e.g., "🕐 Today")
+5. Source name on separate line
 
 ---
 
-## Result
+## Implementation Details
 
-Each intelligence card still shows its source in the metadata row:
-```
-CURATED · TODAY · THE INDUSTRY BEAUTY · Brand Campaigns
-                    ↑ source shown here
-```
+### Remove from metadata:
+- Data type label ("CURATED", "REAL-TIME", "PREDICTIVE")
+- Category ("Brand Campaigns")
+- All middle-dot separators
 
-The redundant expandable "Sources" section at the bottom is removed.
+### Keep:
+- Confidence level (moved to top, standalone)
+- Title (full width)
+- Description
+- Date with clock emoji
+- Source name (own line)
+
+### Code changes:
+- Remove `getDataTypeLabel` usage in card
+- Remove `getDataTypeIcon` from metadata row
+- Simplify Badge to show just confidence text without icon
+- Split metadata into two separate lines
 
