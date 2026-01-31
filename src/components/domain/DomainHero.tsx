@@ -95,15 +95,12 @@ export function DomainHero({
   }, [query]);
 
   return (
-    <section className="relative w-full bg-black overflow-hidden">
-      {/* Background Image - 20% opacity for readability */}
+    <section className="relative w-full overflow-hidden">
+      {/* Background Image - 80% opacity */}
       <div 
-        className="absolute inset-0 bg-cover bg-center opacity-20"
+        className="absolute inset-0 bg-cover bg-center opacity-80"
         style={{ backgroundImage: `url(${sectorImages[sector]})` }}
       />
-      
-      {/* Dark overlay for text contrast */}
-      <div className="absolute inset-0 bg-black/60" />
       
       {/* Content */}
       <div className="relative z-10 w-full max-w-5xl mx-auto px-6 md:px-8 pt-16 md:pt-24 pb-20 md:pb-28">
