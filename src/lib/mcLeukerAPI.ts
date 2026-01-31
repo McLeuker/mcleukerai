@@ -1,4 +1,4 @@
-// McLeuker Railway Backend API Client v2
+// McLeuker Railway Backend API Client v2 - Proxy Edition
 
 import type {
   TaskResult,
@@ -16,17 +16,18 @@ import type {
   PricingResponse,
 } from "@/types/mcLeuker";
 
-const API_BASE_URL = import.meta.env.VITE_RAILWAY_API_URL || "https://web-production-29f3c.up.railway.app";
+// Use the Supabase proxy function to avoid CORS issues
+const PROXY_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proxy-railway`;
 
 class McLeukerAPI {
   private baseUrl: string;
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = PROXY_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
   /**
-   * Construct the download URL for a generated file
+   * Construct the download URL for a generated file (through proxy)
    */
   getFileDownloadUrl(filename: string): string {
     return `${this.baseUrl}/api/files/${filename}`;
