@@ -5,6 +5,7 @@ import { useToast } from "./use-toast";
 import { mcLeukerAPI } from "@/lib/mcLeukerAPI";
 import type { ResearchPhase } from "@/components/dashboard/ResearchProgress";
 import type { Source } from "@/components/dashboard/SourceCitations";
+import type { ReasoningStep } from "@/types/mcLeuker";
 
 export type ResearchMode = "quick" | "deep";
 
@@ -21,6 +22,8 @@ export interface ChatMessage {
   // Research agent fields
   sources?: Source[];
   isResearched?: boolean;
+  // Deep mode reasoning steps
+  reasoningSteps?: ReasoningStep[];
   // Generated files
   generatedFiles?: Array<{
     name: string;
@@ -285,36 +288,55 @@ export function useConversations() {
       let sources: Source[] = [];
       let isResearched = mode === "deep";
       let generatedFiles: ChatMessage["generatedFiles"] = undefined;
+      let reasoningSteps: ReasoningStep[] | undefined = undefined;
+      let creditsUsed = mode === "deep" ? 25 : 1;
 
       if (mode === "deep") {
-        // Use Railway research endpoint for deep mode
+        // Use Railway deep chat endpoint for deep mode (25 credits)
         setResearchState(prev => ({
           ...prev,
           phase: "searching",
-          message: "Researching topic...",
+          message: "Deep reasoning in progress...",
         }));
 
-        const researchResult = await mcLeukerAPI.research(prompt, "deep");
+        const deepResult = await mcLeukerAPI.chatDeep(prompt, conversation.id);
         
-        content = researchResult.findings || researchResult.summary;
+        content = deepResult.message;
+        creditsUsed = deepResult.credits_used || 25;
+        reasoningSteps = deepResult.reasoning_steps;
         
-        // Map research sources to our Source format
-        sources = (researchResult.sources || []).map((src) => ({
-          title: src.title,
-          url: src.url,
-          snippet: src.snippet,
-          type: "search" as const,
-        }));
+        // Map sources if available
+        if (deepResult.sources) {
+          sources = deepResult.sources.map((src) => ({
+            title: src.title,
+            url: src.url,
+            snippet: src.snippet,
+            type: "search" as const,
+          }));
+        }
+
+        // Map generated files with download URLs
+        if (deepResult.files && deepResult.files.length > 0) {
+          generatedFiles = deepResult.files.map((file) => ({
+            name: file.filename,
+            type: mapFileFormat(file.format),
+            url: mcLeukerAPI.getFileDownloadUrl(file.filename),
+            size: file.size_bytes || 0,
+            path: file.filepath,
+            created_at: new Date().toISOString(),
+          }));
+        }
 
         setResearchState(prev => ({
           ...prev,
           phase: "completed",
-          message: "Research complete",
+          message: "Deep analysis complete",
         }));
       } else {
-        // Use Railway chat endpoint for quick mode
+        // Use Railway chat endpoint for quick mode (1 credit)
         const chatResult = await mcLeukerAPI.chat(prompt, conversation.id);
         content = chatResult.message;
+        creditsUsed = chatResult.credits_used || 1;
 
         // Map any generated files with download URLs
         if (chatResult.files && chatResult.files.length > 0) {
@@ -341,8 +363,8 @@ export function useConversations() {
             user_id: user.id,
             role: "assistant",
             content,
-            model_used: mode === "deep" ? "Railway Research" : "Railway Chat",
-            credits_used: 0, // Railway doesn't use credits
+            model_used: mode === "deep" ? "McLeuker Deep" : "McLeuker Quick",
+            credits_used: creditsUsed,
           })
           .select()
           .single();
@@ -360,6 +382,7 @@ export function useConversations() {
             created_at: assistantMsg.created_at,
             sources: sources.length > 0 ? sources : undefined,
             isResearched,
+            reasoningSteps,
             generatedFiles,
           };
           setMessages((prev) => [...prev, newAssistantMessage]);

@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Zap, Search, Coins } from "lucide-react";
+import { Zap, Brain, Coins } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -39,13 +39,16 @@ export function ResearchModeToggle({
             >
               <Zap className="h-3.5 w-3.5" />
               Quick
+              <span className="flex items-center gap-0.5 text-muted-foreground">
+                <Coins className="h-3 w-3" />1
+              </span>
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <div className="text-center">
-              <p className="font-medium">Quick Answer</p>
+              <p className="font-medium">Quick Chat</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Fast AI response • 4-10 credits
+                Fast AI response • 1 credit
               </p>
             </div>
           </TooltipContent>
@@ -65,20 +68,22 @@ export function ResearchModeToggle({
                 disabled && "opacity-50 cursor-not-allowed"
               )}
             >
-              <Search className="h-3.5 w-3.5" />
-              Deep Research
+              <Brain className="h-3.5 w-3.5" />
+              Deep
+              <span className="flex items-center gap-0.5 text-muted-foreground">
+                <Coins className="h-3 w-3" />25
+              </span>
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <div className="text-center">
-              <p className="font-medium">Deep Research</p>
+              <p className="font-medium">Deep Reasoning</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Web search + validation • 8-25 credits
+                Multi-step reasoning + sources • 25 credits
               </p>
-              <div className="flex items-center justify-center gap-1 mt-1 text-xs text-muted-foreground">
-                <Coins className="h-3 w-3" />
-                <span>Uses Perplexity + Firecrawl</span>
-              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Comprehensive analysis with web research
+              </p>
             </div>
           </TooltipContent>
         </Tooltip>

@@ -1,8 +1,9 @@
-// McLeuker Railway Backend API Client
+// McLeuker Railway Backend API Client v2
 
 import type {
   TaskResult,
   ChatResponse,
+  DeepChatResponse,
   AISearchResponse,
   QuickAnswerResponse,
   ResearchResponse,
@@ -11,6 +12,8 @@ import type {
   HealthResponse,
   StatusResponse,
   SearchOptions,
+  UserCredits,
+  PricingResponse,
 } from "@/types/mcLeuker";
 
 const API_BASE_URL = import.meta.env.VITE_RAILWAY_API_URL || "https://web-production-29f3c.up.railway.app";
@@ -133,7 +136,7 @@ class McLeukerAPI {
   }
 
   /**
-   * Chat interaction
+   * Chat interaction (Quick mode - 1 credit)
    */
   async chat(message: string, conversationId?: string): Promise<ChatResponse> {
     const response = await fetch(`${this.baseUrl}/api/chat`, {
@@ -158,6 +161,62 @@ class McLeukerAPI {
     }
 
     return result;
+  }
+
+  /**
+   * Deep Chat with reasoning (Deep mode - 25 credits)
+   */
+  async chatDeep(message: string, conversationId?: string): Promise<DeepChatResponse> {
+    const response = await fetch(`${this.baseUrl}/api/chat/deep`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, conversation_id: conversationId }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Deep chat request failed: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    // Map files with download URLs
+    if (result.files) {
+      result.files = result.files.map((file: { filename: string }) => ({
+        ...file,
+        download_url: this.getFileDownloadUrl(file.filename),
+      }));
+    }
+
+    return result;
+  }
+
+  /**
+   * Get user credit balance
+   */
+  async getUserCredits(userId: string): Promise<UserCredits> {
+    const response = await fetch(`${this.baseUrl}/api/credits/${userId}`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Credits fetch failed: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get pricing plans
+   */
+  async getPricing(): Promise<PricingResponse> {
+    const response = await fetch(`${this.baseUrl}/api/pricing`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Pricing fetch failed: ${response.status}`);
+    }
+
+    return response.json();
   }
 
   /**
