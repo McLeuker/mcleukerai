@@ -1,4 +1,8 @@
+import { useState, useRef, useEffect } from "react";
 import { Sector } from "@/contexts/SectorContext";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SectorConfig {
@@ -14,21 +18,10 @@ interface DomainHeroProps {
   config: SectorConfig;
   snapshot: string | null;
   isLoading: boolean;
+  placeholder?: string;
+  starters?: string[];
+  onSubmit?: (query: string) => void;
 }
-
-// All domains use black gradient for editorial consistency
-const domainGradients: Record<Sector, string> = {
-  all: "from-black via-neutral-900 to-black",
-  fashion: "from-black via-neutral-900 to-black",
-  beauty: "from-black via-neutral-900 to-black",
-  skincare: "from-black via-neutral-900 to-black",
-  sustainability: "from-black via-neutral-900 to-black",
-  "fashion-tech": "from-black via-neutral-900 to-black",
-  catwalks: "from-black via-neutral-900 to-black",
-  culture: "from-black via-neutral-900 to-black",
-  textile: "from-black via-neutral-900 to-black",
-  lifestyle: "from-black via-neutral-900 to-black",
-};
 
 // One-liner real-time insights per domain
 const domainTaglines: Record<Sector, string> = {
@@ -44,29 +37,115 @@ const domainTaglines: Record<Sector, string> = {
   lifestyle: "Consumer culture, wellness & lifestyle signals",
 };
 
-export function DomainHero({ sector, config, snapshot, isLoading }: DomainHeroProps) {
-  const gradient = domainGradients[sector] || domainGradients.all;
+export function DomainHero({ 
+  sector, 
+  config, 
+  snapshot, 
+  isLoading,
+  placeholder = "Ask anything...",
+  starters = [],
+  onSubmit,
+}: DomainHeroProps) {
   const tagline = domainTaglines[sector] || config.tagline;
+  const [query, setQuery] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleSubmit = () => {
+    if (!query.trim() || !onSubmit) return;
+    onSubmit(query.trim());
+    setQuery("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const handleStarterClick = (starter: string) => {
+    if (onSubmit) {
+      onSubmit(starter);
+    }
+  };
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(
+        textareaRef.current.scrollHeight,
+        120
+      )}px`;
+    }
+  }, [query]);
 
   return (
-    <section
-      className={cn(
-        "relative w-full min-h-[320px] md:min-h-[420px] flex items-end",
-        "bg-gradient-to-br",
-        gradient
-      )}
-    >
-      {/* Grain overlay */}
-      <div className="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PGZlQ29sb3JNYXRyaXggdHlwZT0ic2F0dXJhdGUiIHZhbHVlcz0iMCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNhKSIgb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')]" />
-
+    <section className="relative w-full bg-black">
       {/* Content */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto px-6 md:px-8 pb-16 md:pb-24">
+      <div className="relative z-10 w-full max-w-5xl mx-auto px-6 md:px-8 pt-16 md:pt-24 pb-20 md:pb-28">
+        {/* Title and tagline */}
         <h1 className="font-editorial text-5xl md:text-7xl lg:text-8xl font-light tracking-tight text-white mb-4">
           {config.label}
         </h1>
-        <p className="text-lg md:text-xl text-white/60 max-w-2xl leading-relaxed">
+        <p className="text-lg md:text-xl text-white/60 max-w-2xl leading-relaxed mb-12 md:mb-16">
           {tagline}
         </p>
+
+        {/* Integrated Search Bar */}
+        {onSubmit && (
+          <div className="max-w-2xl">
+            {/* Input area */}
+            <div className="relative flex items-end gap-3 mb-6">
+              <Textarea
+                ref={textareaRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder}
+                className={cn(
+                  "min-h-[56px] max-h-[120px] resize-none pr-14",
+                  "bg-white/10 border-white/20 text-white placeholder:text-white/50",
+                  "focus:border-white/40 focus-visible:ring-0 focus-visible:ring-offset-0",
+                  "text-[15px] rounded-xl"
+                )}
+                rows={1}
+              />
+              <Button
+                onClick={handleSubmit}
+                disabled={!query.trim()}
+                size="icon"
+                className={cn(
+                  "absolute right-3 bottom-3 h-10 w-10 rounded-lg",
+                  "bg-white text-black hover:bg-white/90",
+                  "disabled:opacity-40 disabled:bg-white/50"
+                )}
+              >
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Suggestion chips */}
+            {starters.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {starters.slice(0, 4).map((starter, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleStarterClick(starter)}
+                    className={cn(
+                      "text-[13px] px-4 py-2 rounded-full",
+                      "border border-white/30 text-white/80",
+                      "hover:bg-white hover:text-black hover:border-white",
+                      "transition-all duration-150"
+                    )}
+                  >
+                    {starter}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Bottom fade to background */}
