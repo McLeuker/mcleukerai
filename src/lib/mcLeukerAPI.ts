@@ -13,7 +13,7 @@ import type {
   SearchOptions,
 } from "@/types/mcLeuker";
 
-const API_BASE_URL = import.meta.env.VITE_RAILWAY_API_URL || "https://your-backend.railway.app";
+const API_BASE_URL = import.meta.env.VITE_RAILWAY_API_URL || "https://web-production-29f3c.up.railway.app";
 
 class McLeukerAPI {
   private baseUrl: string;
