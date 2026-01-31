@@ -118,7 +118,7 @@ const Dashboard = () => {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className={cn("flex-1 flex flex-col min-h-screen", sidebarOpen ? "lg:ml-72" : "lg:ml-14")}>
         {/* Top Navigation */}
         <TopNavigation showSectorTabs={false} showCredits={false} />
 
@@ -130,7 +130,7 @@ const Dashboard = () => {
           {/* New Chat Button - bubble style */}
           <Button
             onClick={createNewConversation}
-            className="h-10 px-6 rounded-full gap-2 bg-foreground text-background hover:bg-foreground/90"
+            className="px-5 py-2.5 h-auto rounded-full gap-2 bg-foreground text-background hover:bg-foreground/90 text-sm font-medium"
           >
             <Plus className="h-4 w-4" />
             New Chat
