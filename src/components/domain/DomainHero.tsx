@@ -23,6 +23,20 @@ interface DomainHeroProps {
   onSubmit?: (query: string) => void;
 }
 
+// Royalty-free Unsplash images per sector
+const sectorImages: Record<Sector, string> = {
+  all: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80",
+  fashion: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1920&q=80",
+  beauty: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=1920&q=80",
+  skincare: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=1920&q=80",
+  sustainability: "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=1920&q=80",
+  "fashion-tech": "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1920&q=80",
+  catwalks: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=1920&q=80",
+  culture: "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=1920&q=80",
+  textile: "https://images.unsplash.com/photo-1558171813-4c088753af8f?w=1920&q=80",
+  lifestyle: "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1920&q=80",
+};
+
 // One-liner real-time insights per domain
 const domainTaglines: Record<Sector, string> = {
   all: "Cross-domain intelligence for fashion professionals",
@@ -81,7 +95,16 @@ export function DomainHero({
   }, [query]);
 
   return (
-    <section className="relative w-full bg-black">
+    <section className="relative w-full bg-black overflow-hidden">
+      {/* Background Image - 20% opacity for readability */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center opacity-20"
+        style={{ backgroundImage: `url(${sectorImages[sector]})` }}
+      />
+      
+      {/* Dark overlay for text contrast */}
+      <div className="absolute inset-0 bg-black/60" />
+      
       {/* Content */}
       <div className="relative z-10 w-full max-w-5xl mx-auto px-6 md:px-8 pt-16 md:pt-24 pb-20 md:pb-28">
         {/* Title and tagline */}
