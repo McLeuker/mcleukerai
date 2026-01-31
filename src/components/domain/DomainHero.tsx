@@ -51,7 +51,7 @@ export function DomainHero({ sector, config, snapshot, isLoading }: DomainHeroPr
   return (
     <section
       className={cn(
-        "relative w-full min-h-[280px] md:min-h-[360px] flex items-end",
+        "relative w-full min-h-[320px] md:min-h-[420px] flex items-end",
         "bg-gradient-to-br",
         gradient
       )}
@@ -60,17 +60,17 @@ export function DomainHero({ sector, config, snapshot, isLoading }: DomainHeroPr
       <div className="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PGZlQ29sb3JNYXRyaXggdHlwZT0ic2F0dXJhdGUiIHZhbHVlcz0iMCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNhKSIgb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')]" />
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto px-6 pb-10 md:pb-14">
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-light tracking-tight text-white mb-3">
+      <div className="relative z-10 w-full max-w-5xl mx-auto px-6 md:px-8 pb-16 md:pb-24">
+        <h1 className="font-editorial text-5xl md:text-7xl lg:text-8xl font-light tracking-tight text-white mb-4">
           {config.label}
         </h1>
-        <p className="text-base md:text-lg text-white/60 max-w-2xl">
+        <p className="text-lg md:text-xl text-white/60 max-w-2xl leading-relaxed">
           {tagline}
         </p>
       </div>
 
       {/* Bottom fade to background */}
-      <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
     </section>
   );
 }

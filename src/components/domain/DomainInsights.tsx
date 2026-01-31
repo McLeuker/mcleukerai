@@ -167,32 +167,31 @@ export function DomainInsights({
     .join(' ');
 
   return (
-    <section className="w-full max-w-5xl mx-auto px-6 py-10 md:py-14">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-1 rounded-full bg-foreground" />
-            <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              What's Happening Now
-            </h2>
+    <section className="w-full max-w-5xl mx-auto px-6 md:px-8 py-16 md:py-20">
+      <div className="flex items-center justify-between mb-10">
+        <div className="flex flex-col gap-2">
+          <h2 className="font-editorial text-2xl md:text-3xl text-foreground">
+            What's Happening Now
+          </h2>
+          <div className="flex items-center gap-3">
             {source === 'perplexity' && !isLoading && items.length > 0 && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-foreground/20">
-                <Signal className="h-2.5 w-2.5 mr-1" />
+              <Badge variant="outline" className="text-[11px] px-2 py-0.5 h-5 border-foreground/20">
+                <Signal className="h-3 w-3 mr-1.5" />
                 Live
               </Badge>
             )}
             {source === 'fallback' && !isLoading && items.length > 0 && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground border-muted-foreground/20">
-                <TrendingUp className="h-2.5 w-2.5 mr-1" />
+              <Badge variant="outline" className="text-[11px] px-2 py-0.5 h-5 text-muted-foreground border-muted-foreground/20">
+                <TrendingUp className="h-3 w-3 mr-1.5" />
                 Predictive
               </Badge>
             )}
+            {seasonContext && !isLoading && (
+              <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                {seasonContext}
+              </span>
+            )}
           </div>
-          {seasonContext && !isLoading && (
-            <p className="text-[11px] text-muted-foreground/60 ml-3">
-              Season: {seasonContext}
-            </p>
-          )}
         </div>
         
         {onRefresh && !isLoading && (
@@ -200,20 +199,20 @@ export function DomainInsights({
             variant="ghost"
             size="sm"
             onClick={onRefresh}
-            className="h-8 px-2 text-muted-foreground hover:text-foreground"
+            className="h-9 px-3 text-muted-foreground hover:text-foreground hover:bg-transparent"
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-            <span className="text-xs">Refresh</span>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            <span className="text-[13px]">Refresh</span>
           </Button>
         )}
       </div>
 
       {isLoading ? (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="p-4 border border-border rounded-lg">
-              <Skeleton className="h-5 w-3/4 mb-2" />
-              <Skeleton className="h-4 w-full mb-3" />
+            <div key={i} className="p-6 md:p-8 border border-border rounded-2xl bg-card">
+              <Skeleton className="h-5 w-3/4 mb-3" />
+              <Skeleton className="h-4 w-full mb-4" />
               <div className="flex items-center gap-3">
                 <Skeleton className="h-3 w-16" />
                 <Skeleton className="h-3 w-24" />
@@ -222,37 +221,37 @@ export function DomainInsights({
           ))}
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <AlertCircle className="h-8 w-8 text-muted-foreground mb-3" />
-          <p className="text-muted-foreground text-sm mb-4">{error}</p>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertCircle className="h-10 w-10 text-muted-foreground mb-4" />
+          <p className="text-muted-foreground text-[15px] mb-6">{error}</p>
           {onRefresh && (
-            <Button variant="outline" size="sm" onClick={onRefresh}>
-              <RefreshCw className="h-3.5 w-3.5 mr-2" />
+            <Button variant="outline" size="sm" onClick={onRefresh} className="h-10 px-5">
+              <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
             </Button>
           )}
         </div>
       ) : items.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {/* Intelligence Cards */}
-          <div className="space-y-3">
+          <div className="space-y-6">
             {items.map((item, idx) => (
               <article
                 key={idx}
                 className={cn(
-                  "group p-4 border border-border rounded-lg",
-                  "bg-card hover:bg-accent/30 transition-colors duration-200"
+                  "group p-6 md:p-8 border border-border rounded-2xl",
+                  "bg-card transition-colors duration-200"
                 )}
               >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="text-[15px] font-medium text-foreground leading-snug flex-1">
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <h3 className="text-base font-medium text-foreground leading-snug flex-1">
                     {item.title}
                   </h3>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Badge 
                       variant="outline" 
                       className={cn(
-                        "text-[10px] px-1.5 py-0 h-4 flex items-center gap-1",
+                        "text-[11px] px-2 py-0.5 h-5 flex items-center gap-1.5",
                         getConfidenceBadge(item.confidence)
                       )}
                     >
@@ -262,22 +261,22 @@ export function DomainInsights({
                   </div>
                 </div>
                 
-                <p className="text-sm text-foreground/70 leading-relaxed mb-3">
+                <p className="text-[15px] text-foreground/70 leading-relaxed mb-4">
                   {item.description}
                 </p>
                 
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
                     {getDataTypeIcon(item.dataType)}
                     {getDataTypeLabel(item.dataType)}
                   </span>
-                  <span className="text-muted-foreground/40">•</span>
+                  <span className="text-muted-foreground/40">·</span>
                   <span>{formatDate(item.date)}</span>
-                  <span className="text-muted-foreground/40">•</span>
+                  <span className="text-muted-foreground/40">·</span>
                   <span>{extractSourceName(item.source, item.sourceUrl)}</span>
                   {item.category && (
                     <>
-                      <span className="text-muted-foreground/40">•</span>
+                      <span className="text-muted-foreground/40">·</span>
                       <span className="capitalize">{item.category}</span>
                     </>
                   )}
@@ -291,33 +290,33 @@ export function DomainInsights({
             <Collapsible
               open={sourcesExpanded}
               onOpenChange={setSourcesExpanded}
-              className="mt-6 pt-4 border-t border-border"
+              className="mt-8 pt-6 border-t border-border"
             >
               <CollapsibleTrigger asChild>
-                <button className="w-full flex items-center justify-between text-left py-1.5 group">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="text-xs font-medium text-muted-foreground shrink-0">
-                      Sources:
+                <button className="w-full flex items-center justify-between text-left py-2 group">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <span className="text-[11px] uppercase tracking-widest font-medium text-muted-foreground shrink-0">
+                      Sources
                     </span>
-                    <span className="text-xs text-muted-foreground/80 truncate">
-                      {uniqueSources.map(s => s.name).join(', ')}
+                    <span className="text-[13px] text-muted-foreground/70 truncate">
+                      {uniqueSources.map(s => s.name).join(' · ')}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground ml-2 shrink-0">
+                  <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-muted-foreground ml-4 shrink-0">
                     <span className="group-hover:text-foreground transition-colors">
                       {sourcesExpanded ? 'Less' : 'More'}
                     </span>
                     {sourcesExpanded ? (
-                      <ChevronUp className="h-3.5 w-3.5" />
+                      <ChevronUp className="h-4 w-4" />
                     ) : (
-                      <ChevronDown className="h-3.5 w-3.5" />
+                      <ChevronDown className="h-4 w-4" />
                     )}
                   </div>
                 </button>
               </CollapsibleTrigger>
 
               <CollapsibleContent>
-                <div className="pt-2 pb-1 space-y-1.5">
+                <div className="pt-4 pb-2 space-y-2">
                   {uniqueSources.map((src, index) => (
                     <a
                       key={`${src.url}-${index}`}
@@ -325,21 +324,16 @@ export function DomainInsights({
                       target="_blank"
                       rel="noopener noreferrer"
                       className={cn(
-                        "block rounded py-1.5 px-2 -mx-2 transition-colors",
+                        "block rounded-lg py-2 px-3 -mx-3 transition-colors",
                         src.url ? "hover:bg-muted/40 cursor-pointer" : "cursor-default"
                       )}
                     >
-                      {/* Source Name (Title) */}
-                      <span className={cn(
-                        "text-sm font-medium text-foreground",
-                        src.url && "group-hover:underline"
-                      )}>
+                      <span className="text-[15px] font-medium text-foreground">
                         {src.name}
                       </span>
                       
-                      {/* Article Title (Subtitle) */}
                       {src.title && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                        <p className="text-[13px] text-muted-foreground mt-1 line-clamp-1">
                           {src.title}
                         </p>
                       )}
@@ -351,13 +345,13 @@ export function DomainInsights({
           )}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-muted-foreground text-sm">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-muted-foreground text-[15px]">
             No recent updates found for {sector}. Check back soon!
           </p>
           {onRefresh && (
-            <Button variant="outline" size="sm" onClick={onRefresh} className="mt-4">
-              <RefreshCw className="h-3.5 w-3.5 mr-2" />
+            <Button variant="outline" size="sm" onClick={onRefresh} className="mt-6 h-10 px-5">
+              <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
           )}

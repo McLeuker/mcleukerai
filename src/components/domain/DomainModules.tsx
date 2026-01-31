@@ -328,41 +328,44 @@ export function DomainModules({ sector, onModuleClick }: DomainModulesProps) {
   const modules = domainModules[sector] || domainModules.all;
 
   return (
-    <section className="w-full max-w-5xl mx-auto px-6 py-10 md:py-14">
-      <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-6">
+    <section className="w-full max-w-5xl mx-auto px-6 md:px-8 py-16 md:py-20">
+      <h2 className="font-editorial text-2xl md:text-3xl text-foreground mb-10">
         Intelligence Modules
       </h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {modules.map((module) => {
-          const Icon = module.icon;
-          return (
-            <button
-              key={module.id}
-              onClick={() => onModuleClick(module.prompt)}
-              className={cn(
-                "group text-left p-5 rounded-lg border border-border",
-                "bg-card hover:bg-accent/50 transition-all duration-200",
-                "hover:border-foreground/20"
-              )}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <Icon className="h-5 w-5 text-foreground/60 group-hover:text-foreground transition-colors" />
-                {module.outputHint && (
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                    {module.outputHint}
-                  </span>
+      {/* AI Interface Card Wrapper */}
+      <div className="border border-border rounded-2xl bg-card p-6 md:p-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {modules.map((module) => {
+            const Icon = module.icon;
+            return (
+              <button
+                key={module.id}
+                onClick={() => onModuleClick(module.prompt)}
+                className={cn(
+                  "group text-left p-5 rounded-xl border border-border",
+                  "bg-background transition-all duration-200",
+                  "hover:border-foreground"
                 )}
-              </div>
-              <h3 className="text-sm font-medium text-foreground mb-1">
-                {module.label}
-              </h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {module.description}
-              </p>
-            </button>
-          );
-        })}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <Icon className="h-5 w-5 text-foreground/50 group-hover:text-foreground transition-colors" />
+                  {module.outputHint && (
+                    <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                      {module.outputHint}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-base font-medium text-foreground mb-1.5">
+                  {module.label}
+                </h3>
+                <p className="text-[13px] text-muted-foreground leading-relaxed">
+                  {module.description}
+                </p>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
