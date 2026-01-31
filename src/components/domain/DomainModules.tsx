@@ -328,13 +328,14 @@ export function DomainModules({ sector, onModuleClick }: DomainModulesProps) {
   const modules = domainModules[sector] || domainModules.all;
 
   return (
-    <section className="w-full max-w-5xl mx-auto px-6 md:px-8 py-16 md:py-20">
-      <h2 className="font-editorial text-2xl md:text-3xl text-foreground mb-10">
+    <div className="bg-foreground">
+    <section className="w-full max-w-6xl mx-auto px-6 md:px-8 py-8 md:py-10">
+      <h2 className="font-editorial text-2xl md:text-3xl text-primary-foreground mb-10">
         Intelligence Modules
       </h2>
 
-      {/* AI Interface Card Wrapper */}
-      <div className="border border-border rounded-2xl bg-card p-6 md:p-8">
+      {/* AI Interface Card Wrapper - Black background */}
+      <div className="border border-border/20 rounded-2xl bg-foreground p-6 md:p-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {modules.map((module) => {
             const Icon = module.icon;
@@ -343,23 +344,23 @@ export function DomainModules({ sector, onModuleClick }: DomainModulesProps) {
                 key={module.id}
                 onClick={() => onModuleClick(module.prompt)}
                 className={cn(
-                  "group text-left p-5 rounded-xl border border-border",
-                  "bg-background transition-all duration-200",
-                  "hover:border-foreground"
+                  "group text-left p-5 rounded-xl border border-background/20",
+                  "bg-background/10 transition-all duration-200",
+                  "hover:bg-background/20 hover:border-background/40"
                 )}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <Icon className="h-5 w-5 text-foreground/50 group-hover:text-foreground transition-colors" />
+                  <Icon className="h-5 w-5 text-background/50 group-hover:text-background transition-colors" />
                   {module.outputHint && (
-                    <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                    <span className="text-[11px] uppercase tracking-widest text-background/60">
                       {module.outputHint}
                     </span>
                   )}
                 </div>
-                <h3 className="text-base font-medium text-foreground mb-1.5">
+                <h3 className="text-base font-medium text-background mb-1.5">
                   {module.label}
                 </h3>
-                <p className="text-[13px] text-muted-foreground leading-relaxed">
+                <p className="text-[13px] text-background/60 leading-relaxed">
                   {module.description}
                 </p>
               </button>
@@ -368,5 +369,6 @@ export function DomainModules({ sector, onModuleClick }: DomainModulesProps) {
         </div>
       </div>
     </section>
+    </div>
   );
 }

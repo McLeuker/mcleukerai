@@ -142,8 +142,11 @@ export function DomainInsights({
   };
 
 
+  // Limit to 6 items for 2 rows × 3 columns
+  const displayItems = items.slice(0, 6);
+
   return (
-    <section className="w-full max-w-5xl mx-auto px-6 md:px-8 py-16 md:py-20">
+    <section className="w-full max-w-6xl mx-auto px-6 md:px-8 py-12 md:py-14">
       <div className="flex items-center justify-between mb-10">
         <div className="flex flex-col gap-2">
           <h2 className="font-editorial text-2xl md:text-3xl text-foreground">
@@ -209,9 +212,9 @@ export function DomainInsights({
         </div>
       ) : items.length > 0 ? (
         <div className="space-y-6">
-          {/* Intelligence Cards */}
-          <div className="space-y-6">
-            {items.map((item, idx) => (
+          {/* Intelligence Cards - 3 columns grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayItems.map((item, idx) => (
               <article
                 key={idx}
                 className={cn(
