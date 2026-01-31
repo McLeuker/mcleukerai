@@ -244,9 +244,20 @@ export function DomainInsights({
                 )}
               >
                 <div className="flex items-start justify-between gap-4 mb-3">
-                  <h3 className="text-base font-medium text-foreground leading-snug flex-1">
-                    {item.title}
-                  </h3>
+                  {item.sourceUrl ? (
+                    <a
+                      href={item.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-base font-medium text-foreground leading-snug flex-1 hover:underline underline-offset-2 transition-colors"
+                    >
+                      {item.title}
+                    </a>
+                  ) : (
+                    <h3 className="text-base font-medium text-foreground leading-snug flex-1">
+                      {item.title}
+                    </h3>
+                  )}
                   <div className="flex items-center gap-2 shrink-0">
                     <Badge 
                       variant="outline" 
