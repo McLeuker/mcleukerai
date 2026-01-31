@@ -12,7 +12,7 @@ import { CreditDisplay } from "@/components/dashboard/CreditDisplay";
 import { TopNavigation } from "@/components/layout/TopNavigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { FileDown, FileSpreadsheet, FileText } from "lucide-react";
+import { FileDown, FileSpreadsheet, FileText, Plus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,29 +107,80 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background flex w-full">
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar - positioned below unified top bar */}
       <ChatSidebar
         conversations={conversations}
         currentConversation={currentConversation}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
         onSelectConversation={selectConversation}
-        onNewConversation={createNewConversation}
         onDeleteConversation={deleteConversation}
       />
 
       {/* Main Content */}
-      <div
-        className={cn(
-          "flex-1 flex flex-col min-h-screen transition-all duration-300",
-          sidebarOpen ? "lg:ml-72" : "lg:ml-14"
-        )}
-      >
+      <div className="flex-1 flex flex-col min-h-screen">
         {/* Top Navigation */}
-        <TopNavigation showSectorTabs={false} showCredits={true} />
+        <TopNavigation showSectorTabs={false} showCredits={false} />
 
-        {/* Header Spacer */}
+        {/* Header Spacer for TopNavigation */}
         <div className="h-14 lg:h-[72px]" />
+
+        {/* Desktop Unified Top Bar - forms horizontal part of inverted L */}
+        <div className="hidden lg:flex items-center gap-4 px-4 py-3 bg-background border-b border-border sticky top-[72px] z-30">
+          {/* New Chat Button - bubble style */}
+          <Button
+            onClick={createNewConversation}
+            className="h-10 px-6 rounded-full gap-2 bg-foreground text-background hover:bg-foreground/90"
+          >
+            <Plus className="h-4 w-4" />
+            New Chat
+          </Button>
+          
+          {/* Domain Pills */}
+          <DomainSelector variant="pills" className="flex-1" onDomainChange={handleDomainChange} />
+          
+          {/* Export Button */}
+          {messages.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 rounded-full">
+                  <FileDown className="h-4 w-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Export as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportExcel}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportWord}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export as Word
+                </DropdownMenuItem>
+                {hasFavorites && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleExportFavoritesPDF}>
+                      <FileDown className="h-4 w-4 mr-2" />
+                      Export Favorites (PDF)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportFavoritesExcel}>
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      Export Favorites (CSV)
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          
+          {/* Credits */}
+          <CreditDisplay variant="compact" />
+        </div>
 
         {/* Mobile Header */}
         <div className="lg:hidden border-b border-border bg-background/95 backdrop-blur-sm sticky top-14 z-30">
@@ -145,54 +196,6 @@ const Dashboard = () => {
               <DomainSelector variant="dropdown" onDomainChange={handleDomainChange} />
             </div>
             <CreditDisplay variant="compact" />
-          </div>
-        </div>
-
-        {/* Desktop Domain Bar */}
-        <div className="hidden lg:block border-b border-border bg-background/50 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-4 px-6 py-3">
-            <DomainSelector variant="pills" className="flex-1" onDomainChange={handleDomainChange} />
-            <div className="flex items-center gap-3">
-              {/* Export Button */}
-              {messages.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <FileDown className="h-4 w-4" />
-                      Export
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={handleExportPDF}>
-                      <FileDown className="h-4 w-4 mr-2" />
-                      Export as PDF
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleExportExcel}>
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Export as CSV
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleExportWord}>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Export as Word
-                    </DropdownMenuItem>
-                    {hasFavorites && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={handleExportFavoritesPDF}>
-                          <FileDown className="h-4 w-4 mr-2" />
-                          Export Favorites (PDF)
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleExportFavoritesExcel}>
-                          <FileSpreadsheet className="h-4 w-4 mr-2" />
-                          Export Favorites (CSV)
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              <CreditDisplay variant="compact" />
-            </div>
           </div>
         </div>
 

@@ -67,7 +67,7 @@ export function DomainSelector({
             key={sector.id}
             onClick={() => handleSectorChange(sector.id)}
             className={cn(
-              "px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200",
+              "px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200",
               "border hover:border-foreground/30",
               currentSector === sector.id
                 ? "bg-foreground text-background border-foreground"

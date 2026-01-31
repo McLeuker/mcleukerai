@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Plus,
   MessageSquare,
   Search,
   X,
@@ -38,7 +37,6 @@ interface ChatSidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   onSelectConversation: (conversation: Conversation) => void;
-  onNewConversation: () => void;
   onDeleteConversation: (conversationId: string) => void;
 }
 
@@ -48,7 +46,6 @@ export function ChatSidebar({
   isOpen,
   onToggle,
   onSelectConversation,
-  onNewConversation,
   onDeleteConversation,
 }: ChatSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -72,11 +69,11 @@ export function ChatSidebar({
     setConversationToDelete(null);
   };
 
-  // Collapsed state
+  // Collapsed state - positioned below unified top bar
   if (!isOpen) {
     return (
-      <aside className="hidden lg:flex w-14 border-r border-border bg-sidebar flex-col h-screen fixed left-0 top-0 z-40">
-        <div className="p-2 border-b border-sidebar-border">
+      <aside className="hidden lg:flex w-14 border-r border-border bg-sidebar flex-col fixed left-0 top-[128px] bottom-0 z-40">
+        <div className="p-2">
           <Button
             variant="ghost"
             size="icon"
@@ -86,54 +83,27 @@ export function ChatSidebar({
             <PanelLeft className="h-4 w-4" />
           </Button>
         </div>
-        <div className="flex-1 flex flex-col items-center py-4 gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-10 h-10"
-            onClick={onNewConversation}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
       </aside>
     );
   }
 
   return (
     <>
-      <aside className="hidden lg:flex w-72 border-r border-border bg-sidebar flex-col h-screen fixed left-0 top-0 z-40">
-        {/* Header */}
-        <div className="p-4 border-b border-sidebar-border">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 bg-foreground rounded-lg flex items-center justify-center shadow-sm">
-                <span className="text-background font-semibold text-xs">M</span>
-              </div>
-              <span className="font-medium text-sm text-sidebar-foreground">
-                McLeuker AI
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={onToggle}
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </Button>
-          </div>
+      <aside className="hidden lg:flex w-72 border-r border-border bg-sidebar flex-col fixed left-0 top-[128px] bottom-0 z-40">
+        {/* Header with collapse toggle */}
+        <div className="p-4 flex items-center justify-between border-b border-sidebar-border">
+          <span className="font-medium text-sm text-sidebar-foreground">Chat History</span>
           <Button
-            onClick={onNewConversation}
-            variant="default"
-            className="w-full gap-2 justify-center h-10"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={onToggle}
           >
-            <Plus className="h-4 w-4" />
-            New Chat
+            <PanelLeftClose className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* Search */}
+        {/* Search - bubble style */}
         <div className="px-4 py-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -141,7 +111,7 @@ export function ChatSidebar({
               placeholder="Search chats..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-9 h-9 text-sm bg-sidebar-accent border-sidebar-border placeholder:text-muted-foreground/60"
+              className="pl-9 pr-9 h-10 text-sm bg-muted border-0 rounded-full placeholder:text-muted-foreground/60"
             />
             {searchQuery && (
               <button
@@ -154,10 +124,10 @@ export function ChatSidebar({
           </div>
         </div>
 
-        {/* Chat History Label */}
+        {/* Chat count */}
         <div className="px-4 pb-2">
           <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-            Chat History ({filteredConversations.length})
+            {filteredConversations.length} {filteredConversations.length === 1 ? 'chat' : 'chats'}
           </p>
         </div>
 
