@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Sector } from "@/contexts/SectorContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, AlertCircle, Signal, TrendingUp, Clock } from "lucide-react";
+import { RefreshCw, AlertCircle, Signal, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { IntelligenceItem } from "@/hooks/useDomainIntelligence";
@@ -91,28 +91,6 @@ function getConfidenceBadge(confidence: 'high' | 'medium' | 'low') {
   return styles[confidence] || styles.medium;
 }
 
-// Data type indicator
-function getDataTypeIcon(dataType: 'realtime' | 'curated' | 'predictive') {
-  switch (dataType) {
-    case 'realtime':
-      return <Signal className="h-3 w-3" />;
-    case 'predictive':
-      return <TrendingUp className="h-3 w-3" />;
-    default:
-      return <Clock className="h-3 w-3" />;
-  }
-}
-
-function getDataTypeLabel(dataType: 'realtime' | 'curated' | 'predictive') {
-  switch (dataType) {
-    case 'realtime':
-      return 'Real-time';
-    case 'predictive':
-      return 'Predictive';
-    default:
-      return 'Curated';
-  }
-}
 
 export function DomainInsights({ 
   sector, 
@@ -222,54 +200,48 @@ export function DomainInsights({
                   "bg-card transition-colors duration-200"
                 )}
               >
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  {item.sourceUrl ? (
-                    <a
-                      href={item.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-base font-medium text-foreground leading-snug flex-1 hover:underline underline-offset-2 transition-colors"
-                    >
-                      {item.title}
-                    </a>
-                  ) : (
-                    <h3 className="text-base font-medium text-foreground leading-snug flex-1">
-                      {item.title}
-                    </h3>
-                  )}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge 
-                      variant="outline" 
-                      className={cn(
-                        "text-[11px] px-2 py-0.5 h-5 flex items-center gap-1.5",
-                        getConfidenceBadge(item.confidence)
-                      )}
-                    >
-                      {getDataTypeIcon(item.dataType)}
-                      {item.confidence.charAt(0).toUpperCase() + item.confidence.slice(1)}
-                    </Badge>
-                  </div>
+                {/* Line 1: Confidence only */}
+                <div className="mb-3">
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "text-[11px] px-2 py-0.5 h-5",
+                      getConfidenceBadge(item.confidence)
+                    )}
+                  >
+                    {item.confidence.charAt(0).toUpperCase() + item.confidence.slice(1)}
+                  </Badge>
                 </div>
                 
+                {/* Line 2: Title (full width) */}
+                {item.sourceUrl ? (
+                  <a
+                    href={item.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-base font-medium text-foreground leading-snug mb-3 hover:underline underline-offset-2 transition-colors"
+                  >
+                    {item.title}
+                  </a>
+                ) : (
+                  <h3 className="text-base font-medium text-foreground leading-snug mb-3">
+                    {item.title}
+                  </h3>
+                )}
+                
+                {/* Line 3: Description */}
                 <p className="text-[15px] text-foreground/70 leading-relaxed mb-4">
                   {item.description}
                 </p>
                 
-                <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    {getDataTypeIcon(item.dataType)}
-                    {getDataTypeLabel(item.dataType)}
-                  </span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span>{formatDate(item.date)}</span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span>{extractSourceName(item.source, item.sourceUrl)}</span>
-                  {item.category && (
-                    <>
-                      <span className="text-muted-foreground/40">·</span>
-                      <span className="capitalize">{item.category}</span>
-                    </>
-                  )}
+                {/* Line 4: Clock emoji + date */}
+                <div className="text-[13px] text-muted-foreground mb-1">
+                  🕐 {formatDate(item.date)}
+                </div>
+                
+                {/* Line 5: Source name only */}
+                <div className="text-[13px] text-muted-foreground">
+                  {extractSourceName(item.source, item.sourceUrl)}
                 </div>
               </article>
             ))}
