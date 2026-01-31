@@ -106,7 +106,7 @@ const Dashboard = () => {
   const hasFavorites = messages.some((m) => m.is_favorite);
 
   return (
-    <div className="min-h-screen bg-background flex w-full">
+    <div className="min-h-screen bg-black flex w-full">
       {/* Desktop Sidebar */}
       <ChatSidebar
         conversations={conversations}
@@ -132,7 +132,7 @@ const Dashboard = () => {
         <div className="h-14 lg:h-[72px]" />
 
         {/* Mobile Header */}
-        <div className="lg:hidden border-b border-border bg-background/95 backdrop-blur-sm sticky top-14 z-30">
+        <div className="lg:hidden border-b border-border/30 bg-black sticky top-14 z-30">
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <MobileChatSidebar
               conversations={conversations}
@@ -149,7 +149,7 @@ const Dashboard = () => {
         </div>
 
         {/* Desktop Domain Bar */}
-        <div className="hidden lg:block border-b border-border bg-background/50 backdrop-blur-sm">
+        <div className="hidden lg:block border-b border-border/30 bg-black">
           <div className="flex items-center justify-between gap-4 px-6 py-3">
             <DomainSelector variant="pills" className="flex-1" onDomainChange={handleDomainChange} />
             <div className="flex items-center gap-3">
@@ -218,7 +218,7 @@ const Dashboard = () => {
 
           {/* Input Area - hide when All Domains */}
           {currentSector !== "all" && (
-            <div className="border-t border-border bg-background/95 backdrop-blur-sm p-4 sticky bottom-0">
+            <div className="border-t border-border/30 bg-black p-4 sticky bottom-0">
               <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 animate-fade-in">
                 <ChatInput
                   onSubmit={handleSendMessage}
