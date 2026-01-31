@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Brain } from "lucide-react";
+import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
@@ -24,29 +24,45 @@ export function ReasoningDisplay({ reasoning, defaultOpen = false }: ReasoningDi
     <Collapsible
       open={isOpen}
       onOpenChange={setIsOpen}
-      className="mb-4 rounded-lg border border-border bg-muted/30"
+      className="mb-4 rounded-xl border border-border/50 bg-muted/20 overflow-hidden"
     >
-      <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors rounded-t-lg">
+      <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted/40 transition-colors">
         <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-foreground">AI Reasoning</span>
-          <span className="text-xs text-muted-foreground">
-            {lines.length} step{lines.length !== 1 ? 's' : ''}
+          <div className="relative">
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
+            {!isOpen && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-foreground/60 rounded-full animate-pulse" />
+            )}
+          </div>
+          <span className="text-sm font-medium text-foreground">
+            {isOpen ? "Thought process" : "Thinking..."}
           </span>
+          {!isOpen && (
+            <span className="text-xs text-muted-foreground">
+              Click to expand
+            </span>
+          )}
         </div>
-        {isOpen ? (
-          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        )}
+        <div className="flex items-center gap-2">
+          {isOpen && (
+            <span className="text-xs text-muted-foreground">
+              {lines.length} step{lines.length !== 1 ? 's' : ''}
+            </span>
+          )}
+          {isOpen ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="px-4 pb-4 pt-1 space-y-2">
+        <div className="px-4 pb-4 pt-1 space-y-2 border-t border-border/30 bg-muted/10">
           {lines.map((line, index) => (
             <div
               key={index}
               className={cn(
-                "text-sm text-muted-foreground pl-3 border-l-2 border-border",
+                "text-sm text-muted-foreground pl-3 border-l-2 border-muted-foreground/30",
                 line.startsWith('-') || line.startsWith('•') 
                   ? "ml-2" 
                   : ""
