@@ -18,6 +18,7 @@ interface ChatViewProps {
   onDeleteMessage: (messageId: string) => void;
   onNewChat: () => void;
   onSelectPrompt?: (prompt: string) => void;
+  onFollowUpClick?: (question: string) => void;
   domainSnapshot?: string | null;
   domainSnapshotLoading?: boolean;
 }
@@ -31,6 +32,7 @@ export function ChatView({
   onDeleteMessage,
   onNewChat,
   onSelectPrompt,
+  onFollowUpClick,
   domainSnapshot,
   domainSnapshotLoading,
 }: ChatViewProps) {
@@ -113,6 +115,7 @@ export function ChatView({
                 onDelete={onDeleteMessage}
                 isStreaming={isLastAssistant}
                 streamingContent={isLastAssistant ? streamingContent : undefined}
+                onFollowUpClick={onFollowUpClick || onSelectPrompt}
               />
             );
           })}
