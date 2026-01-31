@@ -91,7 +91,7 @@ export function ChatSidebar({
     <>
       <aside className="hidden lg:flex w-72 border-r border-border bg-sidebar flex-col fixed left-0 top-[128px] bottom-0 z-40">
         {/* Header with collapse toggle */}
-        <div className="p-4 flex items-center justify-between border-b border-sidebar-border">
+        <div className="px-4 pt-6 pb-4 flex items-center justify-between border-b border-sidebar-border">
           <span className="font-medium text-sm text-sidebar-foreground">Chat History</span>
           <Button
             variant="ghost"
