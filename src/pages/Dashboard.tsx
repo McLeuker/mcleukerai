@@ -197,7 +197,11 @@ const Dashboard = () => {
         </div>
 
         {/* Chat Area */}
-        <main className="flex-1 flex flex-col min-h-0">
+        <main className="flex-1 flex flex-col min-h-0 relative">
+          {/* Grainy transition overlay for All Domains view */}
+          {currentSector === "all" && (
+            <div className="gradient-grain-transition absolute inset-0 pointer-events-none" />
+          )}
           <ChatView
             messages={messages}
             streamingContent={streamingContent}

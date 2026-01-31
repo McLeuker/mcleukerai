@@ -49,7 +49,7 @@ export function DomainStarterPanel({
   // All Domains - Hero style centered interface
   if (currentSector === "all") {
     return (
-      <div className={cn("flex flex-col min-h-[calc(100vh-200px)] bg-foreground", className)}>
+      <div className={cn("flex flex-col min-h-screen bg-black", className)}>
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
           {/* Title */}
           <h1 className="text-4xl md:text-5xl font-serif text-white mb-3 text-center">
@@ -63,12 +63,10 @@ export function DomainStarterPanel({
 
           {/* Mode Toggles and Model Selector */}
           <div className="flex items-center gap-4 mb-6">
-            <div className="[&_button]:bg-white/10 [&_button]:text-white [&_button]:border-white/20 [&_.bg-background]:bg-white/20 [&_.text-foreground]:text-white [&_.text-muted-foreground]:text-white/60">
-              <ResearchModeToggle
-                mode={researchMode}
-                onModeChange={setResearchMode}
-              />
-            </div>
+            <ResearchModeToggle
+              mode={researchMode}
+              onModeChange={setResearchMode}
+            />
             <div className="h-6 w-px bg-white/20" />
             <div className="[&_button]:text-white [&_button]:hover:text-white [&_button]:hover:bg-white/10">
               <ModelSelector

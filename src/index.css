@@ -375,4 +375,42 @@
   .bg-grey-100 {
     background-color: hsl(var(--grey-100));
   }
+
+  /* Grainy ombre transition effect */
+  .gradient-grain-transition {
+    position: relative;
+  }
+
+  .gradient-grain-transition::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 100px;
+    background: linear-gradient(
+      to right,
+      hsl(0 0% 100% / 1) 0%,
+      hsl(0 0% 85% / 0.9) 20%,
+      hsl(0 0% 60% / 0.7) 40%,
+      hsl(0 0% 30% / 0.4) 70%,
+      hsl(0 0% 0% / 0) 100%
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .gradient-grain-transition::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 100px;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.15;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    z-index: 11;
+  }
 }
