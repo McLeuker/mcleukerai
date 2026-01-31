@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { ChatMessage as ChatMessageType } from "@/hooks/useConversations";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Star, Trash2, User, Bot, Cpu, Coins, Copy, Check, ExternalLink } from "lucide-react";
+import { Star, Trash2, User, Bot, Cpu, Coins, Copy, Check, ExternalLink, Sparkles } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "react-markdown";
@@ -159,6 +159,8 @@ export function ChatMessageComponent({
                     const childText = String(children);
                     const hasTrendUp = childText.includes("↑");
                     const hasTrendDown = childText.includes("↓");
+                    // Check for citation patterns [1], [2], etc.
+                    const hasCitations = /\[\d+\]/.test(childText);
                     
                     if (hasTrendUp || hasTrendDown) {
                       return (
@@ -169,6 +171,29 @@ export function ChatMessageComponent({
                             }
                             if (part === "↓") {
                               return <TrendIndicator key={i} direction="down" showIcon={false} />;
+                            }
+                            return <span key={i}>{part}</span>;
+                          })}
+                        </p>
+                      );
+                    }
+
+                    // Handle inline citations [1], [2], etc. as superscripts
+                    if (hasCitations) {
+                      return (
+                        <p className="text-foreground leading-relaxed mb-4 text-[15px]">
+                          {childText.split(/(\[\d+\])/).map((part, i) => {
+                            if (/^\[\d+\]$/.test(part)) {
+                              const num = part.slice(1, -1);
+                              return (
+                                <sup
+                                  key={i}
+                                  className="text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer ml-0.5"
+                                  title={`Citation ${num}`}
+                                >
+                                  {part}
+                                </sup>
+                              );
                             }
                             return <span key={i}>{part}</span>;
                           })}
@@ -337,10 +362,11 @@ export function ChatMessageComponent({
                 <FileDownloadList files={generatedFiles} />
               )}
               
-              {/* Follow-up Questions */}
+              {/* Follow-up Questions - Smart Suggestion Chips */}
               {message.followUpQuestions && message.followUpQuestions.length > 0 && !isStreaming && onFollowUpClick && (
                 <div className="mt-6 pt-4 border-t border-border">
-                  <p className="text-xs font-medium text-muted-foreground mb-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                    <Sparkles className="h-3 w-3" />
                     Continue exploring
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -348,9 +374,12 @@ export function ChatMessageComponent({
                       <button
                         key={index}
                         onClick={() => onFollowUpClick(question)}
-                        className="text-left text-sm px-3 py-2 rounded-full border border-border bg-background hover:bg-muted/50 hover:border-foreground/20 transition-all duration-200 text-foreground/80 hover:text-foreground"
+                        className="group/chip text-left text-sm px-4 py-2 rounded-full border border-border bg-background hover:bg-foreground hover:text-background hover:border-foreground transition-all duration-200 text-foreground/80"
                       >
-                        {question}
+                        <span className="flex items-center gap-2">
+                          {question}
+                          <span className="opacity-0 group-hover/chip:opacity-100 transition-opacity">→</span>
+                        </span>
                       </button>
                     ))}
                   </div>
