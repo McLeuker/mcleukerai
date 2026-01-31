@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import { Sparkles, ArrowRight, Loader2 } from "lucide-react";
 import { DomainHeader } from "./DomainHeader";
 import ReactMarkdown from "react-markdown";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 interface DomainStarterPanelProps {
   onSelectPrompt: (prompt: string) => void;
@@ -20,11 +22,88 @@ export function DomainStarterPanel({
   const { currentSector, getSectorConfig, getStarters } = useSector();
   const config = getSectorConfig();
   const starters = getStarters();
+  const [searchValue, setSearchValue] = useState("");
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchValue.trim()) {
+      onSelectPrompt(searchValue.trim());
+      setSearchValue("");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (searchValue.trim()) {
+        onSelectPrompt(searchValue.trim());
+        setSearchValue("");
+      }
+    }
+  };
+
+  // All Domains - Hero style centered interface
+  if (currentSector === "all") {
+    return (
+      <div className={cn("flex flex-col min-h-[calc(100vh-200px)] bg-foreground", className)}>
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+          {/* Title */}
+          <h1 className="text-4xl md:text-5xl font-serif text-white mb-3 text-center">
+            Where is my mind?
+          </h1>
+          
+          {/* Subtitle */}
+          <p className="text-white/60 text-sm mb-8 text-center">
+            Powered by McLeuker AI • All Domains Intelligence Mode
+          </p>
+
+          {/* Search Bubble */}
+          <form onSubmit={handleSubmit} className="w-full max-w-2xl mb-8">
+            <div className="relative">
+              <Input
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask anything across all domains..."
+                className={cn(
+                  "w-full h-14 px-6 rounded-full",
+                  "bg-white/10 border-white/20",
+                  "text-white placeholder:text-white/40",
+                  "focus:bg-white/15 focus:border-white/30",
+                  "transition-all duration-200"
+                )}
+              />
+            </div>
+          </form>
+
+          {/* Trending Topics */}
+          <div className="flex flex-wrap justify-center gap-3 max-w-2xl">
+            {starters.map((topic, index) => (
+              <button
+                key={index}
+                onClick={() => onSelectPrompt(topic)}
+                className={cn(
+                  "px-4 py-2 rounded-full",
+                  "border border-white/30",
+                  "text-white/80 text-sm",
+                  "hover:bg-white/10 hover:border-white/50",
+                  "transition-all duration-200"
+                )}
+              >
+                {topic}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Standard domain view
   return (
     <div className={cn("flex flex-col animate-fade-in", className)}>
       {/* Domain Header with Visual */}
-      <DomainHeader showImage={currentSector !== "all"} />
+      <DomainHeader showImage={true} />
 
       {/* Content Area */}
       <div className="px-6 py-6 max-w-3xl mx-auto w-full">

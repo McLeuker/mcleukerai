@@ -179,11 +179,11 @@ export function ChatSidebar({
                 <div
                   key={conv.id}
                   className={cn(
-                    "group relative w-full text-left px-3 py-3 rounded-lg transition-all duration-200",
-                    "border border-transparent",
-                    "hover:bg-sidebar-accent hover:border-sidebar-border",
+                    "group relative w-full text-left px-4 py-3 rounded-full transition-all duration-200",
+                    "bg-foreground text-background",
+                    "hover:bg-foreground/90",
                     currentConversation?.id === conv.id &&
-                      "bg-sidebar-accent border-sidebar-border"
+                      "ring-2 ring-primary ring-offset-2 ring-offset-sidebar"
                   )}
                 >
                   <button
@@ -191,12 +191,12 @@ export function ChatSidebar({
                     className="w-full text-left"
                   >
                     <div className="flex items-start gap-2.5">
-                      <MessageSquare className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <MessageSquare className="h-4 w-4 text-background/70 mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0 pr-6">
-                        <p className="text-xs font-medium text-sidebar-foreground line-clamp-2 leading-relaxed">
+                        <p className="text-xs font-medium text-background line-clamp-2 leading-relaxed">
                           {conv.title}
                         </p>
-                        <p className="text-[10px] text-muted-foreground mt-1.5">
+                        <p className="text-[10px] text-background/60 mt-1.5">
                           {formatDistanceToNow(new Date(conv.updated_at), {
                             addSuffix: true,
                           })}
@@ -211,7 +211,7 @@ export function ChatSidebar({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-background hover:text-background hover:bg-white/10"
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>

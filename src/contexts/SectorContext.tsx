@@ -96,9 +96,10 @@ export const SECTORS: SectorConfig[] = [
 // Starter questions for each domain
 export const DOMAIN_STARTERS: Record<Sector, string[]> = {
   all: [
-    "What are the top fashion signals this week?",
-    "Key trends emerging across luxury sectors",
-    "Recent sustainability shifts in global fashion",
+    "Top sustainability shifts in luxury fashion",
+    "AI-driven beauty personalization trends",
+    "Emerging materials disrupting textiles",
+    "Consumer wellness influencing style",
   ],
   fashion: [
     "Key silhouette shifts from recent Fashion Weeks",
