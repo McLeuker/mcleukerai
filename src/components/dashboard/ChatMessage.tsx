@@ -10,6 +10,7 @@ import DOMPurify from "dompurify";
 import { TrendIndicator, parseTrendFromText } from "./TrendIndicator";
 import { ExportActions } from "./ExportActions";
 import { FileDownloadCard, FileDownloadList, GeneratedFile } from "./FileDownloadCard";
+import { ReasoningDisplay } from "./ReasoningDisplay";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -128,6 +129,11 @@ export function ChatMessageComponent({
             </p>
           ) : (
             <div className="prose prose-sm max-w-none">
+              {/* V2.0.0 Collapsible Reasoning Display */}
+              {message.reasoning && (
+                <ReasoningDisplay reasoning={message.reasoning} />
+              )}
+              
               <ReactMarkdown
                 components={{
                   h1: ({ children }) => (

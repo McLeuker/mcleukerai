@@ -22,7 +22,9 @@ export interface ChatMessage {
   // Research agent fields
   sources?: Source[];
   isResearched?: boolean;
-  // Deep mode reasoning steps
+  // V2.0.0 reasoning (string)
+  reasoning?: string;
+  // Legacy deep mode reasoning steps
   reasoningSteps?: ReasoningStep[];
   // Generated files
   generatedFiles?: Array<{
@@ -33,6 +35,8 @@ export interface ChatMessage {
     path?: string;
     created_at?: string;
   }>;
+  // V2.0.0 follow-up questions
+  followUpQuestions?: string[];
 }
 
 export interface Conversation {
@@ -282,73 +286,62 @@ export function useConversations() {
       );
     }
 
-    // Call Railway backend API based on mode
+    // Call Railway backend API V2.0.0 - Unified endpoint with mode parameter
     try {
       let content = "";
       let sources: Source[] = [];
       let isResearched = mode === "deep";
       let generatedFiles: ChatMessage["generatedFiles"] = undefined;
+      let reasoning: string | undefined = undefined;
       let reasoningSteps: ReasoningStep[] | undefined = undefined;
+      let followUpQuestions: string[] | undefined = undefined;
       let creditsUsed = mode === "deep" ? 25 : 1;
 
+      // Update research state for deep mode
       if (mode === "deep") {
-        // Use Railway deep chat endpoint for deep mode (25 credits)
         setResearchState(prev => ({
           ...prev,
           phase: "searching",
           message: "Deep reasoning in progress...",
         }));
+      }
 
-        const deepResult = await mcLeukerAPI.chatDeep(prompt, conversation.id);
-        
-        content = deepResult.message;
-        creditsUsed = deepResult.credits_used || 25;
-        reasoningSteps = deepResult.reasoning_steps;
-        
-        // Map sources if available
-        if (deepResult.sources) {
-          sources = deepResult.sources.map((src) => ({
-            title: src.title,
-            url: src.url,
-            snippet: src.snippet,
-            type: "search" as const,
-          }));
-        }
+      // Use unified V2 chat endpoint with mode parameter
+      const chatResult = await mcLeukerAPI.chatV2(prompt, conversation.id, mode);
+      
+      content = chatResult.message;
+      creditsUsed = chatResult.credits_used || (mode === "deep" ? 25 : 1);
+      reasoning = chatResult.reasoning;
+      followUpQuestions = chatResult.follow_up_questions;
+      
+      // Map sources from V2.0.0 format
+      if (chatResult.sources && chatResult.sources.length > 0) {
+        sources = chatResult.sources.map((src) => ({
+          title: src.title,
+          url: src.url,
+          snippet: "",
+          type: "search" as const,
+        }));
+      }
 
-        // Map generated files with download URLs
-        if (deepResult.files && deepResult.files.length > 0) {
-          generatedFiles = deepResult.files.map((file) => ({
-            name: file.filename,
-            type: mapFileFormat(file.format),
-            url: mcLeukerAPI.getFileDownloadUrl(file.filename),
-            size: file.size_bytes || 0,
-            path: file.filepath,
-            created_at: new Date().toISOString(),
-          }));
-        }
+      // Map generated files with download URLs
+      if (chatResult.files && chatResult.files.length > 0) {
+        generatedFiles = chatResult.files.map((file) => ({
+          name: file.filename,
+          type: mapFileFormat(file.type || "pdf"),
+          url: mcLeukerAPI.getFileDownloadUrl(file.filename),
+          size: parseInt(file.size || "0") || 0,
+          path: file.filepath,
+          created_at: new Date().toISOString(),
+        }));
+      }
 
+      if (mode === "deep") {
         setResearchState(prev => ({
           ...prev,
           phase: "completed",
           message: "Deep analysis complete",
         }));
-      } else {
-        // Use Railway chat endpoint for quick mode (1 credit)
-        const chatResult = await mcLeukerAPI.chat(prompt, conversation.id);
-        content = chatResult.message;
-        creditsUsed = chatResult.credits_used || 1;
-
-        // Map any generated files with download URLs
-        if (chatResult.files && chatResult.files.length > 0) {
-          generatedFiles = chatResult.files.map((file) => ({
-            name: file.filename,
-            type: mapFileFormat(file.format),
-            url: mcLeukerAPI.getFileDownloadUrl(file.filename),
-            size: file.size_bytes || 0,
-            path: file.filepath,
-            created_at: new Date().toISOString(),
-          }));
-        }
       }
 
       // Update streaming content for display
@@ -382,8 +375,10 @@ export function useConversations() {
             created_at: assistantMsg.created_at,
             sources: sources.length > 0 ? sources : undefined,
             isResearched,
+            reasoning,
             reasoningSteps,
             generatedFiles,
+            followUpQuestions,
           };
           setMessages((prev) => [...prev, newAssistantMessage]);
         }
