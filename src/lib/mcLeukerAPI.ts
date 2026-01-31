@@ -1,8 +1,7 @@
-// McLeuker Railway Backend API Client v2 - Proxy Edition
-
 import type {
   TaskResult,
   ChatResponse,
+  ChatResponseV2,
   DeepChatResponse,
   AISearchResponse,
   QuickAnswerResponse,
@@ -19,6 +18,9 @@ import type {
 
 // Use the Supabase proxy function to avoid CORS issues
 const PROXY_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proxy-railway`;
+
+// V2.0.0 Chat Mode
+export type ChatMode = 'quick' | 'deep';
 
 class McLeukerAPI {
   private baseUrl: string;
@@ -138,7 +140,45 @@ class McLeukerAPI {
   }
 
   /**
-   * Chat interaction (Quick mode - 1 credit)
+   * Chat interaction V2.0.0 - Unified endpoint with mode parameter
+   */
+  async chatV2(message: string, conversationId?: string, mode: ChatMode = 'quick'): Promise<ChatResponseV2> {
+    const response = await fetch(`${this.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        message, 
+        conversation_id: conversationId,
+        mode 
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Chat request failed: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    // Normalize response for V2.0.0 format
+    const normalizedResult: ChatResponseV2 = {
+      message: result.message || result.response || "",
+      conversation_id: result.conversation_id,
+      reasoning: result.reasoning,
+      sources: result.sources,
+      files: result.files?.map((file: { filename: string; filepath?: string; type?: string; size?: string }) => ({
+        ...file,
+        download_url: this.getFileDownloadUrl(file.filename),
+      })),
+      follow_up_questions: result.follow_up_questions,
+      credits_used: result.credits_used,
+    };
+
+    return normalizedResult;
+  }
+
+  /**
+   * Chat interaction (Quick mode - 1 credit) - Legacy method
    */
   async chat(message: string, conversationId?: string): Promise<ChatResponse> {
     const response = await fetch(`${this.baseUrl}/api/chat`, {

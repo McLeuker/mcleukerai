@@ -94,12 +94,25 @@ export interface ReasoningStep {
   duration_ms?: number;
 }
 
+// V2.0.0 unified chat response
+export interface ChatResponseV2 {
+  message: string;
+  conversation_id?: string;
+  reasoning?: string; // AI's thought process (optional, mainly for deep mode)
+  sources?: Array<{ title: string; url: string }>;
+  files?: Array<{ filename: string; filepath?: string; type: string; size?: string }>;
+  follow_up_questions?: string[];
+  credits_used?: number;
+}
+
+// Legacy DeepChatResponse for backward compatibility
 export interface DeepChatResponse {
   message: string;
   conversation_id?: string;
   files?: GeneratedFile[];
   credits_used?: number;
   reasoning_steps?: ReasoningStep[];
+  reasoning?: string; // V2.0.0 format
   sources?: SearchResult[];
   confidence?: number;
 }
