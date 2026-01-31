@@ -1,100 +1,67 @@
 
 
-## Domain Landing Page Redesign
+## Domain Hero Layout Fixes
 
-This plan restructures the `/domain/:domain` page with a sleek two-tone layout: black hero with integrated AI search bar at top, white content sections below.
-
----
-
-## Current vs. New Layout
-
-**Current Order:**
-1. Hero (black gradient with grain texture)
-2. Insights (white)
-3. Modules (white)
-4. Fixed Ask Bar at bottom
-
-**New Order:**
-1. Hero with integrated AI Search Bar (solid black, sleek - no grain)
-2. Insights (white)
-3. Modules (white)
-4. Remove fixed bottom bar (search is now at top)
+Adjusting the hero section based on your feedback: center alignment, straight line separation, and cleaner black/white division.
 
 ---
 
-## Visual Design Changes
+## Changes
 
-### Hero Section (Black)
-- Remove grainy texture overlay completely
-- Solid black background (`bg-black`) - clean and sleek
-- Integrate AI search bar directly into hero
-- Search bar: white/light styling to contrast against black
-- Suggestion chips below search input
-- Keep serif title and tagline
+### 1. Center All Content in Hero
 
-### Content Sections (White)
-- Pure white background
-- Keep current card styling for Insights and Modules
-- Clean separation between black top and white bottom
+**File:** `src/components/domain/DomainHero.tsx`
 
----
+Currently left-aligned, will center:
+- Title (h1) → add `text-center`
+- Tagline (p) → add `text-center mx-auto`
+- Search bar container → add `mx-auto` (already has `max-w-2xl`)
+- Suggestion chips → add `justify-center`
 
-## File Changes
+### 2. Remove Gradient Fade
 
-### 1. `src/pages/DomainLanding.tsx`
-- Remove the `<DomainAskBar>` component from the bottom
-- Pass `starters` and `onSubmit` props to `DomainHero` instead
-- Remove fixed bottom bar entirely
+**File:** `src/components/domain/DomainHero.tsx`
 
-### 2. `src/components/domain/DomainHero.tsx`
-- **Remove grain overlay** (delete the SVG texture div)
-- Change background from gradient to solid black (`bg-black`)
-- **Add integrated search bar** with:
-  - White/light input field
-  - Suggestion chips (light styling on dark background)
-  - Submit button
-- Accept new props: `starters`, `onSubmit`, `placeholder`
-- Increase hero height to accommodate search section
+Delete the bottom fade div:
+```jsx
+{/* Remove this entirely */}
+<div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
+```
 
-### 3. `src/components/domain/DomainAskBar.tsx`
-- No changes needed (will no longer be used on domain pages)
-- Kept for potential reuse elsewhere
+This creates a clean straight line between black hero and white content.
+
+### 3. Ensure White Background Below
+
+The `DomainInsights` and `DomainModules` sections already have white backgrounds via `bg-background` and `bg-card`. The straight line will be the natural edge of the black hero section.
 
 ---
 
-## New Hero Layout
+## Visual Result
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
-│                                                         │
 │                    SOLID BLACK                          │
 │                                                         │
-│   Fashion                                               │
-│   (serif, 7xl-8xl, white)                               │
+│                    Sustainability                       │
+│                      (centered)                         │
 │                                                         │
-│   Runway signals, silhouettes & street style            │
-│   (sans, muted white)                                   │
+│      Circularity, materials & supply chain...           │
+│                      (centered)                         │
 │                                                         │
-│   ─────────────────────────────────────────────         │
+│         ┌─────────────────────────────────┐             │
+│         │ Ask about sustainability...   ↑ │             │
+│         └─────────────────────────────────┘             │
 │                                                         │
-│   ┌─────────────────────────────────────────────────┐   │
-│   │ Ask about fashion trends...                   ↑ │   │
-│   └─────────────────────────────────────────────────┘   │
+│      [Chip 1] [Chip 2] [Chip 3] [Chip 4]                │
+│                   (centered)                            │
 │                                                         │
-│   [Runway Analysis] [Brand Positioning] [Street Style]  │
-│   (light chips on dark background)                      │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│                                                         │
-│                    WHITE BACKGROUND                     │
+├─────────────────────────────────────────────────────────┤  ← Straight line
+│                    WHITE                                │
 │                                                         │
 │   What's Happening Now                                  │
-│   ─────────────────────────────────────────────         │
 │   [ Intelligence Cards ]                                │
 │                                                         │
 │   Intelligence Modules                                  │
-│   ─────────────────────────────────────────────         │
 │   [ Module Grid ]                                       │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
@@ -102,27 +69,13 @@ This plan restructures the `/domain/:domain` page with a sleek two-tone layout: 
 
 ---
 
-## Styling Details
+## Code Changes Summary
 
-### Search Bar in Hero (on black)
-- Input: `bg-white/10 border-white/20 text-white placeholder:text-white/50`
-- On focus: `border-white/40`
-- Submit button: `bg-white text-black`
-- Chips: `border-white/30 text-white/80 hover:bg-white hover:text-black`
-
-### Remove Grain
-- Delete the grain overlay div with the SVG background
-- Result: clean, sleek solid black hero
-
-### Bottom Fade
-- Keep subtle gradient fade from black to white for smooth transition
-
----
-
-## Technical Notes
-
-- `DomainAskBar` component remains in codebase but unused on domain pages
-- All search functionality moves into `DomainHero`
-- Same `onSubmit` handler routes to dashboard with pre-filled prompt
-- Props passed through `DomainLanding` → `DomainHero`
+| Line | Current | Change |
+|------|---------|--------|
+| 88 | `<h1 className="font-editorial...">` | Add `text-center` |
+| 91-92 | `<p className="...max-w-2xl">` | Add `text-center mx-auto` |
+| 97 | `<div className="max-w-2xl">` | Add `mx-auto` |
+| 130 | `<div className="flex flex-wrap gap-2">` | Add `justify-center` |
+| 151-152 | Gradient fade div | Delete entirely |
 
