@@ -1,74 +1,45 @@
 
 
-## Consolidate All Domains Search & Restyle Chat History
+## Black Background + Grainy Transition + Grey Toggle
 
-Move the mode toggles and model selector into the All Domains hero, remove the duplicate white input area, and update chat history bubble styling.
+Update the All Domains page styling with full black background, a subtle grainy ombre transition, and grey mode toggle.
+
+---
+
+## Visual Design
+
+```text
+┌────────────────────────────────────────────────────────────────────┐
+│  SIDEBAR (WHITE)          │  MAIN AREA (FULL BLACK)               │
+│                           │                                        │
+│  ┌─────────────────────┐  │        Where is my mind?              │
+│  │ + New Chat          │  │   Powered by McLeuker AI              │
+│  └─────────────────────┘  │                                        │
+│                           │   ┌─────────────────────────┐          │
+│  Chat History             │   │ Quick 5 | Deep 50       │ ← GREY   │
+│  ┌─────────────────────┐  │   └─────────────────────────┘          │
+│  │ Grey bubble         │  │                                        │
+│  └─────────────────────┘  │   ┌─────────────────────────┐          │
+│                           │   │ Ask anything...         │          │
+│                 ████████████   └─────────────────────────┘          │
+│               ░░░░░░░░░░░░│                                        │
+│             ░░░░░░░░░░░░░░│   ○ Topic 1  ○ Topic 2                 │
+│           (grainy fade)   │                                        │
+└────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Changes Overview
 
-### 1. DomainStarterPanel.tsx - Integrate Mode Toggles
+### 1. Full Black Background
+Currently the All Domains view has `min-h-[calc(100vh-200px)]` which doesn't cover the entire screen. Change to full viewport height.
 
-Add the Quick/Deep toggle and Auto model selector above the search bubble, and add the credit hint below.
+### 2. Grainy Gradient Transition
+Add a CSS noise/grain effect at the transition between the black content area and white sidebar. This creates a subtle ombre from black → grey → white with a film grain texture.
 
-**Layout:**
-```text
-┌─────────────────────────────────────────────┐
-│           Where is my mind?                 │
-│  Powered by McLeuker AI • All Domains Mode  │
-│                                             │
-│      Quick 5   Deep 50   |   Auto           │  ← NEW: Mode toggles
-│                                             │
-│   ┌─────────────────────────────────┐       │
-│   │  Grey search bubble...          │       │
-│   └─────────────────────────────────┘       │
-│                                             │
-│   4-12 credits • Press Enter to send        │  ← NEW: Credit hint
-│   Shift + Enter for new line                │
-│                                             │
-│   ○ Topic 1   ○ Topic 2   ○ Topic 3         │
-└─────────────────────────────────────────────┘
-```
-
-**Code changes:**
-- Import `ResearchModeToggle` and `ModelSelector` components
-- Add state for `researchMode` and `selectedModel`
-- Update `onSelectPrompt` prop to accept mode and model parameters
-- Render toggles above search input with white/muted styling for dark background
-- Add credit hint below input
-
-### 2. Dashboard.tsx - Hide Bottom Input for All Domains
-
-Conditionally hide the white ChatInput section when `currentSector === "all"`.
-
-**Change:**
-```tsx
-{/* Input Area - hide when All Domains */}
-{currentSector !== "all" && (
-  <div className="border-t border-border bg-background/95...">
-    <ChatInput ... />
-  </div>
-)}
-```
-
-### 3. ChatSidebar.tsx - Grey Bubbles with Black Text
-
-Update conversation items from black bubbles to grey with black text.
-
-**Style changes:**
-- Background: `bg-muted` (grey) instead of `bg-foreground` (black)
-- Text: `text-foreground` (black) instead of `text-background` (white)
-- Icon: Center vertically with `items-center` instead of `items-start`
-- Timestamp: `text-foreground/60` (black at 60% opacity)
-
-**Layout:**
-```text
-┌──────────────────────────────────┐
-│ [◻] Title of conversation...     │  ← Icon centered vertically
-│     3 hours ago                  │  ← Black text
-└──────────────────────────────────┘
-```
+### 3. Grey Mode Toggle
+Change the Quick/Deep toggle bubble from the current styling to a solid grey background (`bg-white/20` or similar grey).
 
 ---
 
@@ -76,62 +47,102 @@ Update conversation items from black bubbles to grey with black text.
 
 ### File: `src/components/dashboard/DomainStarterPanel.tsx`
 
-**Imports to add:**
+**Line 52 - Update container height:**
 ```tsx
-import { ResearchModeToggle, ResearchMode } from "./ResearchModeToggle";
-import { ModelSelector, ModelId } from "./ModelSelector";
+// Change from:
+<div className={cn("flex flex-col min-h-[calc(100vh-200px)] bg-foreground", className)}>
+
+// To:
+<div className={cn("flex flex-col min-h-screen bg-black", className)}>
 ```
 
-**New state:**
+**Lines 65-71 - Update mode toggle wrapper styling:**
 ```tsx
-const [researchMode, setResearchMode] = useState<ResearchMode>("quick");
-const [selectedModel, setSelectedModel] = useState<ModelId>("auto");
+// Change the wrapper div to apply grey styling:
+<div className="bg-white/15 rounded-full p-1">
+  <ResearchModeToggle ... />
+</div>
 ```
 
-**Update interface:**
+### File: `src/components/dashboard/ResearchModeToggle.tsx`
+
+**Line 25 - Change outer container to grey:**
 ```tsx
-interface DomainStarterPanelProps {
-  onSelectPrompt: (prompt: string, mode?: ResearchMode, model?: ModelId) => void;
-  // ... rest
+// Change from:
+<div className="inline-flex items-center rounded-full bg-muted p-1">
+
+// To:
+<div className="inline-flex items-center rounded-full bg-white/15 p-1">
+```
+
+**Lines 32-36 - Update button active/inactive states for dark background:**
+```tsx
+// Active state (selected):
+mode === "quick"
+  ? "bg-white/25 text-white shadow-sm"
+  : "text-white/60 hover:text-white"
+```
+
+**Same changes for Deep button (lines 63-67)**
+
+### File: `src/index.css`
+
+**Add grainy gradient transition class:**
+```css
+/* Grainy ombre transition effect */
+.gradient-grain-transition {
+  position: relative;
+}
+
+.gradient-grain-transition::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  background: linear-gradient(
+    to right,
+    hsl(0 0% 0% / 0),
+    hsl(0 0% 20% / 0.3) 30%,
+    hsl(0 0% 50% / 0.4) 60%,
+    hsl(0 0% 100% / 0.8) 100%
+  );
+  pointer-events: none;
+  /* Add noise texture via SVG filter */
+  filter: url(#noise);
+}
+
+/* CSS Noise filter for grain effect */
+.noise-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.08;
 }
 ```
 
-**Add above search bubble (inside All Domains section):**
-- Mode toggle and model selector row with dark theme styling
-- Use `bg-white/10` for toggle backgrounds to work on black
-
-**Add below search bubble:**
-- Credit hint: "4-12 credits • Press Enter to send"
-- "Shift + Enter for new line" (hidden on mobile)
-
 ### File: `src/pages/Dashboard.tsx`
 
-**Conditional rendering:**
-Wrap the bottom input area with `{currentSector !== "all" && (...)}`
+**Add grainy transition overlay between sidebar and main content:**
 
-### File: `src/components/dashboard/ChatSidebar.tsx`
+Add a subtle grain overlay div at the boundary that creates the ombre effect from black to white through grey.
 
-**Lines 179-230 - Update bubble styling:**
-```tsx
-className={cn(
-  "group relative w-full text-left px-4 py-3 rounded-full transition-all duration-200",
-  "bg-muted text-foreground",  // Grey bg, black text
-  "hover:bg-muted/80",
-  currentConversation?.id === conv.id &&
-    "ring-2 ring-primary ring-offset-2 ring-offset-sidebar"
-)}
-```
+---
 
-**Icon centering:**
-```tsx
-<div className="flex items-center gap-2.5">  // Changed from items-start
-  <MessageSquare className="h-4 w-4 text-foreground/60 flex-shrink-0" />
-```
+## Summary of Changes
 
-**Text colors:**
-- Title: `text-foreground` (black)
-- Timestamp: `text-foreground/60` (black at 60%)
+| File | Change |
+|------|--------|
+| `DomainStarterPanel.tsx` | Full black background (`bg-black`), full screen height |
+| `ResearchModeToggle.tsx` | Grey outer bubble (`bg-white/15`), white text for dark mode |
+| `index.css` | New `.gradient-grain-transition` utility with noise effect |
+| `Dashboard.tsx` | Add grainy overlay div at sidebar/content boundary |
 
-**Actions menu button:**
-- Update hover colors for light background: `text-foreground hover:bg-foreground/10`
+---
+
+## Color Palette for Dark Theme Toggle
+
+- Outer bubble: `bg-white/15` (subtle grey on black)
+- Active button: `bg-white/25 text-white`
+- Inactive button: `text-white/60 hover:text-white`
+- Credit coins: `text-white/40`
 
