@@ -6,7 +6,6 @@ import { TopNavigation } from "@/components/layout/TopNavigation";
 import { DomainHero } from "@/components/domain/DomainHero";
 import { DomainInsights } from "@/components/domain/DomainInsights";
 import { DomainModules } from "@/components/domain/DomainModules";
-import { DomainAskBar } from "@/components/domain/DomainAskBar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Map URL slugs to sector IDs
@@ -98,13 +97,16 @@ const DomainLanding = () => {
       <div className="h-14 lg:h-[72px]" />
 
       <ScrollArea className="flex-1">
-        <main className="pb-24">
-          {/* Hero Section */}
+        <main>
+          {/* Hero Section with integrated search */}
           <DomainHero
             sector={currentSector}
             config={sectorConfig}
             snapshot={null}
             isLoading={false}
+            placeholder={sectorConfig.placeholder}
+            starters={starters}
+            onSubmit={handleAskSubmit}
           />
 
           {/* What's Happening Now - Real-time Intelligence */}
@@ -125,14 +127,6 @@ const DomainLanding = () => {
           />
         </main>
       </ScrollArea>
-
-      {/* Fixed Ask AI Bar */}
-      <DomainAskBar
-        sector={currentSector}
-        placeholder={sectorConfig.placeholder}
-        starters={starters}
-        onSubmit={handleAskSubmit}
-      />
     </div>
   );
 };
