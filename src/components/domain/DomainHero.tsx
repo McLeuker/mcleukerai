@@ -85,16 +85,16 @@ export function DomainHero({
       {/* Content */}
       <div className="relative z-10 w-full max-w-5xl mx-auto px-6 md:px-8 pt-16 md:pt-24 pb-20 md:pb-28">
         {/* Title and tagline */}
-        <h1 className="font-editorial text-5xl md:text-7xl lg:text-8xl font-light tracking-tight text-white mb-4">
+        <h1 className="font-editorial text-5xl md:text-7xl lg:text-8xl font-light tracking-tight text-white mb-4 text-center">
           {config.label}
         </h1>
-        <p className="text-lg md:text-xl text-white/60 max-w-2xl leading-relaxed mb-12 md:mb-16">
+        <p className="text-lg md:text-xl text-white/60 max-w-2xl leading-relaxed mb-12 md:mb-16 text-center mx-auto">
           {tagline}
         </p>
 
         {/* Integrated Search Bar */}
         {onSubmit && (
-          <div className="max-w-2xl">
+          <div className="max-w-2xl mx-auto">
             {/* Input area */}
             <div className="relative flex items-end gap-3 mb-6">
               <Textarea
@@ -127,7 +127,7 @@ export function DomainHero({
 
             {/* Suggestion chips */}
             {starters.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 justify-center">
                 {starters.slice(0, 4).map((starter, idx) => (
                   <button
                     key={idx}
@@ -148,8 +148,6 @@ export function DomainHero({
         )}
       </div>
 
-      {/* Bottom fade to background */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
     </section>
   );
 }
