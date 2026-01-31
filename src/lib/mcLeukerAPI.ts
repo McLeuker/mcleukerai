@@ -14,6 +14,7 @@ import type {
   SearchOptions,
   UserCredits,
   PricingResponse,
+  GeneratedFile,
 } from "@/types/mcLeuker";
 
 // Use the Supabase proxy function to avoid CORS issues
@@ -153,15 +154,23 @@ class McLeukerAPI {
 
     const result = await response.json();
     
+    // Normalize response: Railway API returns "response" but we expect "message"
+    const normalizedResult: ChatResponse = {
+      message: result.message || result.response || "",
+      conversation_id: result.conversation_id,
+      credits_used: result.credits_used,
+      files: result.files,
+    };
+    
     // Map files with download URLs
-    if (result.files) {
-      result.files = result.files.map((file: { filename: string }) => ({
+    if (normalizedResult.files) {
+      normalizedResult.files = normalizedResult.files.map((file: GeneratedFile) => ({
         ...file,
         download_url: this.getFileDownloadUrl(file.filename),
       }));
     }
 
-    return result;
+    return normalizedResult;
   }
 
   /**
@@ -181,15 +190,26 @@ class McLeukerAPI {
 
     const result = await response.json();
     
+    // Normalize response: Railway API may return "response" but we expect "message"
+    const normalizedResult: DeepChatResponse = {
+      message: result.message || result.response || "",
+      conversation_id: result.conversation_id,
+      credits_used: result.credits_used,
+      files: result.files,
+      reasoning_steps: result.reasoning_steps,
+      sources: result.sources,
+      confidence: result.confidence,
+    };
+    
     // Map files with download URLs
-    if (result.files) {
-      result.files = result.files.map((file: { filename: string }) => ({
+    if (normalizedResult.files) {
+      normalizedResult.files = normalizedResult.files.map((file: GeneratedFile) => ({
         ...file,
         download_url: this.getFileDownloadUrl(file.filename),
       }));
     }
 
-    return result;
+    return normalizedResult;
   }
 
   /**
