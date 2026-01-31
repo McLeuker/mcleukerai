@@ -5,9 +5,11 @@ import { DomainHeader } from "./DomainHeader";
 import ReactMarkdown from "react-markdown";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { ResearchModeToggle, ResearchMode } from "./ResearchModeToggle";
+import { ModelSelector, ModelId } from "./ModelSelector";
 
 interface DomainStarterPanelProps {
-  onSelectPrompt: (prompt: string) => void;
+  onSelectPrompt: (prompt: string, mode?: ResearchMode, model?: ModelId) => void;
   snapshot?: string | null;
   snapshotLoading?: boolean;
   className?: string;
@@ -23,11 +25,13 @@ export function DomainStarterPanel({
   const config = getSectorConfig();
   const starters = getStarters();
   const [searchValue, setSearchValue] = useState("");
+  const [researchMode, setResearchMode] = useState<ResearchMode>("quick");
+  const [selectedModel, setSelectedModel] = useState<ModelId>("auto");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchValue.trim()) {
-      onSelectPrompt(searchValue.trim());
+      onSelectPrompt(searchValue.trim(), researchMode, selectedModel);
       setSearchValue("");
     }
   };
@@ -36,7 +40,7 @@ export function DomainStarterPanel({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (searchValue.trim()) {
-        onSelectPrompt(searchValue.trim());
+        onSelectPrompt(searchValue.trim(), researchMode, selectedModel);
         setSearchValue("");
       }
     }
@@ -57,8 +61,26 @@ export function DomainStarterPanel({
             Powered by McLeuker AI • All Domains Intelligence Mode
           </p>
 
+          {/* Mode Toggles and Model Selector */}
+          <div className="flex items-center gap-4 mb-6">
+            <div className="[&_button]:bg-white/10 [&_button]:text-white [&_button]:border-white/20 [&_.bg-background]:bg-white/20 [&_.text-foreground]:text-white [&_.text-muted-foreground]:text-white/60">
+              <ResearchModeToggle
+                mode={researchMode}
+                onModeChange={setResearchMode}
+              />
+            </div>
+            <div className="h-6 w-px bg-white/20" />
+            <div className="[&_button]:text-white [&_button]:hover:text-white [&_button]:hover:bg-white/10">
+              <ModelSelector
+                model={selectedModel}
+                onModelChange={setSelectedModel}
+                compact
+              />
+            </div>
+          </div>
+
           {/* Search Bubble */}
-          <form onSubmit={handleSubmit} className="w-full max-w-2xl mb-8">
+          <form onSubmit={handleSubmit} className="w-full max-w-2xl mb-4">
             <div className="relative">
               <Input
                 value={searchValue}
@@ -76,12 +98,22 @@ export function DomainStarterPanel({
             </div>
           </form>
 
+          {/* Credit Hint */}
+          <div className="text-center mb-8">
+            <p className="text-white/50 text-xs">
+              {researchMode === "quick" ? "4-12" : "50"} credits • Press Enter to send
+            </p>
+            <p className="text-white/40 text-xs mt-1 hidden sm:block">
+              Shift + Enter for new line
+            </p>
+          </div>
+
           {/* Trending Topics */}
           <div className="flex flex-wrap justify-center gap-3 max-w-2xl">
             {starters.map((topic, index) => (
               <button
                 key={index}
-                onClick={() => onSelectPrompt(topic)}
+                onClick={() => onSelectPrompt(topic, researchMode, selectedModel)}
                 className={cn(
                   "px-4 py-2 rounded-full",
                   "border border-white/30",

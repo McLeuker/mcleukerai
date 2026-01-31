@@ -211,17 +211,19 @@ const Dashboard = () => {
             domainSnapshotLoading={snapshotLoading}
           />
 
-          {/* Input Area */}
-          <div className="border-t border-border bg-background/95 backdrop-blur-sm p-4 sticky bottom-0">
-            <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 animate-fade-in">
-              <ChatInput
-                onSubmit={handleSendMessage}
-                isLoading={loading}
-                placeholder={sectorConfig.placeholder}
-                onCancel={cancelRequest}
-              />
+          {/* Input Area - hide when All Domains */}
+          {currentSector !== "all" && (
+            <div className="border-t border-border bg-background/95 backdrop-blur-sm p-4 sticky bottom-0">
+              <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 animate-fade-in">
+                <ChatInput
+                  onSubmit={handleSendMessage}
+                  isLoading={loading}
+                  placeholder={sectorConfig.placeholder}
+                  onCancel={cancelRequest}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </main>
       </div>
     </div>
