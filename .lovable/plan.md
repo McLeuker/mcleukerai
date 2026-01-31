@@ -1,75 +1,73 @@
 
 
-## Redesign All Domains Page
+## Consolidate All Domains Search & Restyle Chat History
 
-Transform the "All Domains" dashboard view to match the editorial hero style of domain landing pages, with a centered AI search interface on black background.
-
----
-
-## Visual Design
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│  SIDEBAR (WHITE)                │  MAIN AREA (BLACK)               │
-│  ┌───────────────────────┐      │                                   │
-│  │ + New Chat            │      │                                   │
-│  └───────────────────────┘      │        Where is my mind?          │
-│                                 │   Powered by McLeuker AI • All    │
-│  Chat History                   │   Domains Intelligence Mode       │
-│  ┌───────────────────────┐      │                                   │
-│  │ ● Previous chat 1     │ ←    │   ┌─────────────────────────┐     │
-│  │   bubble style        │ Black│   │ Grey search bubble...   │     │
-│  └───────────────────────┘ bg   │   └─────────────────────────┘     │
-│  ┌───────────────────────┐ white│                                   │
-│  │ ● Previous chat 2     │ text │   Quick  Deep  |  Auto            │
-│  └───────────────────────┘      │                                   │
-│                                 │   ○ Topic 1  ○ Topic 2            │
-│                                 │   ○ Topic 3  ○ Topic 4            │
-└─────────────────────────────────────────────────────────────────────┘
-```
+Move the mode toggles and model selector into the All Domains hero, remove the duplicate white input area, and update chat history bubble styling.
 
 ---
 
 ## Changes Overview
 
-### 1. DomainStarterPanel.tsx
-Transform the "All Domains" empty state into a hero-style centered interface:
+### 1. DomainStarterPanel.tsx - Integrate Mode Toggles
 
-**Remove:**
-- "EXPLORE ALL DOMAINS" header
-- "Cross-domain intelligence for fashion professionals" tagline
-- Current white card-based starter question buttons
+Add the Quick/Deep toggle and Auto model selector above the search bubble, and add the credit hint below.
 
-**Add:**
-- Full-height centered layout for "all" sector
-- Black background for the main content area
-- Title: "Where is my mind?" (editorial font, large)
-- Subtitle: "Powered by McLeuker AI • All Domains Intelligence Mode"
-- Grey search bubble (matching Fashion/Beauty sections)
-- 4 cross-domain trending topic chips
-- Keep existing ChatInput mode toggles
+**Layout:**
+```text
+┌─────────────────────────────────────────────┐
+│           Where is my mind?                 │
+│  Powered by McLeuker AI • All Domains Mode  │
+│                                             │
+│      Quick 5   Deep 50   |   Auto           │  ← NEW: Mode toggles
+│                                             │
+│   ┌─────────────────────────────────┐       │
+│   │  Grey search bubble...          │       │
+│   └─────────────────────────────────┘       │
+│                                             │
+│   4-12 credits • Press Enter to send        │  ← NEW: Credit hint
+│   Shift + Enter for new line                │
+│                                             │
+│   ○ Topic 1   ○ Topic 2   ○ Topic 3         │
+└─────────────────────────────────────────────┘
+```
 
-### 2. ChatSidebar.tsx
-Restyle conversation history items as black bubbles:
+**Code changes:**
+- Import `ResearchModeToggle` and `ModelSelector` components
+- Add state for `researchMode` and `selectedModel`
+- Update `onSelectPrompt` prop to accept mode and model parameters
+- Render toggles above search input with white/muted styling for dark background
+- Add credit hint below input
+
+### 2. Dashboard.tsx - Hide Bottom Input for All Domains
+
+Conditionally hide the white ChatInput section when `currentSector === "all"`.
 
 **Change:**
-- Each conversation item from current card style to pill/bubble style
-- Background: black (`bg-foreground`)
-- Text: white (`text-background`)
-- Similar to the "+New Chat" button styling
-- Maintain hover states and actions menu
+```tsx
+{/* Input Area - hide when All Domains */}
+{currentSector !== "all" && (
+  <div className="border-t border-border bg-background/95...">
+    <ChatInput ... />
+  </div>
+)}
+```
 
-### 3. SectorContext.tsx
-Update the "all" domain starters to be cross-sector trending topics:
+### 3. ChatSidebar.tsx - Grey Bubbles with Black Text
 
-**Update:**
-```typescript
-all: [
-  "Top sustainability shifts in luxury fashion",
-  "AI-driven beauty personalization trends",
-  "Emerging materials disrupting textiles",
-  "Consumer wellness influencing style",
-]
+Update conversation items from black bubbles to grey with black text.
+
+**Style changes:**
+- Background: `bg-muted` (grey) instead of `bg-foreground` (black)
+- Text: `text-foreground` (black) instead of `text-background` (white)
+- Icon: Center vertically with `items-center` instead of `items-start`
+- Timestamp: `text-foreground/60` (black at 60% opacity)
+
+**Layout:**
+```text
+┌──────────────────────────────────┐
+│ [◻] Title of conversation...     │  ← Icon centered vertically
+│     3 hours ago                  │  ← Black text
+└──────────────────────────────────┘
 ```
 
 ---
@@ -78,54 +76,62 @@ all: [
 
 ### File: `src/components/dashboard/DomainStarterPanel.tsx`
 
-**Changes:**
-1. Add conditional rendering for `currentSector === "all"` with hero layout
-2. For "all" sector:
-   - Use `min-h-[calc(100vh-200px)]` for vertical centering
-   - Apply `bg-foreground` (black) background
-   - Center content with flexbox
-   - Add large editorial title "Where is my mind?"
-   - Add subtitle with white/muted colors
-   - Integrate a search input styled like DomainHero
-   - Show 4 suggestion chips at bottom
-3. Pass search submission up to parent via new prop
+**Imports to add:**
+```tsx
+import { ResearchModeToggle, ResearchMode } from "./ResearchModeToggle";
+import { ModelSelector, ModelId } from "./ModelSelector";
+```
+
+**New state:**
+```tsx
+const [researchMode, setResearchMode] = useState<ResearchMode>("quick");
+const [selectedModel, setSelectedModel] = useState<ModelId>("auto");
+```
+
+**Update interface:**
+```tsx
+interface DomainStarterPanelProps {
+  onSelectPrompt: (prompt: string, mode?: ResearchMode, model?: ModelId) => void;
+  // ... rest
+}
+```
+
+**Add above search bubble (inside All Domains section):**
+- Mode toggle and model selector row with dark theme styling
+- Use `bg-white/10` for toggle backgrounds to work on black
+
+**Add below search bubble:**
+- Credit hint: "4-12 credits • Press Enter to send"
+- "Shift + Enter for new line" (hidden on mobile)
+
+### File: `src/pages/Dashboard.tsx`
+
+**Conditional rendering:**
+Wrap the bottom input area with `{currentSector !== "all" && (...)}`
 
 ### File: `src/components/dashboard/ChatSidebar.tsx`
 
-**Changes (lines 178-230):**
-1. Update conversation item styling from card to bubble:
-   ```tsx
-   className={cn(
-     "w-full text-left px-4 py-3 rounded-full",
-     "bg-foreground text-background",
-     "hover:bg-foreground/90",
-     "transition-all duration-200"
-   )}
-   ```
-2. Update icon and text colors to white (`text-background`)
-3. Adjust timestamp text to semi-transparent white
-
-### File: `src/contexts/SectorContext.tsx`
-
-**Changes (lines 97-102):**
-Update `DOMAIN_STARTERS.all` to cross-sector trending topics:
-```typescript
-all: [
-  "Top sustainability shifts in luxury fashion",
-  "AI-driven beauty personalization trends",
-  "Emerging materials disrupting textiles",
-  "Consumer wellness influencing style",
-]
+**Lines 179-230 - Update bubble styling:**
+```tsx
+className={cn(
+  "group relative w-full text-left px-4 py-3 rounded-full transition-all duration-200",
+  "bg-muted text-foreground",  // Grey bg, black text
+  "hover:bg-muted/80",
+  currentConversation?.id === conv.id &&
+    "ring-2 ring-primary ring-offset-2 ring-offset-sidebar"
+)}
 ```
 
----
+**Icon centering:**
+```tsx
+<div className="flex items-center gap-2.5">  // Changed from items-start
+  <MessageSquare className="h-4 w-4 text-foreground/60 flex-shrink-0" />
+```
 
-## Color Reference (matching Beauty section)
+**Text colors:**
+- Title: `text-foreground` (black)
+- Timestamp: `text-foreground/60` (black at 60%)
 
-- Background: Black (`bg-foreground` or `bg-black`)
-- Title: White (`text-background` or `text-white`)
-- Subtitle: White/60 (`text-white/60`)
-- Search bubble: White/10 background, white/20 border (`bg-white/10 border-white/20`)
-- Suggestion chips: White/30 border, white/80 text
-- Powered by text: Muted (`text-white/60` with accent)
+**Actions menu button:**
+- Update hover colors for light background: `text-foreground hover:bg-foreground/10`
 
