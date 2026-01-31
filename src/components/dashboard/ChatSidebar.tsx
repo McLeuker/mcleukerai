@@ -180,8 +180,8 @@ export function ChatSidebar({
                   key={conv.id}
                   className={cn(
                     "group relative w-full text-left px-4 py-3 rounded-full transition-all duration-200",
-                    "bg-foreground text-background",
-                    "hover:bg-foreground/90",
+                    "bg-muted text-foreground",
+                    "hover:bg-muted/80",
                     currentConversation?.id === conv.id &&
                       "ring-2 ring-primary ring-offset-2 ring-offset-sidebar"
                   )}
@@ -190,13 +190,13 @@ export function ChatSidebar({
                     onClick={() => onSelectConversation(conv)}
                     className="w-full text-left"
                   >
-                    <div className="flex items-start gap-2.5">
-                      <MessageSquare className="h-4 w-4 text-background/70 mt-0.5 flex-shrink-0" />
+                    <div className="flex items-center gap-2.5">
+                      <MessageSquare className="h-4 w-4 text-foreground/60 flex-shrink-0" />
                       <div className="flex-1 min-w-0 pr-6">
-                        <p className="text-xs font-medium text-background line-clamp-2 leading-relaxed">
+                        <p className="text-xs font-medium text-foreground line-clamp-2 leading-relaxed">
                           {conv.title}
                         </p>
-                        <p className="text-[10px] text-background/60 mt-1.5">
+                        <p className="text-[10px] text-foreground/60 mt-1.5">
                           {formatDistanceToNow(new Date(conv.updated_at), {
                             addSuffix: true,
                           })}
@@ -211,7 +211,7 @@ export function ChatSidebar({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-background hover:text-background hover:bg-white/10"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-foreground hover:text-foreground hover:bg-foreground/10"
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
