@@ -1,130 +1,124 @@
 
 
-## Black Background + Grainy Transition + Grey Toggle
+## Inverted L Layout with Bubble-Styled Controls
 
-Update the All Domains page styling with full black background, a subtle grainy ombre transition, and grey mode toggle.
+Restructure the dashboard layout so the white sidebar and domain bar form an inverted L shape with 90-degree alignment, and style the New Chat button and Search bar as bubbles.
 
 ---
 
 ## Visual Design
 
 ```text
-┌────────────────────────────────────────────────────────────────────┐
-│  SIDEBAR (WHITE)          │  MAIN AREA (FULL BLACK)               │
-│                           │                                        │
-│  ┌─────────────────────┐  │        Where is my mind?              │
-│  │ + New Chat          │  │   Powered by McLeuker AI              │
-│  └─────────────────────┘  │                                        │
-│                           │   ┌─────────────────────────┐          │
-│  Chat History             │   │ Quick 5 | Deep 50       │ ← GREY   │
-│  ┌─────────────────────┐  │   └─────────────────────────┘          │
-│  │ Grey bubble         │  │                                        │
-│  └─────────────────────┘  │   ┌─────────────────────────┐          │
-│                           │   │ Ask anything...         │          │
-│                 ████████████   └─────────────────────────┘          │
-│               ░░░░░░░░░░░░│                                        │
-│             ░░░░░░░░░░░░░░│   ○ Topic 1  ○ Topic 2                 │
-│           (grainy fade)   │                                        │
-└────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│  WHITE HEADER BAR (spans full width above sidebar + content)             │
+│  ┌─────────────────────────┐  ┌──────────────────────────────────────┐   │
+│  │    + New Chat           │  │ All Domains │ Fashion │ Beauty │ ... │   │
+│  │    (bubble, same h)     │  │ (pill buttons row)                   │   │
+│  └─────────────────────────┘  └──────────────────────────────────────┘   │
+├──────────────────────┬───────────────────────────────────────────────────┤
+│  SIDEBAR (white)     │                                                   │
+│  ┌────────────────┐  │              BLACK CONTENT AREA                   │
+│  │ Q Search...    │  │                                                   │
+│  │ (bubble style) │  │         (All Domains hero / chat view)            │
+│  └────────────────┘  │                                                   │
+│                      │                                                   │
+│  CHAT HISTORY        │                                                   │
+│  ┌────────────────┐  │                                                   │
+│  │ Chat bubble 1  │  │                                                   │
+│  └────────────────┘  │                                                   │
+│  ┌────────────────┐  │                                                   │
+│  │ Chat bubble 2  │  │                                                   │
+│  └────────────────┘  │                                                   │
+└──────────────────────┴───────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Changes Overview
 
-### 1. Full Black Background
-Currently the All Domains view has `min-h-[calc(100vh-200px)]` which doesn't cover the entire screen. Change to full viewport height.
+### 1. Extract New Chat Button to Top Bar
+Move the "New Chat" button out of the sidebar and into a shared top bar that spans the full width. This creates the inverted L alignment.
 
-### 2. Grainy Gradient Transition
-Add a CSS noise/grain effect at the transition between the black content area and white sidebar. This creates a subtle ombre from black → grey → white with a film grain texture.
+### 2. Style New Chat as Bubble
+Make the New Chat button a pill/bubble shape with the same height as the domain selector pills (~40px).
 
-### 3. Grey Mode Toggle
-Change the Quick/Deep toggle bubble from the current styling to a solid grey background (`bg-white/20` or similar grey).
+### 3. Style Search Bar as Bubble
+Update the search input to have rounded-full (pill shape) styling.
+
+### 4. Adjust Sidebar Layout
+Remove the header section from sidebar, keep only search and chat history below the shared top bar.
 
 ---
 
 ## Technical Implementation
 
-### File: `src/components/dashboard/DomainStarterPanel.tsx`
+### File: `src/pages/Dashboard.tsx`
 
-**Line 52 - Update container height:**
+**Create unified top bar with New Chat + Domain Selector:**
+
+Replace the separate sidebar header and domain bar with a single unified header row:
+
 ```tsx
-// Change from:
-<div className={cn("flex flex-col min-h-[calc(100vh-200px)] bg-foreground", className)}>
-
-// To:
-<div className={cn("flex flex-col min-h-screen bg-black", className)}>
-```
-
-**Lines 65-71 - Update mode toggle wrapper styling:**
-```tsx
-// Change the wrapper div to apply grey styling:
-<div className="bg-white/15 rounded-full p-1">
-  <ResearchModeToggle ... />
+{/* Unified Top Bar - forms horizontal part of inverted L */}
+<div className="hidden lg:flex items-center gap-4 px-4 py-3 bg-background border-b border-border fixed top-[72px] left-0 right-0 z-30">
+  {/* New Chat Button - bubble style, aligned with domain pills */}
+  <Button
+    onClick={createNewConversation}
+    className="h-10 px-6 rounded-full gap-2 bg-foreground text-background hover:bg-foreground/90"
+  >
+    <Plus className="h-4 w-4" />
+    New Chat
+  </Button>
+  
+  {/* Domain Pills */}
+  <DomainSelector variant="pills" className="flex-1" onDomainChange={handleDomainChange} />
+  
+  {/* Credits */}
+  <CreditDisplay variant="compact" />
 </div>
 ```
 
-### File: `src/components/dashboard/ResearchModeToggle.tsx`
+**Adjust main content margin:**
+Account for the new unified top bar height.
 
-**Line 25 - Change outer container to grey:**
+### File: `src/components/dashboard/ChatSidebar.tsx`
+
+**Remove header with New Chat button:**
+
+The sidebar should now start below the unified top bar and only contain:
+1. Search input (bubble style)
+2. Chat history label
+3. Conversation list
+
+**Update search input to bubble style (line 140-145):**
+
 ```tsx
-// Change from:
-<div className="inline-flex items-center rounded-full bg-muted p-1">
-
-// To:
-<div className="inline-flex items-center rounded-full bg-white/15 p-1">
+<Input
+  placeholder="Search chats..."
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+  className="pl-9 pr-9 h-10 text-sm bg-muted border-0 rounded-full placeholder:text-muted-foreground/60"
+/>
 ```
 
-**Lines 32-36 - Update button active/inactive states for dark background:**
+**Adjust sidebar positioning:**
+
 ```tsx
-// Active state (selected):
-mode === "quick"
-  ? "bg-white/25 text-white shadow-sm"
-  : "text-white/60 hover:text-white"
+<aside className="hidden lg:flex w-72 bg-sidebar flex-col fixed left-0 top-[120px] bottom-0 z-40">
 ```
 
-**Same changes for Deep button (lines 63-67)**
+The sidebar now starts at `top-[120px]` (below TopNavigation + unified bar).
 
-### File: `src/index.css`
+### File: `src/components/dashboard/DomainSelector.tsx`
 
-**Add grainy gradient transition class:**
-```css
-/* Grainy ombre transition effect */
-.gradient-grain-transition {
-  position: relative;
-}
+**Increase pill height to match New Chat button:**
 
-.gradient-grain-transition::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 80px;
-  background: linear-gradient(
-    to right,
-    hsl(0 0% 0% / 0),
-    hsl(0 0% 20% / 0.3) 30%,
-    hsl(0 0% 50% / 0.4) 60%,
-    hsl(0 0% 100% / 0.8) 100%
-  );
-  pointer-events: none;
-  /* Add noise texture via SVG filter */
-  filter: url(#noise);
-}
-
-/* CSS Noise filter for grain effect */
-.noise-grain {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  opacity: 0.08;
-}
+```tsx
+className={cn(
+  "px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200",
+  // ... rest
+)}
 ```
-
-### File: `src/pages/Dashboard.tsx`
-
-**Add grainy transition overlay between sidebar and main content:**
-
-Add a subtle grain overlay div at the boundary that creates the ombre effect from black to white through grey.
 
 ---
 
@@ -132,17 +126,18 @@ Add a subtle grain overlay div at the boundary that creates the ombre effect fro
 
 | File | Change |
 |------|--------|
-| `DomainStarterPanel.tsx` | Full black background (`bg-black`), full screen height |
-| `ResearchModeToggle.tsx` | Grey outer bubble (`bg-white/15`), white text for dark mode |
-| `index.css` | New `.gradient-grain-transition` utility with noise effect |
-| `Dashboard.tsx` | Add grainy overlay div at sidebar/content boundary |
+| `Dashboard.tsx` | Create unified top bar with New Chat button + Domain Selector in same row |
+| `ChatSidebar.tsx` | Remove header section, adjust top position, style search as bubble |
+| `DomainSelector.tsx` | Increase pill height to match New Chat button |
 
 ---
 
-## Color Palette for Dark Theme Toggle
+## Layout Measurements
 
-- Outer bubble: `bg-white/15` (subtle grey on black)
-- Active button: `bg-white/25 text-white`
-- Inactive button: `text-white/60 hover:text-white`
-- Credit coins: `text-white/40`
+- TopNavigation height: 72px
+- Unified bar height: ~56px (py-3 + h-10 button)
+- Sidebar starts at: 72px + 56px = 128px from top
+- New Chat button: h-10 (40px), rounded-full
+- Domain pills: h-10 (40px), rounded-full
+- Search input: h-10 (40px), rounded-full
 
