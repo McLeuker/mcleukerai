@@ -1,60 +1,50 @@
 
 
-## Make Intelligence Titles Clickable
+## Remove Redundant Sources Section
 
-Add click-through functionality to the "What's Happening Now" section so users can visit the original source.
+The collapsible "SOURCES" section at the bottom of the "What's Happening Now" area will be removed since each intelligence card already displays its source inline.
 
 ---
 
-## Change Summary
+## Change
 
 **File:** `src/components/domain/DomainInsights.tsx`
 
-Make the title (`h3`) in each intelligence card clickable by wrapping it in an anchor tag that opens the source URL in a new tab.
+Remove the entire collapsible Sources section (lines 299-356):
 
----
-
-## Implementation Details
-
-### Current (Line 247-249)
 ```jsx
-<h3 className="text-base font-medium text-foreground leading-snug flex-1">
-  {item.title}
-</h3>
-```
-
-### New
-```jsx
-{item.sourceUrl ? (
-  <a
-    href={item.sourceUrl}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-base font-medium text-foreground leading-snug flex-1 hover:underline underline-offset-2 transition-colors"
+{/* This entire block will be removed */}
+{uniqueSources.length > 0 && (
+  <Collapsible
+    open={sourcesExpanded}
+    onOpenChange={setSourcesExpanded}
+    ...
   >
-    {item.title}
-  </a>
-) : (
-  <h3 className="text-base font-medium text-foreground leading-snug flex-1">
-    {item.title}
-  </h3>
+    ...
+  </Collapsible>
 )}
 ```
 
 ---
 
-## Behavior
+## Cleanup
 
-| Scenario | Behavior |
-|----------|----------|
-| Has `sourceUrl` | Title is clickable, underlines on hover, opens in new tab |
-| No `sourceUrl` | Title displays as normal text (not clickable) |
+Also remove unused code that was only needed for the Sources section:
+
+1. **Line 131**: Remove `const [sourcesExpanded, setSourcesExpanded] = useState(false);`
+2. **Lines 149-167**: Remove `uniqueSources` and `compactSourceList` calculations
+3. **Line 3**: Remove unused imports: `ChevronDown`, `ChevronUp` from lucide-react
+4. **Lines 8-12**: Remove unused `Collapsible` imports
 
 ---
 
-## Visual Feedback
+## Result
 
-- Hover state: subtle underline appears
-- Cursor changes to pointer when hoverable
-- External link opens in new tab (`target="_blank"`)
+Each intelligence card still shows its source in the metadata row:
+```
+CURATED · TODAY · THE INDUSTRY BEAUTY · Brand Campaigns
+                    ↑ source shown here
+```
+
+The redundant expandable "Sources" section at the bottom is removed.
 
