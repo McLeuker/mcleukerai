@@ -78,9 +78,9 @@ const Billing = () => {
   const totalCredits = monthlyCredits + extraCredits;
   const usedCredits = totalCredits - creditBalance;
   const usagePercentage = totalCredits > 0 ? ((creditBalance / totalCredits) * 100) : 0;
-  const maxRefills = plan === "pro" ? 1 : plan === "studio" ? 2 : 0;
+  const maxRefills = plan === "starter" ? 1 : plan === "pro" ? 2 : plan === "enterprise" ? 5 : 0;
   const refillsRemaining = maxRefills - refillsThisMonth;
-  const refillPack = plan === "studio" ? CREDIT_REFILLS.studio : CREDIT_REFILLS.pro;
+  const refillPack = plan === "enterprise" ? CREDIT_REFILLS.enterprise : plan === "pro" ? CREDIT_REFILLS.pro : CREDIT_REFILLS.starter;
 
   useEffect(() => {
     if (user) {
@@ -299,9 +299,9 @@ const Billing = () => {
                 <div className="p-4 rounded-lg bg-muted/50 space-y-1">
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    Monthly Credits Included
+                    Daily Credits Included
                   </p>
-                  <p className="text-2xl font-light">{planConfig.monthlyCredits.toLocaleString()}</p>
+                  <p className="text-2xl font-light">{('dailyCredits' in planConfig ? planConfig.dailyCredits : 0).toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground">Remaining: {monthlyCredits.toLocaleString()}</p>
                 </div>
                 

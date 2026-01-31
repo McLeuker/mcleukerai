@@ -40,7 +40,7 @@ export function ResearchModeToggle({
               <Zap className="h-3.5 w-3.5" />
               Quick
               <span className="flex items-center gap-0.5 text-muted-foreground">
-                <Coins className="h-3 w-3" />1
+                <Coins className="h-3 w-3" />5
               </span>
             </button>
           </TooltipTrigger>
@@ -48,7 +48,7 @@ export function ResearchModeToggle({
             <div className="text-center">
               <p className="font-medium">Quick Chat</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Fast AI response • 1 credit
+                Fast AI response • 5 credits
               </p>
             </div>
           </TooltipContent>
@@ -71,7 +71,7 @@ export function ResearchModeToggle({
               <Brain className="h-3.5 w-3.5" />
               Deep
               <span className="flex items-center gap-0.5 text-muted-foreground">
-                <Coins className="h-3 w-3" />25
+                <Coins className="h-3 w-3" />50
               </span>
             </button>
           </TooltipTrigger>
@@ -79,7 +79,7 @@ export function ResearchModeToggle({
             <div className="text-center">
               <p className="font-medium">Deep Reasoning</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Multi-step reasoning + sources • 25 credits
+                Multi-step reasoning + sources • 50 credits
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Comprehensive analysis with web research

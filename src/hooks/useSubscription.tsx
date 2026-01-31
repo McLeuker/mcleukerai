@@ -6,7 +6,7 @@ import { SUBSCRIPTION_PLANS } from "@/config/pricing";
 
 export interface SubscriptionState {
   subscribed: boolean;
-  plan: "free" | "pro" | "studio" | "enterprise";
+  plan: "free" | "starter" | "pro" | "enterprise";
   billingCycle: "monthly" | "yearly" | null;
   subscriptionEnd: string | null;
   monthlyCredits: number;

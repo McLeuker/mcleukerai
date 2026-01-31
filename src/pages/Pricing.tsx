@@ -8,13 +8,13 @@ import { Footer } from "@/components/layout/Footer";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { SUBSCRIPTION_PLANS, CREDIT_REFILLS, CREDIT_USAGE } from "@/config/pricing";
-import { Check, Zap, Crown, Building2, ArrowLeft, Loader2, Gift, AlertCircle } from "lucide-react";
+import { Check, Zap, Crown, Building2, ArrowLeft, Loader2, Gift, AlertCircle, Rocket } from "lucide-react";
 import mcleukerLogo from "@/assets/mcleuker-logo.png";
 
 const planIcons = {
   free: Gift,
+  starter: Rocket,
   pro: Zap,
-  studio: Crown,
   enterprise: Building2,
 };
 
@@ -45,12 +45,10 @@ const Pricing = () => {
     }
   };
 
-  // Filter out hidden plans (enterprise)
-  const visiblePlans = Object.entries(SUBSCRIPTION_PLANS).filter(
-    ([_, plan]) => !('hidden' in plan && plan.hidden)
-  );
+  // All plans are visible now
+  const visiblePlans = Object.entries(SUBSCRIPTION_PLANS);
 
-  const canRefill = subscribed && (currentPlan === "pro" || currentPlan === "studio");
+  const canRefill = subscribed && (currentPlan === "starter" || currentPlan === "pro" || currentPlan === "enterprise");
 
   return (
     <div className="min-h-screen bg-background">
@@ -103,8 +101,8 @@ const Pricing = () => {
             </div>
           </div>
 
-          {/* Plans Grid - 3 Columns */}
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-16">
+          {/* Plans Grid - 4 Columns */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto mb-16">
             {visiblePlans.map(([id, plan]) => {
               const Icon = planIcons[id as keyof typeof planIcons];
               const isPopular = 'popular' in plan && plan.popular;
@@ -144,11 +142,11 @@ const Pricing = () => {
                     {/* Price */}
                     <div className="mb-6">
                       <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-bold">€{price}</span>
+                        <span className="text-3xl font-bold">${price}</span>
                         <span className="text-muted-foreground">/{isYearly ? 'year' : 'month'}</span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {plan.monthlyCredits?.toLocaleString()} credits/month
+                        {('dailyCredits' in plan ? plan.dailyCredits : 0)?.toLocaleString()} credits/day
                       </p>
                     </div>
 
@@ -202,7 +200,7 @@ const Pricing = () => {
             })}
           </div>
 
-          {/* Enterprise CTA */}
+          {/* Need Custom Solution CTA */}
           <div className="max-w-3xl mx-auto mb-16">
             <Card className="bg-secondary/50">
               <CardContent className="flex flex-col md:flex-row items-center justify-between gap-4 py-6">
@@ -211,9 +209,9 @@ const Pricing = () => {
                     <Building2 className="h-6 w-6 text-muted-foreground" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold">Enterprise</h3>
+                    <h3 className="text-lg font-semibold">Need a Custom Solution?</h3>
                     <p className="text-sm text-muted-foreground">
-                      Custom solutions for large organizations with dedicated support
+                      Contact us for custom credit allocations, white-label options, or dedicated support
                     </p>
                   </div>
                 </div>
@@ -225,15 +223,38 @@ const Pricing = () => {
           </div>
 
           {/* Credit Refill Section */}
-          <div className="max-w-3xl mx-auto mb-16">
+          <div className="max-w-4xl mx-auto mb-16">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-serif font-light mb-2">Need More Credits?</h2>
               <p className="text-muted-foreground">
-                Pro and Studio subscribers can purchase additional credits that never expire.
+                Paid subscribers can purchase additional credit packs.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-3 gap-4">
+              {/* Starter Refill */}
+              <Card className={currentPlan !== "starter" ? 'opacity-60' : ''}>
+                <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
+                  <div className="text-center">
+                    <Badge variant="outline" className="mb-2">Starter Plan</Badge>
+                    <div className="text-2xl font-bold">{CREDIT_REFILLS.starter.credits.toLocaleString()} Credits</div>
+                    <p className="text-sm text-muted-foreground">
+                      ${CREDIT_REFILLS.starter.perCredit.toFixed(3)} per credit
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-2xl font-bold">${CREDIT_REFILLS.starter.price}</div>
+                    <Button
+                      onClick={handleRefill}
+                      disabled={loadingRefill || currentPlan !== "starter"}
+                      size="sm"
+                    >
+                      {loadingRefill ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Pro Refill */}
               <Card className={currentPlan !== "pro" ? 'opacity-60' : ''}>
                 <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
@@ -241,11 +262,11 @@ const Pricing = () => {
                     <Badge variant="outline" className="mb-2">Pro Plan</Badge>
                     <div className="text-2xl font-bold">{CREDIT_REFILLS.pro.credits.toLocaleString()} Credits</div>
                     <p className="text-sm text-muted-foreground">
-                      €{CREDIT_REFILLS.pro.perCredit.toFixed(3)} per credit • Max 1/month
+                      ${CREDIT_REFILLS.pro.perCredit.toFixed(3)} per credit
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-2xl font-bold">€{CREDIT_REFILLS.pro.price}</div>
+                    <div className="text-2xl font-bold">${CREDIT_REFILLS.pro.price}</div>
                     <Button
                       onClick={handleRefill}
                       disabled={loadingRefill || currentPlan !== "pro"}
@@ -257,21 +278,21 @@ const Pricing = () => {
                 </CardContent>
               </Card>
 
-              {/* Studio Refill */}
-              <Card className={currentPlan !== "studio" ? 'opacity-60' : ''}>
+              {/* Enterprise Refill */}
+              <Card className={currentPlan !== "enterprise" ? 'opacity-60' : ''}>
                 <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
                   <div className="text-center">
-                    <Badge variant="outline" className="mb-2">Studio Plan</Badge>
-                    <div className="text-2xl font-bold">{CREDIT_REFILLS.studio.credits.toLocaleString()} Credits</div>
+                    <Badge variant="outline" className="mb-2">Enterprise Plan</Badge>
+                    <div className="text-2xl font-bold">{CREDIT_REFILLS.enterprise.credits.toLocaleString()} Credits</div>
                     <p className="text-sm text-muted-foreground">
-                      €{CREDIT_REFILLS.studio.perCredit.toFixed(3)} per credit • Max 2/month
+                      ${CREDIT_REFILLS.enterprise.perCredit.toFixed(3)} per credit
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-2xl font-bold">€{CREDIT_REFILLS.studio.price}</div>
+                    <div className="text-2xl font-bold">${CREDIT_REFILLS.enterprise.price}</div>
                     <Button
                       onClick={handleRefill}
-                      disabled={loadingRefill || currentPlan !== "studio"}
+                      disabled={loadingRefill || currentPlan !== "enterprise"}
                       size="sm"
                     >
                       {loadingRefill ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
@@ -281,20 +302,11 @@ const Pricing = () => {
               </Card>
             </div>
 
-            {!canRefill && currentPlan !== "free" && (
-              <div className="mt-4 text-center">
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>You've reached your monthly refill limit</span>
-                </div>
-              </div>
-            )}
-
             {currentPlan === "free" && (
               <div className="mt-4 text-center">
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   <AlertCircle className="h-4 w-4" />
-                  <span>Upgrade to Pro or Studio to purchase additional credit refills</span>
+                  <span>Upgrade to a paid plan to purchase additional credits</span>
                 </div>
               </div>
             )}

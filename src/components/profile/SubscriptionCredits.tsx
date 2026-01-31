@@ -42,9 +42,9 @@ export function SubscriptionCredits() {
   const usedCredits = totalCredits - creditBalance;
   const usagePercentage = totalCredits > 0 ? ((creditBalance / totalCredits) * 100) : 0;
 
-  const maxRefills = plan === "pro" ? 1 : plan === "studio" ? 2 : 0;
+  const maxRefills = plan === "starter" ? 1 : plan === "pro" ? 2 : plan === "enterprise" ? 5 : 0;
   const refillsRemaining = maxRefills - refillsThisMonth;
-  const refillPack = plan === "studio" ? CREDIT_REFILLS.studio : CREDIT_REFILLS.pro;
+  const refillPack = plan === "enterprise" ? CREDIT_REFILLS.enterprise : plan === "pro" ? CREDIT_REFILLS.pro : CREDIT_REFILLS.starter;
 
   if (loading) {
     return (
@@ -249,7 +249,7 @@ export function SubscriptionCredits() {
                   All features are available with your current credits.
                 </p>
                 <p className="text-muted-foreground mb-4">
-                  Want more credits? Upgrade to Pro or Studio to purchase refills.
+                  Want more credits? Upgrade to a paid plan to purchase refills.
                 </p>
                 <Button asChild>
                   <Link to="/pricing">View Plans</Link>
