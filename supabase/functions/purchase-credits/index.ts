@@ -32,22 +32,33 @@ function getCorsHeaders(req: Request) {
 
 // Credit refill packs per plan (different prices)
 const CREDIT_REFILLS = {
-  pro: {
-    credits: 1000,
-    priceId: "price_1St8RQB0LQyHc0cSaXgacgo8",
-    price: 39,
+  free: {
+    credits: 250,
+    priceId: "price_1SwA68B0LQyHc0cSm4HD09xL",
+    price: 5,
   },
-  studio: {
-    credits: 1000,
+  starter: {
+    credits: 500,
+    priceId: "price_1SwA68B0LQyHc0cSm4HD09xL", // TODO: Create separate Stripe price
+    price: 9,
+  },
+  pro: {
+    credits: 1500,
+    priceId: "price_1St8RQB0LQyHc0cSaXgacgo8",
+    price: 19,
+  },
+  enterprise: {
+    credits: 5000,
     priceId: "price_1St8hdB0LQyHc0cSBbGILcsV",
-    price: 45,
+    price: 49,
   },
 };
 
 // Max refills per month per plan
 const MAX_REFILLS: Record<string, number> = {
-  pro: 1,
-  studio: 2,
+  free: 999, // unlimited for free users
+  starter: 2,
+  pro: 3,
   enterprise: 999, // unlimited
 };
 
@@ -93,16 +104,7 @@ serve(async (req) => {
     const plan = userData?.subscription_plan || "free";
     const refillsThisMonth = userData?.refills_this_month || 0;
     
-    // Check if user is on a paid plan
-    if (plan === "free" || userData?.subscription_status === "free") {
-      logStep("User on free plan, denying refill");
-      return new Response(JSON.stringify({ 
-        error: "Credit refills are only available for Pro and Studio subscribers" 
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 403,
-      });
-    }
+    // All users can now purchase credits (removed free plan restriction)
 
     // Check refill limits
     const maxRefills = MAX_REFILLS[plan] || 0;

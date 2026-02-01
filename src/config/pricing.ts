@@ -191,8 +191,13 @@ export const SUBSCRIPTION_PLANS = {
   },
 } as const;
 
-// Credit refill packs for paid plans
+// Credit refill packs for all plans
 export const CREDIT_REFILLS = {
+  free: {
+    credits: 250,
+    price: 5,
+    perCredit: 5 / 250,
+  },
   starter: {
     credits: 500,
     price: 9,

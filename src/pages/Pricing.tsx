@@ -48,7 +48,8 @@ const Pricing = () => {
   // All plans are visible now
   const visiblePlans = Object.entries(SUBSCRIPTION_PLANS);
 
-  const canRefill = subscribed && (currentPlan === "starter" || currentPlan === "pro" || currentPlan === "enterprise");
+  // All users can purchase credits now
+  const canRefill = true;
 
   return (
     <div className="min-h-screen bg-background">
@@ -175,15 +176,6 @@ const Pricing = () => {
                           <Link to="/signup">Get Started Free</Link>
                         </Button>
                       )
-                    ) : id === "enterprise" ? (
-                      // Enterprise: Always show Contact Sales
-                      <Button
-                        className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                        variant="secondary"
-                        asChild
-                      >
-                        <Link to="/contact">Contact Sales</Link>
-                      </Button>
                     ) : !user ? (
                       // Not logged in: Show signup link
                       <Button
@@ -240,17 +232,40 @@ const Pricing = () => {
           </div>
 
           {/* Credit Refill Section */}
-          <div className="max-w-4xl mx-auto mb-16">
+          <div className="max-w-5xl mx-auto mb-16">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-serif font-light mb-2">Need More Credits?</h2>
               <p className="text-muted-foreground">
-                Paid subscribers can purchase additional credit packs.
+                Purchase additional credit packs anytime based on your plan.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Free Refill */}
+              <Card className={currentPlan !== "free" ? 'opacity-60' : 'ring-1 ring-primary/20'}>
+                <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
+                  <div className="text-center">
+                    <Badge variant="outline" className="mb-2">Free Plan</Badge>
+                    <div className="text-2xl font-bold">{CREDIT_REFILLS.free.credits.toLocaleString()} Credits</div>
+                    <p className="text-sm text-muted-foreground">
+                      ${CREDIT_REFILLS.free.perCredit.toFixed(3)} per credit
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-2xl font-bold">${CREDIT_REFILLS.free.price}</div>
+                    <Button
+                      onClick={handleRefill}
+                      disabled={loadingRefill || currentPlan !== "free"}
+                      size="sm"
+                    >
+                      {loadingRefill && currentPlan === "free" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Starter Refill */}
-              <Card className={currentPlan !== "starter" ? 'opacity-60' : ''}>
+              <Card className={currentPlan !== "starter" ? 'opacity-60' : 'ring-1 ring-primary/20'}>
                 <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
                   <div className="text-center">
                     <Badge variant="outline" className="mb-2">Starter Plan</Badge>
@@ -266,14 +281,14 @@ const Pricing = () => {
                       disabled={loadingRefill || currentPlan !== "starter"}
                       size="sm"
                     >
-                      {loadingRefill ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
+                      {loadingRefill && currentPlan === "starter" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Pro Refill */}
-              <Card className={currentPlan !== "pro" ? 'opacity-60' : ''}>
+              <Card className={currentPlan !== "pro" ? 'opacity-60' : 'ring-1 ring-primary/20'}>
                 <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
                   <div className="text-center">
                     <Badge variant="outline" className="mb-2">Pro Plan</Badge>
@@ -289,14 +304,14 @@ const Pricing = () => {
                       disabled={loadingRefill || currentPlan !== "pro"}
                       size="sm"
                     >
-                      {loadingRefill ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
+                      {loadingRefill && currentPlan === "pro" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Enterprise Refill */}
-              <Card className={currentPlan !== "enterprise" ? 'opacity-60' : ''}>
+              <Card className={currentPlan !== "enterprise" ? 'opacity-60' : 'ring-1 ring-primary/20'}>
                 <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
                   <div className="text-center">
                     <Badge variant="outline" className="mb-2">Enterprise Plan</Badge>
@@ -312,21 +327,12 @@ const Pricing = () => {
                       disabled={loadingRefill || currentPlan !== "enterprise"}
                       size="sm"
                     >
-                      {loadingRefill ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
+                      {loadingRefill && currentPlan === "enterprise" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
             </div>
-
-            {currentPlan === "free" && (
-              <div className="mt-4 text-center">
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>Upgrade to a paid plan to purchase additional credits</span>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Credit Usage Table */}
