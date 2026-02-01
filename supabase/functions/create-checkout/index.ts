@@ -30,19 +30,20 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-// UPDATED Plan configuration with all Stripe price IDs (Starter, Pro, Enterprise)
+// UPDATED Plan configuration with competitive credit amounts
+// Based on market research: Manus AI, ChatGPT, Perplexity, Claude pricing
 const SUBSCRIPTION_PLANS = {
   starter: {
-    monthly: { priceId: "price_1Sw8WgB0LQyHc0cSWfzoRjAV", credits: 500 },
-    yearly: { priceId: "price_1Sw8WpB0LQyHc0cSMOT9u005", credits: 500 },
+    monthly: { priceId: "price_1Sw8WgB0LQyHc0cSWfzoRjAV", credits: 1500 },
+    yearly: { priceId: "price_1Sw8WpB0LQyHc0cSMOT9u005", credits: 1500 },
   },
   pro: {
-    monthly: { priceId: "price_1St8PXB0LQyHc0cSUfR0Sz7u", credits: 1500 },
-    yearly: { priceId: "price_1St8PnB0LQyHc0cSxyKT7KkJ", credits: 1500 },
+    monthly: { priceId: "price_1St8PXB0LQyHc0cSUfR0Sz7u", credits: 5000 },
+    yearly: { priceId: "price_1St8PnB0LQyHc0cSxyKT7KkJ", credits: 5000 },
   },
   enterprise: {
-    monthly: { priceId: "price_1Sw8X6B0LQyHc0cS4GDSsnRI", credits: 6000 },
-    yearly: { priceId: "price_1Sw8XEB0LQyHc0cSD8UBS1SY", credits: 6000 },
+    monthly: { priceId: "price_1Sw8X6B0LQyHc0cS4GDSsnRI", credits: 25000 },
+    yearly: { priceId: "price_1Sw8XEB0LQyHc0cSD8UBS1SY", credits: 25000 },
   },
 };
 
@@ -77,7 +78,7 @@ serve(async (req) => {
 
     const { plan, billingCycle } = await req.json();
     
-    // UPDATED: Validate plan and billing cycle (starter, pro, and enterprise are purchasable)
+    // Validate plan and billing cycle (starter, pro, and enterprise are purchasable)
     if (!plan || !["starter", "pro", "enterprise"].includes(plan)) {
       throw new Error("Invalid plan selected. Choose Starter, Pro, or Enterprise.");
     }
@@ -87,7 +88,7 @@ serve(async (req) => {
 
     const planConfig = SUBSCRIPTION_PLANS[plan as keyof typeof SUBSCRIPTION_PLANS];
     const priceConfig = planConfig[billingCycle as "monthly" | "yearly"];
-    logStep("Plan selected", { plan, billingCycle, priceId: priceConfig.priceId });
+    logStep("Plan selected", { plan, billingCycle, priceId: priceConfig.priceId, credits: priceConfig.credits });
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
