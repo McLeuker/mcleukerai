@@ -91,7 +91,7 @@ export const pricingPlans: PricingPlan[] = [
   },
 ];
 
-// Credit usage estimates for different task types
+// Credit usage estimates for different task types (simple values)
 export const creditUsage = {
   simpleQuery: 5,        // Basic question
   webSearch: 15,         // Search + analysis
@@ -103,4 +103,101 @@ export const creditUsage = {
   excelExport: 30,       // Generate Excel file
   pdfReport: 40,         // Generate PDF report
   imageGeneration: 50,   // AI image generation
+};
+
+// Credit costs with name and credits for UsageActivity component
+export const CREDIT_COSTS: Record<string, { name: string; credits: number }> = {
+  ai_research_query: { name: "AI Research Query", credits: 5 },
+  market_analysis: { name: "Market Analysis", credits: 50 },
+  trend_report: { name: "Trend Report", credits: 75 },
+  supplier_search: { name: "Supplier Search", credits: 80 },
+  pdf_export: { name: "PDF Export", credits: 40 },
+  excel_export: { name: "Excel Export", credits: 30 },
+  simpleQuery: { name: "Simple Query", credits: 5 },
+  webSearch: { name: "Web Search", credits: 15 },
+  deepResearch: { name: "Deep Research", credits: 50 },
+  trendAnalysis: { name: "Trend Analysis", credits: 75 },
+  marketIntel: { name: "Market Intelligence", credits: 100 },
+  supplierResearch: { name: "Supplier Research", credits: 80 },
+  sustainabilityAudit: { name: "Sustainability Audit", credits: 120 },
+  excelExport: { name: "Excel Export", credits: 30 },
+  pdfReport: { name: "PDF Report", credits: 40 },
+  imageGeneration: { name: "Image Generation", credits: 50 },
+};
+
+// Credit usage as array for Pricing page display
+export const CREDIT_USAGE = [
+  { action: "Simple Query", credits: 5 },
+  { action: "Web Search", credits: 15 },
+  { action: "Deep Research", credits: 50 },
+  { action: "Trend Analysis", credits: 75 },
+  { action: "Market Intelligence", credits: 100 },
+  { action: "Supplier Research", credits: 80 },
+  { action: "Sustainability Audit", credits: 120 },
+  { action: "Excel Export", credits: 30 },
+  { action: "PDF Report", credits: 40 },
+  { action: "Image Generation", credits: 50 },
+];
+
+// Subscription plans as object keyed by plan ID (for useSubscription hook)
+export const SUBSCRIPTION_PLANS = {
+  free: {
+    id: "free",
+    name: "Free",
+    description: "Get started with basic fashion research",
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    credits: 300,
+    maxRefillsPerMonth: 0,
+    features: pricingPlans[0].features,
+  },
+  starter: {
+    id: "starter",
+    name: "Starter",
+    description: "For individuals and small teams",
+    monthlyPrice: 19,
+    yearlyPrice: 190,
+    credits: 1500,
+    maxRefillsPerMonth: 1,
+    features: pricingPlans[1].features,
+  },
+  pro: {
+    id: "pro",
+    name: "Pro",
+    description: "For professionals and growing businesses",
+    monthlyPrice: 49,
+    yearlyPrice: 490,
+    credits: 5000,
+    maxRefillsPerMonth: 2,
+    features: pricingPlans[2].features,
+  },
+  enterprise: {
+    id: "enterprise",
+    name: "Enterprise",
+    description: "For large organizations with custom needs",
+    monthlyPrice: 199,
+    yearlyPrice: 1990,
+    credits: 25000,
+    maxRefillsPerMonth: 5,
+    features: pricingPlans[3].features,
+  },
+} as const;
+
+// Credit refill packs for paid plans
+export const CREDIT_REFILLS = {
+  starter: {
+    credits: 500,
+    price: 9,
+    perCredit: 9 / 500,
+  },
+  pro: {
+    credits: 1500,
+    price: 19,
+    perCredit: 19 / 1500,
+  },
+  enterprise: {
+    credits: 5000,
+    price: 49,
+    perCredit: 49 / 5000,
+  },
 };
