@@ -55,13 +55,13 @@ export function ChatView({
   // Show domain starter panel when no messages
   if (messages.length === 0 && !isLoading) {
     return (
-      <ScrollArea className="flex-1">
+      <div className="flex-1 flex flex-col bg-black">
         <DomainStarterPanel
           onSelectPrompt={onSelectPrompt || (() => {})}
           snapshot={domainSnapshot}
           snapshotLoading={domainSnapshotLoading}
         />
-      </ScrollArea>
+      </div>
     );
   }
 
