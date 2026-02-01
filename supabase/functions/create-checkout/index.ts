@@ -30,15 +30,19 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-// NEW Plan configuration with Stripe price IDs
+// UPDATED Plan configuration with all Stripe price IDs (Starter, Pro, Enterprise)
 const SUBSCRIPTION_PLANS = {
-  pro: {
-    monthly: { priceId: "price_1St8PXB0LQyHc0cSUfR0Sz7u", credits: 700 },
-    yearly: { priceId: "price_1St8PnB0LQyHc0cSxyKT7KkJ", credits: 700 },
+  starter: {
+    monthly: { priceId: "price_1Sw8WgB0LQyHc0cSWfzoRjAV", credits: 500 },
+    yearly: { priceId: "price_1Sw8WpB0LQyHc0cSMOT9u005", credits: 500 },
   },
-  studio: {
-    monthly: { priceId: "price_1St8QuB0LQyHc0cSHex3exfz", credits: 1800 },
-    yearly: { priceId: "price_1St8R4B0LQyHc0cS3NOO4aXq", credits: 1800 },
+  pro: {
+    monthly: { priceId: "price_1St8PXB0LQyHc0cSUfR0Sz7u", credits: 1500 },
+    yearly: { priceId: "price_1St8PnB0LQyHc0cSxyKT7KkJ", credits: 1500 },
+  },
+  enterprise: {
+    monthly: { priceId: "price_1Sw8X6B0LQyHc0cS4GDSsnRI", credits: 6000 },
+    yearly: { priceId: "price_1Sw8XEB0LQyHc0cSD8UBS1SY", credits: 6000 },
   },
 };
 
@@ -73,9 +77,9 @@ serve(async (req) => {
 
     const { plan, billingCycle } = await req.json();
     
-    // Validate plan and billing cycle (only pro and studio are purchasable)
-    if (!plan || !["pro", "studio"].includes(plan)) {
-      throw new Error("Invalid plan selected. Choose Pro or Studio.");
+    // UPDATED: Validate plan and billing cycle (starter, pro, and enterprise are purchasable)
+    if (!plan || !["starter", "pro", "enterprise"].includes(plan)) {
+      throw new Error("Invalid plan selected. Choose Starter, Pro, or Enterprise.");
     }
     if (!billingCycle || !["monthly", "yearly"].includes(billingCycle)) {
       throw new Error("Invalid billing cycle");
