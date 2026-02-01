@@ -129,32 +129,32 @@ const Dashboard = () => {
         <div 
           className={cn(
             "hidden lg:grid border-b border-border sticky top-[72px] z-30",
-            sidebarOpen ? "grid-cols-[18rem_1fr]" : "grid-cols-[3.5rem_1fr]"
+            sidebarOpen ? "grid-cols-[16rem_1fr]" : "grid-cols-[3.5rem_1fr]"
           )}
         >
           {/* Left Column - WHITE sidebar area */}
-          <div className="bg-sidebar border-r border-border flex items-center px-4 py-3">
+          <div className="bg-sidebar border-r border-border flex items-center px-3 py-2">
             {sidebarOpen ? (
               <Button
                 onClick={createNewConversation}
-                className="px-5 py-2.5 h-auto rounded-full gap-2 bg-foreground text-background hover:bg-foreground/90 text-sm font-medium whitespace-nowrap"
+                className="px-3 py-1.5 h-auto rounded-full gap-1.5 bg-foreground text-background hover:bg-foreground/90 text-xs font-medium whitespace-nowrap"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
                 New Chat
               </Button>
             ) : (
               <Button
                 onClick={createNewConversation}
-                className="px-2.5 py-2.5 h-auto rounded-full bg-foreground text-background hover:bg-foreground/90"
+                className="px-2 py-1.5 h-auto rounded-full bg-foreground text-background hover:bg-foreground/90"
                 title="New Chat"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
           
           {/* Right Column - BLACK content area */}
-          <div className="bg-background flex items-center gap-4 px-4 py-3">
+          <div className="bg-background flex items-center gap-3 px-3 py-2">
             {/* Domain Pills */}
             <DomainSelector variant="pills" className="flex-1" onDomainChange={handleDomainChange} />
             
