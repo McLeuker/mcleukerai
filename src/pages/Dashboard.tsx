@@ -153,8 +153,8 @@ const Dashboard = () => {
             )}
           </div>
           
-          {/* Right Column - BLACK content area */}
-          <div className="bg-background flex items-center px-3 py-2">
+          {/* Right Column - BEIGE content area */}
+          <div className="bg-sidebar flex items-center px-3 py-2">
             {/* Domain Pills - centered in available space */}
             <div className="flex-1 flex justify-center">
               <DomainSelector variant="pills" onDomainChange={handleDomainChange} />
@@ -222,7 +222,10 @@ const Dashboard = () => {
         </div>
 
         {/* Chat Area */}
-        <main className="flex-1 flex flex-col min-h-0 relative">
+        <main className={cn(
+          "flex-1 flex flex-col min-h-0 relative",
+          sidebarOpen ? "lg:pl-64" : "lg:pl-14"
+        )}>
           {/* Grainy transition overlay for All Domains view */}
           {currentSector === "all" && (
             <div className="gradient-grain-transition absolute inset-0 pointer-events-none" />
