@@ -175,22 +175,28 @@ const Pricing = () => {
                           <Link to="/signup">Get Started Free</Link>
                         </Button>
                       )
+                    ) : !user ? (
+                      <Button
+                        className={`w-full ${isPopular ? '' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
+                        variant={isPopular ? "default" : "secondary"}
+                        asChild
+                      >
+                        <Link to="/signup">Sign up to subscribe</Link>
+                      </Button>
                     ) : (
                       <Button
                         className={`w-full ${isPopular ? '' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
                         variant={isPopular ? "default" : "secondary"}
                         onClick={() => handleSubscribe(id)}
-                        disabled={loadingPlan === id || !user}
+                        disabled={loadingPlan === id}
                       >
                         {loadingPlan === id ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                             Processing...
                           </>
-                        ) : user ? (
-                          currentPlan !== "free" ? "Switch Plan" : "Subscribe Now"
                         ) : (
-                          <Link to="/signup">Sign up to subscribe</Link>
+                          currentPlan !== "free" ? "Switch Plan" : "Subscribe Now"
                         )}
                       </Button>
                     )}

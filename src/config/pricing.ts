@@ -148,7 +148,9 @@ export const SUBSCRIPTION_PLANS = {
     monthlyPrice: 0,
     yearlyPrice: 0,
     credits: 300,
+    dailyCredits: 10,
     maxRefillsPerMonth: 0,
+    popular: false,
     features: pricingPlans[0].features,
   },
   starter: {
@@ -158,7 +160,9 @@ export const SUBSCRIPTION_PLANS = {
     monthlyPrice: 19,
     yearlyPrice: 190,
     credits: 1500,
+    dailyCredits: 50,
     maxRefillsPerMonth: 1,
+    popular: false,
     features: pricingPlans[1].features,
   },
   pro: {
@@ -168,7 +172,9 @@ export const SUBSCRIPTION_PLANS = {
     monthlyPrice: 49,
     yearlyPrice: 490,
     credits: 5000,
+    dailyCredits: 167,
     maxRefillsPerMonth: 2,
+    popular: true,
     features: pricingPlans[2].features,
   },
   enterprise: {
@@ -178,7 +184,9 @@ export const SUBSCRIPTION_PLANS = {
     monthlyPrice: 199,
     yearlyPrice: 1990,
     credits: 25000,
+    dailyCredits: 833,
     maxRefillsPerMonth: 5,
+    popular: false,
     features: pricingPlans[3].features,
   },
 } as const;
