@@ -97,7 +97,7 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
   if (isAuthPage) return null;
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-sidebar backdrop-blur-sm">
       <div className="h-14 flex items-center justify-between px-4 lg:px-6">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 shrink-0">
