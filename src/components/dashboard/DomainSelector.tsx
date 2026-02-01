@@ -1,7 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSector, SECTORS, Sector } from "@/contexts/SectorContext";
 import { cn } from "@/lib/utils";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -60,25 +59,22 @@ export function DomainSelector({
   }
 
   return (
-    <ScrollArea className={cn("w-full", className)}>
-      <div className="flex gap-1.5 pb-2">
-        {SECTORS.map((sector) => (
-          <button
-            key={sector.id}
-            onClick={() => handleSectorChange(sector.id)}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200",
-              "border hover:border-foreground/30",
-              currentSector === sector.id
-                ? "bg-foreground text-background border-foreground"
-                : "bg-card text-foreground border-border hover:bg-accent"
-            )}
-          >
-            {sector.label}
-          </button>
-        ))}
-      </div>
-      <ScrollBar orientation="horizontal" className="h-1.5" />
-    </ScrollArea>
+    <div className={cn("flex gap-1.5 items-center", className)}>
+      {SECTORS.map((sector) => (
+        <button
+          key={sector.id}
+          onClick={() => handleSectorChange(sector.id)}
+          className={cn(
+            "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200",
+            "border hover:border-foreground/30",
+            currentSector === sector.id
+              ? "bg-foreground text-background border-foreground"
+              : "bg-card text-foreground border-border hover:bg-accent"
+          )}
+        >
+          {sector.label}
+        </button>
+      ))}
+    </div>
   );
 }

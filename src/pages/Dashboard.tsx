@@ -133,7 +133,7 @@ const Dashboard = () => {
           )}
         >
           {/* Left Column - WHITE sidebar area */}
-          <div className="bg-sidebar border-r border-border flex items-center px-3 py-2">
+          <div className="bg-sidebar border-r border-border flex items-center justify-center px-3 py-2">
             {sidebarOpen ? (
               <Button
                 onClick={createNewConversation}
@@ -154,9 +154,11 @@ const Dashboard = () => {
           </div>
           
           {/* Right Column - BLACK content area */}
-          <div className="bg-background flex items-center gap-3 px-3 py-2">
-            {/* Domain Pills */}
-            <DomainSelector variant="pills" className="flex-1" onDomainChange={handleDomainChange} />
+          <div className="bg-background flex items-center px-3 py-2">
+            {/* Domain Pills - centered in available space */}
+            <div className="flex-1 flex justify-center">
+              <DomainSelector variant="pills" onDomainChange={handleDomainChange} />
+            </div>
             
             {/* Export Button */}
             {messages.length > 0 && (
