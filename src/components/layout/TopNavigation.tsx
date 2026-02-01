@@ -20,13 +20,16 @@ import {
   CreditCard, 
   LogOut, 
   Settings, 
-  HelpCircle 
+  HelpCircle,
+  Plus
 } from "lucide-react";
 import mcleukerLogo from "@/assets/mcleuker-logo.png";
 
 interface TopNavigationProps {
   showSectorTabs?: boolean;
   showCredits?: boolean;
+  showNewChat?: boolean;
+  onNewChat?: () => void;
 }
 
 interface UserProfile {
@@ -34,7 +37,7 @@ interface UserProfile {
   profile_image: string | null;
 }
 
-export function TopNavigation({ showSectorTabs = true, showCredits = true }: TopNavigationProps) {
+export function TopNavigation({ showSectorTabs = true, showCredits = true, showNewChat = false, onNewChat }: TopNavigationProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentSector, setSector } = useSector();
@@ -99,14 +102,26 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true }: Top
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-sidebar backdrop-blur-sm">
       <div className="h-14 flex items-center justify-between px-4 lg:px-6">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <img
-            src={mcleukerLogo}
-            alt="McLeuker AI"
-            className="h-8 w-auto"
-          />
-        </Link>
+        {/* Logo + optional New Chat */}
+        <div className="flex items-center gap-4 shrink-0">
+          <Link to="/" className="flex items-center gap-2.5">
+            <img
+              src={mcleukerLogo}
+              alt="McLeuker AI"
+              className="h-8 w-auto"
+            />
+          </Link>
+          
+          {showNewChat && onNewChat && (
+            <Button
+              onClick={onNewChat}
+              className="hidden lg:flex px-3 py-1.5 h-auto rounded-full gap-1.5 bg-foreground text-background hover:bg-foreground/90 text-xs font-medium"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New Chat
+            </Button>
+          )}
+        </div>
 
         {/* Sector Tabs - Center */}
         {showTabs && (
