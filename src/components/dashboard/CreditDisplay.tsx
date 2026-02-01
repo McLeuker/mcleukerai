@@ -66,10 +66,10 @@ export function CreditDisplay({ variant = "default" }: { variant?: "default" | "
 
   if (variant === "compact") {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border border-border">
-        <Coins className={cn("h-4 w-4", isLow ? "text-muted-foreground" : "text-foreground")} />
-        <span className="text-sm font-medium">{credits.credit_balance}</span>
-        <Progress value={percentage} className="w-16 h-1.5" />
+      <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-full bg-card border border-border">
+        <Coins className={cn("h-3.5 w-3.5", isLow ? "text-muted-foreground" : "text-foreground")} />
+        <span className="text-xs font-medium">{credits.credit_balance}</span>
+        <Progress value={percentage} className="w-12 h-1" />
       </div>
     );
   }
