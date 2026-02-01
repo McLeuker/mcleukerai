@@ -90,7 +90,7 @@ const Dashboard = () => {
         />
 
         {/* Header Spacer */}
-        <div className="h-14 lg:h-[72px]" />
+        <div className="h-14 lg:h-[72px] bg-sidebar" />
 
         {/* Mobile Header */}
         <div className="lg:hidden border-b border-border bg-background/95 backdrop-blur-sm sticky top-14 z-30">
