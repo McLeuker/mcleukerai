@@ -244,14 +244,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Check if user can purchase refills (paid plans only)
+  // Check if user can purchase refills (ALL users can now)
   const canRefill = () => {
-    if (!state.subscribed || state.plan === "free") return false;
-    
     const planConfig = SUBSCRIPTION_PLANS[state.plan as keyof typeof SUBSCRIPTION_PLANS];
-    if (!planConfig || !('maxRefillsPerMonth' in planConfig)) return false;
+    if (!planConfig || !('maxRefillsPerMonth' in planConfig)) return true;
     
     const maxRefills = planConfig.maxRefillsPerMonth as number;
+    if (maxRefills === 0) return true; // 0 means unlimited for free users
     return state.refillsThisMonth < maxRefills;
   };
 
