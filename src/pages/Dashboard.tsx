@@ -128,12 +128,12 @@ const Dashboard = () => {
         {/* Desktop Unified Top Bar - 2-column grid for inverted L alignment */}
         <div 
           className={cn(
-            "hidden lg:grid border-b border-border sticky top-[72px] z-30",
+            "hidden lg:grid sticky top-[72px] z-30",
             sidebarOpen ? "grid-cols-[16rem_1fr]" : "grid-cols-[3.5rem_1fr]"
           )}
         >
           {/* Left Column - WHITE sidebar area */}
-          <div className="bg-sidebar border-r border-border flex items-center justify-center px-3 py-2">
+          <div className="bg-sidebar flex items-center justify-center px-3 py-3">
             {sidebarOpen ? (
               <Button
                 onClick={createNewConversation}

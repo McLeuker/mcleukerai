@@ -49,8 +49,8 @@ export function DomainStarterPanel({
   // All Domains - Hero style centered interface (centers within black area only)
   if (currentSector === "all") {
     return (
-      <div className={cn("flex flex-col h-full min-h-[calc(100vh-180px)] bg-black", className)}>
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+      <div className={cn("flex flex-col h-full min-h-[calc(100vh-200px)] bg-black", className)}>
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
           {/* Title */}
           <h1 className="text-4xl md:text-5xl font-serif text-white mb-3 text-center">
             Where is my mind?
