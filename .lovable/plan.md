@@ -1,17 +1,14 @@
 
 
-## Unify Header Height Across All Pages
+## Remove White Line Between Header and Content
 
-Match the dashboard header spacer to the domain landing page height so the black content area starts at the same vertical position on all pages.
+Add the beige background color to the header spacer so there's no white gap between the header and black content area.
 
 ---
 
-## Current State
+## Issue
 
-| Page | Header Spacer | Desktop Height |
-|------|--------------|----------------|
-| Domain Landing (`/domain/fashion`) | `h-14 lg:h-[72px]` | 72px |
-| Dashboard (`/dashboard`) | `h-14` | 56px |
+The header spacer (`<div className="h-14 lg:h-[72px]" />`) has no background color, so the white `bg-background` from the parent div shows through, creating a visible white line.
 
 ---
 
@@ -21,21 +18,17 @@ Match the dashboard header spacer to the domain landing page height so the black
 
 Update line 93 from:
 ```tsx
-<div className="h-14" />
+<div className="h-14 lg:h-[72px]" />
 ```
 
 To:
 ```tsx
-<div className="h-14 lg:h-[72px]" />
+<div className="h-14 lg:h-[72px] bg-sidebar" />
 ```
 
 ---
 
 ## Result
 
-Both pages will have the same header height:
-- Mobile: 56px (`h-14`)
-- Desktop: 72px (`lg:h-[72px]`)
-
-The black content area will start at the exact same vertical position on both the dashboard and domain landing pages.
+The spacer will have the same beige (`bg-sidebar`) color as the TopNavigation header, creating a seamless transition from the header to the black content area with no white line visible.
 
