@@ -26,7 +26,7 @@ const Pricing = () => {
   const { plan: currentPlan, subscribed, purchaseCredits, createCheckout } = useSubscription();
 
   const handleSubscribe = async (planId: string) => {
-    if (planId === "enterprise" || planId === "free") return;
+    if (planId === "free") return; // Only block free plan
     
     setLoadingPlan(planId);
     try {
@@ -175,7 +175,17 @@ const Pricing = () => {
                           <Link to="/signup">Get Started Free</Link>
                         </Button>
                       )
+                    ) : id === "enterprise" ? (
+                      // Enterprise: Always show Contact Sales
+                      <Button
+                        className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                        variant="secondary"
+                        asChild
+                      >
+                        <Link to="/contact">Contact Sales</Link>
+                      </Button>
                     ) : !user ? (
+                      // Not logged in: Show signup link
                       <Button
                         className={`w-full ${isPopular ? '' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
                         variant={isPopular ? "default" : "secondary"}
@@ -184,6 +194,7 @@ const Pricing = () => {
                         <Link to="/signup">Sign up to subscribe</Link>
                       </Button>
                     ) : (
+                      // Logged in: Show checkout button for Starter and Pro
                       <Button
                         className={`w-full ${isPopular ? '' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
                         variant={isPopular ? "default" : "secondary"}
