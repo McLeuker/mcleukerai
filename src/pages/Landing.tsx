@@ -27,7 +27,10 @@ const Landing = () => {
     e.preventDefault();
     if (prompt.trim()) {
       if (user) {
-        navigate("/dashboard", { state: { initialPrompt: prompt } });
+        // Store prompt for immediate execution in Dashboard
+        sessionStorage.setItem("domainPrompt", prompt);
+        sessionStorage.setItem("domainContext", "all");
+        navigate("/dashboard");
       } else {
         navigate("/login", { state: { redirectPrompt: prompt } });
       }
@@ -206,7 +209,15 @@ const Landing = () => {
                   return (
                     <button
                       key={i}
-                      onClick={() => setPrompt(suggestion.prompt)}
+                      onClick={() => {
+                        if (user) {
+                          sessionStorage.setItem("domainPrompt", suggestion.prompt);
+                          sessionStorage.setItem("domainContext", "all");
+                          navigate("/dashboard");
+                        } else {
+                          setPrompt(suggestion.prompt);
+                        }
+                      }}
                       className="group relative p-4 sm:p-5 rounded-xl bg-background/5 border border-background/10 hover:bg-background/15 hover:border-background/25 transition-all duration-300 text-left overflow-hidden"
                     >
                       {/* Subtle gradient background */}
