@@ -1,256 +1,164 @@
 /**
- * assistantPostprocess.ts - Unified post-processor for assistant responses
+ * McLeuker AI V4 - assistantPostprocess.ts
  * 
- * Ensures every assistant message is user-friendly:
- * - Removes [object Object] artifacts
- * - Replaces generic failure phrases with helpful content
- * - Normalizes whitespace
+ * MINIMAL ARTIFACT CLEANUP ONLY
+ * 
+ * Design Principles:
+ * 1. ONLY clean display artifacts like [object Object]
+ * 2. NO fake content generation
+ * 3. NO response replacement
+ * 4. TRANSPARENT - return exactly what was given (just cleaned)
+ * 
+ * IMPORTANT: This file should do MINIMAL processing.
+ * The old version was generating fake "helpful" content which masked real responses.
  */
 
-// ═══════════════════════════════════════════════════════════════
-// ARTIFACT CLEANUP
-// ═══════════════════════════════════════════════════════════════
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export interface PostprocessedResponse {
+  content: string;
+  wasModified: boolean;
+  artifactsRemoved: number;
+}
+
+// ============================================================================
+// MAIN FUNCTION
+// ============================================================================
 
 /**
- * Remove rendering artifacts like [object Object] and normalize text
+ * Clean artifacts from assistant response
+ * 
+ * ONLY removes display artifacts like [object Object]
+ * DOES NOT generate fake content or replace responses
  */
-export function cleanupArtifacts(text: string): string {
-  if (!text || typeof text !== "string") return "";
+export function postprocessAssistantResponse(content: string): PostprocessedResponse {
+  // Handle null/undefined
+  if (!content) {
+    return {
+      content: '',
+      wasModified: false,
+      artifactsRemoved: 0,
+    };
+  }
+
+  // Ensure content is a string
+  if (typeof content !== 'string') {
+    console.warn('[assistantPostprocess] Content was not a string, converting:', typeof content);
+    try {
+      content = JSON.stringify(content);
+    } catch {
+      content = String(content);
+    }
+  }
+
+  // Count artifacts before cleaning
+  const objectObjectCount = (content.match(/\[object Object\]/g) || []).length;
   
-  return text
-    // Remove [object Object] including variations
-    .replace(/\[object Object\]/gi, "")
-    .replace(/\[object\s+Object\]/gi, "")
-    // Clean up comma artifacts (,,, or , , ,)
-    .replace(/,\s*,+/g, ",")
-    .replace(/,\s*$/gm, "") // trailing commas
-    .replace(/^\s*,/gm, "") // leading commas
-    // Clean up repeated punctuation
-    .replace(/\.{4,}/g, "...")
-    .replace(/\s{3,}/g, "  ")
-    // Normalize line breaks
-    .replace(/\n{4,}/g, "\n\n\n")
+  // Clean artifacts
+  let cleaned = content
+    // Remove [object Object] patterns
+    .replace(/\[object Object\]/g, '')
+    // Clean up resulting comma artifacts
+    .replace(/,\s*,/g, ',')
+    .replace(/,\s*\./g, '.')
+    // Clean up multiple spaces
+    .replace(/\s{2,}/g, ' ')
+    // Clean up leading/trailing commas
+    .replace(/^\s*,\s*/g, '')
+    .replace(/\s*,\s*$/g, '')
+    // Trim
     .trim();
-}
 
-// ═══════════════════════════════════════════════════════════════
-// UNHELPFUL TEXT DETECTION
-// ═══════════════════════════════════════════════════════════════
-
-const UNHELPFUL_PATTERNS = [
-  /^I apologize,?\s*but I couldn'?t generate a response/i,
-  /^I couldn'?t generate a response/i,
-  /^I encountered an error/i,
-  /^Error:/i,
-  /^API error:/i,
-  /^Request failed/i,
-  /^Something went wrong/i,
-  /^Please try again\.?$/i,
-  /^I'm sorry,?\s*(but\s+)?I can'?t\s+(help|assist|process)/i,
-  /^\s*$/,
-];
-
-const MIN_HELPFUL_LENGTH = 20;
-
-/**
- * Detect if text is an unhelpful failure message
- */
-export function isUnhelpfulFailureText(text: string): boolean {
-  if (!text || typeof text !== "string") return true;
-  
-  const cleaned = text.trim();
-  
-  // Too short to be helpful
-  if (cleaned.length < MIN_HELPFUL_LENGTH) return true;
-  
-  // Check against known unhelpful patterns
-  for (const pattern of UNHELPFUL_PATTERNS) {
-    if (pattern.test(cleaned)) return true;
+  // Log if artifacts were removed
+  if (objectObjectCount > 0) {
+    console.log(`[assistantPostprocess] Removed ${objectObjectCount} [object Object] artifacts`);
   }
-  
-  return false;
-}
 
-// ═══════════════════════════════════════════════════════════════
-// QUERY INTENT DETECTION
-// ═══════════════════════════════════════════════════════════════
-
-type QueryIntent = "research" | "realtime" | "trends" | "personal" | "technical" | "creative" | "general";
-
-function detectQueryIntent(query: string): QueryIntent {
-  const q = query.toLowerCase();
-  
-  // Real-time / current events
-  if (/\b(right now|today|happening|current|latest|this week|this month|breaking)\b/i.test(q)) {
-    return "realtime";
-  }
-  
-  // Future trends
-  if (/\b(202[5-9]|203\d|trends?|forecast|prediction|future|upcoming)\b/i.test(q)) {
-    return "trends";
-  }
-  
-  // Research queries
-  if (/\b(find|search|research|look up|discover|list|compare|analyze|supplier|manufacturer)\b/i.test(q)) {
-    return "research";
-  }
-  
-  // Personal advice
-  if (/\b(feel|life|advice|help me|should i|worried|stressed|relationship|personal)\b/i.test(q)) {
-    return "personal";
-  }
-  
-  // Technical queries
-  if (/\b(code|api|implement|function|error|debug|programming|typescript|javascript)\b/i.test(q)) {
-    return "technical";
-  }
-  
-  // Creative requests
-  if (/\b(write|poem|story|creative|imagine|compose|draft)\b/i.test(q)) {
-    return "creative";
-  }
-  
-  return "general";
-}
-
-// ═══════════════════════════════════════════════════════════════
-// USER-FACING ANSWER GENERATION
-// ═══════════════════════════════════════════════════════════════
-
-interface AnswerAttemptOptions {
-  query: string;
-  text?: string;
-  failureType?: "timeout" | "network" | "rateLimit" | "empty" | "error" | "general";
-}
-
-/**
- * Generate a best-effort user-facing answer when the original response is unhelpful
- */
-function generateAnswerAttempt(options: AnswerAttemptOptions): string {
-  const { query, failureType = "general" } = options;
-  const intent = detectQueryIntent(query);
-  const queryPreview = query.length > 50 ? query.slice(0, 50) + "..." : query;
-  
-  // Intent-specific helpful responses
-  const responses: Record<QueryIntent, string> = {
-    realtime: `I'm working on gathering real-time information for you. While I process your request, here's what I can offer:
-
-**About "${queryPreview}":**
-
-Real-time data requires connecting to live sources, which can sometimes take longer. Here are some ways to get the most current information:
-
-- **Social platforms**: Check trending topics directly on X (Twitter), Instagram, or LinkedIn
-- **News aggregators**: Google News, Apple News, or industry-specific outlets
-- **Specific angle**: Tell me which platform or region you're most interested in
-
-What specific aspect would you like me to focus on?`,
-
-    trends: `I'm compiling trend information for your query. Here's what I can share:
-
-**Regarding "${queryPreview}":**
-
-When analyzing future trends, I consider multiple factors including current trajectories, industry reports, and expert predictions. To give you the most relevant insights:
-
-- **Specify the industry**: Fashion, tech, marketing, finance?
-- **Geographic focus**: Global, specific region, or market?
-- **Time horizon**: Near-term (6-12 months) or longer-term?
-
-This helps me provide actionable trend analysis rather than generic forecasts.`,
-
-    research: `I'm working through your research query. Here's my initial guidance:
-
-**For "${queryPreview}":**
-
-While I gather comprehensive information, consider these approaches:
-
-- **Narrow the scope**: Specific brands, regions, or time periods help focus results
-- **One topic at a time**: Complex queries work better when broken into parts
-- **Key criteria**: What factors matter most (price, quality, location)?
-
-What specific aspect should I prioritize in my research?`,
-
-    personal: `I want to acknowledge what you're asking and help in whatever way I can.
-
-While I work through some technical challenges, I'm here to listen. Sometimes the best approach is to take things one step at a time.
-
-Could you share a bit more about what's on your mind? I'm ready to help when you are.`,
-
-    technical: `I'm processing your technical query. Here's what I can offer:
-
-**For "${queryPreview}":**
-
-To provide the most accurate technical guidance:
-
-- **Share specifics**: Error messages, code snippets, or expected behavior
-- **Environment details**: What framework, language, or platform?
-- **What you've tried**: This helps narrow down the issue
-
-Ready to dive deeper once you share more details.`,
-
-    creative: `I'd love to help with your creative request.
-
-**For "${queryPreview}":**
-
-To craft something that resonates:
-
-- **Tone**: Formal, casual, playful, or something else?
-- **Audience**: Who will read/see this?
-- **Key elements**: Any must-have themes or messages?
-
-Share these details and I'll get creative for you.`,
-
-    general: `I'm working on your request. Here's what I can offer right now:
-
-**For "${queryPreview}":**
-
-I wasn't able to complete the full response, but I'm still here to help.
-
-**What you can try:**
-- Rephrase with more specific details
-- Ask about one aspect at a time
-- Let me know if there's a particular angle to focus on
-
-What would be most helpful for you?`,
+  return {
+    content: cleaned,
+    wasModified: objectObjectCount > 0,
+    artifactsRemoved: objectObjectCount,
   };
-  
-  return responses[intent];
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MAIN POST-PROCESSOR
-// ═══════════════════════════════════════════════════════════════
-
-interface PostProcessOptions {
-  query: string;
-  text: string;
-  failureType?: "timeout" | "network" | "rateLimit" | "empty" | "error" | "general";
 }
 
 /**
- * Post-process assistant text to ensure it's always user-friendly
- * 
- * 1. Cleans up artifacts ([object Object], etc.)
- * 2. Detects unhelpful failure messages
- * 3. Replaces with contextual answer attempts
+ * Check if content is empty or just whitespace
  */
-export function postProcessAssistantText(options: PostProcessOptions): string {
-  const { query, text, failureType } = options;
+export function isEmptyContent(content: string): boolean {
+  if (!content) return true;
+  return content.trim().length === 0;
+}
+
+/**
+ * Check if content looks like an error message
+ */
+export function isErrorContent(content: string): boolean {
+  if (!content) return false;
+  const lowerContent = content.toLowerCase();
+  return (
+    lowerContent.includes('error:') ||
+    lowerContent.includes('failed:') ||
+    lowerContent.includes('exception:') ||
+    lowerContent.startsWith('api error') ||
+    lowerContent.startsWith('network error') ||
+    lowerContent.startsWith('timeout')
+  );
+}
+
+/**
+ * Extract error message from content if it's an error
+ */
+export function extractErrorMessage(content: string): string | null {
+  if (!isErrorContent(content)) return null;
   
-  // Step 1: Clean artifacts
-  let cleaned = cleanupArtifacts(text);
-  
-  // Step 2: Check if result is unhelpful
-  if (isUnhelpfulFailureText(cleaned)) {
-    // Step 3: Generate a helpful answer attempt
-    cleaned = generateAnswerAttempt({ query, text: cleaned, failureType });
+  // Try to extract the actual error message
+  const patterns = [
+    /error:\s*(.+)/i,
+    /failed:\s*(.+)/i,
+    /exception:\s*(.+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match) return match[1].trim();
   }
-  
-  return cleaned;
+
+  return content;
+}
+
+// ============================================================================
+// LEGACY COMPATIBILITY
+// ============================================================================
+
+/**
+ * Legacy function name for backwards compatibility
+ * @deprecated Use postprocessAssistantResponse instead
+ */
+export function cleanAssistantResponse(content: string): string {
+  return postprocessAssistantResponse(content).content;
 }
 
 /**
- * Pre-render cleanup for display - removes artifacts from stored messages
+ * Legacy function that was generating fake content
+ * NOW: Just returns the cleaned content, no fake generation
+ * @deprecated This function no longer generates fake content
  */
-export function cleanForDisplay(text: string): string {
-  return cleanupArtifacts(text);
+export function enhanceAssistantResponse(content: string): string {
+  console.warn('[assistantPostprocess] enhanceAssistantResponse is deprecated and no longer generates fake content');
+  return postprocessAssistantResponse(content).content;
 }
+
+// ============================================================================
+// DEFAULT EXPORT
+// ============================================================================
+
+export default {
+  postprocessAssistantResponse,
+  isEmptyContent,
+  isErrorContent,
+  extractErrorMessage,
+  cleanAssistantResponse,
+  enhanceAssistantResponse,
+};
