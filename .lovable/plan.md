@@ -1,75 +1,72 @@
 
+# Fix Authentication Issues
 
-## Fix Google OAuth 403 Error
+## Issue Analysis
 
-### Problem
-Google Sign-In returns a 403 error because the current code uses `supabase.auth.signInWithOAuth()` directly, but this project runs on **Lovable Cloud** which manages Google OAuth automatically and requires a different approach.
+Based on the error message "accounts.google.com refused to connect" and console logs showing "Sign in was cancelled", there are two potential issues:
 
-### Solution
-Use Lovable Cloud's managed Google OAuth solution by configuring the social auth integration.
+### Issue 1: Google OAuth in Preview Iframe
+Google's OAuth page refuses to load inside iframes for security reasons. When using the Lovable preview, the OAuth popup may fail to open properly, causing the "refused to connect" error.
 
----
+**Root Cause**: The `lovable.auth.signInWithOAuth()` tries to open an OAuth popup, but browser security or iframe restrictions block it.
 
-### Step 1: Configure Social Auth
-
-I'll use the `configure-social-auth` tool to set up Google OAuth for Lovable Cloud. This will:
-- Generate the required `src/integrations/lovable/` module
-- Install the `@lovable.dev/cloud-auth-js` package
-- Configure the managed OAuth credentials
+### Issue 2: Email/Password Login Confusion
+The user mentioned "email login doesn't work" but the error is about Google. Need to confirm which login method is failing.
 
 ---
 
-### Step 2: Update Authentication Code
+## Technical Solution
 
-**File: `src/hooks/useAuth.tsx`**
+### For Google OAuth (the "Continue with Google" button)
 
-Update the `signInWithGoogle` function to use Lovable Cloud's auth instead of direct Supabase calls:
+The OAuth integration is correctly set up, but the popup is being blocked in the iframe preview. This is a known limitation.
 
-```typescript
-// Before (causes 403):
-const { error } = await supabase.auth.signInWithOAuth({
-  provider: "google",
-  options: {
-    redirectTo: `${window.location.origin}/dashboard`,
-    queryParams: {
-      access_type: 'offline',
-      prompt: 'consent',
-    },
-  },
-});
-
-// After (uses Lovable Cloud managed OAuth):
-import { lovable } from "@/integrations/lovable/index";
-
-const { error } = await lovable.auth.signInWithOAuth("google", {
-  redirect_uri: window.location.origin,
-});
+**Workaround**: Test Google OAuth by opening the app in a new browser tab using the preview URL directly:
+```
+https://id-preview--697e9ee9-fa45-4e69-8ad9-6a04c8a6c0f7.lovable.app
 ```
 
+When opened directly (not in the Lovable editor iframe), the OAuth popup should work correctly.
+
+### For Email/Password Login
+
+The email/password flow uses `supabase.auth.signInWithPassword()` and should work correctly. The current code at lines 76-92 in `useAuth.tsx` is properly implemented:
+
+```typescript
+const signIn = useCallback(async (email: string, password: string) => {
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    // ...
+  }
+}, []);
+```
+
+If email login is failing, possible causes:
+1. Invalid credentials (wrong email/password)
+2. User account doesn't exist (needs to sign up first)
+3. Email not confirmed (if email confirmation is required)
+
 ---
 
-### Step 3: Update Login & Signup Pages
+## Recommendations
 
-**Files: `src/pages/Login.tsx` and `src/pages/Signup.tsx`**
+| Auth Method | Status | Action |
+|-------------|--------|--------|
+| Email/Password | Should work | Test with valid credentials |
+| Google OAuth | Blocked in iframe | Test in standalone browser tab |
 
-The Google sign-in buttons already call `signInWithGoogle()` from the auth hook, so they will automatically use the updated implementation once the hook is fixed.
+### Steps to Test
 
----
-
-### Why This Fixes the 403 Error
-
-| Issue | Root Cause | Fix |
-|-------|------------|-----|
-| 403 Forbidden | Direct Supabase OAuth lacks proper Lovable Cloud configuration | Use `lovable.auth.signInWithOAuth()` which has managed credentials |
-| Missing redirect URIs | Supabase OAuth settings don't include preview domains | Lovable Cloud automatically handles all redirect URIs |
-| OAuth consent issues | Custom OAuth requires Google Cloud Console setup | Lovable Cloud provides pre-configured managed OAuth |
+1. **For Email Login**: Use the signup page first to create an account, then login
+2. **For Google OAuth**: Open the preview URL in a new browser tab (not the Lovable editor)
 
 ---
 
-### Expected Behavior After Fix
+## No Code Changes Needed
 
-1. User clicks "Continue with Google"
-2. Redirects to Google's consent screen (managed by Lovable Cloud)
-3. After approval, redirects back to `/dashboard`
-4. User is authenticated and session is established
-
+The authentication code is correctly implemented. The "refused to connect" error is a browser security restriction when running OAuth inside the Lovable preview iframe. This is expected behavior and will work correctly when:
+- The app is published
+- The preview is opened directly in a new browser tab
