@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { ChatMessage as ChatMessageType } from "@/hooks/useConversations";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Star, Trash2, User, Bot, Cpu, Coins, Copy, Check, ExternalLink, Sparkles } from "lucide-react";
+import { Star, Trash2, User, Bot, Cpu, Coins, Copy, Check, ExternalLink, Sparkles, RefreshCw, Loader2, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "react-markdown";
@@ -37,6 +37,7 @@ interface ChatMessageProps {
   streamingContent?: string;
   onCodeRun?: (code: string, language: string) => void;
   onFollowUpClick?: (question: string) => void;
+  onRetry?: (messageId: string) => void;
 }
 
 export function ChatMessageComponent({
@@ -47,6 +48,7 @@ export function ChatMessageComponent({
   streamingContent = "",
   onCodeRun,
   onFollowUpClick,
+  onRetry,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>(message.generatedFiles || []);
@@ -129,6 +131,31 @@ export function ChatMessageComponent({
             <p className="text-foreground text-[15px] leading-relaxed whitespace-pre-wrap">
               {sanitizedContent}
             </p>
+          ) : message.isPlaceholder ? (
+            /* Placeholder/Loading State */
+            <div className="flex items-center gap-3 py-2">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <span className="text-muted-foreground text-[15px]">{message.content}</span>
+            </div>
+          ) : message.isError ? (
+            /* Error State with Retry */
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 text-destructive">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <p className="text-[15px]">{message.content}</p>
+              </div>
+              {onRetry && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onRetry(message.id)}
+                  className="text-foreground border-border hover:bg-muted"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry
+                </Button>
+              )}
+            </div>
           ) : (
             <div className="prose prose-sm max-w-none">
               {/* V2.0.0 Collapsible Reasoning Display */}

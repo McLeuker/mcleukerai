@@ -19,6 +19,7 @@ interface ChatViewProps {
   onNewChat: () => void;
   onSelectPrompt?: (prompt: string, mode?: "quick" | "deep", model?: string) => void;
   onFollowUpClick?: (question: string) => void;
+  onRetry?: (messageId: string) => void;
   domainSnapshot?: string | null;
   domainSnapshotLoading?: boolean;
 }
@@ -33,6 +34,7 @@ export function ChatView({
   onNewChat,
   onSelectPrompt,
   onFollowUpClick,
+  onRetry,
   domainSnapshot,
   domainSnapshotLoading,
 }: ChatViewProps) {
@@ -116,6 +118,7 @@ export function ChatView({
                 isStreaming={isLastAssistant}
                 streamingContent={isLastAssistant ? streamingContent : undefined}
                 onFollowUpClick={onFollowUpClick || onSelectPrompt}
+                onRetry={onRetry}
               />
             );
           })}

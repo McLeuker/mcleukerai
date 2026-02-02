@@ -28,6 +28,7 @@ const Dashboard = () => {
     deleteMessage,
     deleteConversation,
     cancelRequest,
+    retryMessage,
   } = useConversations();
   const { currentSector, setSector, getSectorConfig } = useSector();
   const { content: domainSnapshot, loading: snapshotLoading, fetchSnapshot, clearSnapshot } = useDomainSnapshot();
@@ -128,6 +129,7 @@ const Dashboard = () => {
             onNewChat={createNewConversation}
             onSelectPrompt={(prompt, mode, model) => handleSendMessage(prompt, mode || "quick", model)}
             onFollowUpClick={(question) => handleSendMessage(question, "quick")}
+            onRetry={retryMessage}
             domainSnapshot={domainSnapshot}
             domainSnapshotLoading={snapshotLoading}
           />
