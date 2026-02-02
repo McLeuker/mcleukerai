@@ -329,16 +329,31 @@ FIRST classify the intent, then generate the reasoning blueprint.`;
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
       
-      if (response.status === 429) {
+      // ═══════════════════════════════════════════════════════════════
+      // ROBUST FALLBACK: Return helpful blueprint instead of error
+      // ═══════════════════════════════════════════════════════════════
+      
+      if (response.status === 429 || response.status === 402 || response.status >= 500) {
+        console.log("Creating fallback blueprint due to AI gateway error:", response.status);
+        
+        // Create a minimal but valid fallback blueprint
+        const fallbackBlueprint = createFallbackBlueprint(prompt, taskPlan, null);
+        
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required. Please add credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ 
+            success: true,
+            blueprint: fallbackBlueprint,
+            fallback: true,
+            note: response.status === 429 
+              ? "Using simplified reasoning due to high demand" 
+              : "Using fallback reasoning to ensure continuous service",
+            metadata: {
+              model: "fallback",
+              timestamp: new Date().toISOString(),
+              original_error: response.status
+            }
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       

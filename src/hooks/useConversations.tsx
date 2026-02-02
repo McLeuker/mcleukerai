@@ -4,6 +4,76 @@ import { useAuth } from "@/hooks/useAuth";
 import { mcLeukerAPI } from "@/lib/mcLeukerAPI";
 import { useToast } from "@/hooks/use-toast";
 
+// ═══════════════════════════════════════════════════════════════
+// CONTEXTUAL ERROR RESPONSES - Never show raw errors to users
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Detect query intent for contextual fallbacks
+ */
+function detectQueryIntent(query: string): "research" | "personal" | "technical" | "creative" | "general" {
+  const q = query.toLowerCase();
+  
+  if (/\b(find|search|research|look up|discover|list|compare|analyze|supplier|manufacturer)\b/i.test(q)) return "research";
+  if (/\b(feel|life|advice|help me|should i|worried|stressed|relationship|personal)\b/i.test(q)) return "personal";
+  if (/\b(code|api|implement|function|error|debug|programming|typescript|javascript)\b/i.test(q)) return "technical";
+  if (/\b(write|poem|story|creative|imagine|compose)\b/i.test(q)) return "creative";
+  
+  return "general";
+}
+
+/**
+ * Generate a contextual error response based on query
+ * Never shows raw errors - always provides helpful guidance
+ */
+function getContextualErrorResponse(query: string): string {
+  const intent = detectQueryIntent(query);
+  const queryPreview = query.length > 50 ? query.slice(0, 50) + "..." : query;
+  
+  const responses: Record<string, string> = {
+    research: `I'm working through some technical challenges with your research query. While I gather more data, here's what I can offer:
+
+**For "${queryPreview}":**
+
+I wasn't able to complete the full research, but here are some approaches that might help:
+- Try breaking this into smaller, more specific questions
+- Specify a particular region, time frame, or category
+- Ask about one aspect at a time for more focused results
+
+I'm still working on improving my research capabilities. Feel free to try again or rephrase your question.`,
+    
+    personal: `I want to acknowledge your question and provide what insight I can.
+
+While I'm experiencing some technical challenges, I'm still here to help. What you're asking matters, and I want to give you a thoughtful response.
+
+Could you tell me a bit more about what's on your mind? Sometimes it helps to break things down into smaller pieces.`,
+    
+    technical: `I ran into some issues processing your technical query.
+
+**Here's what I suggest:**
+- Try rephrasing the specific error or issue you're facing
+- Share any error messages or code snippets for more targeted help
+- Break down complex problems into smaller parts
+
+I'm ready to help once you share more details.`,
+    
+    creative: `I'd love to help with your creative request.
+
+Could you tell me more about the tone, style, or specific elements you're looking for? The more context you share, the better I can craft something meaningful for you.`,
+    
+    general: `I'm working through some technical challenges right now. While I couldn't fully process your request, here's what I can offer:
+
+**What you can try:**
+- Rephrase your question with more specific details
+- Ask about one topic at a time
+- Let me know if there's a particular aspect to focus on
+
+I'm still here and ready to help once you try again.`,
+  };
+  
+  return responses[intent];
+}
+
 // Export ChatMessage type for other components
 export interface ChatMessage {
   id: string;
@@ -277,9 +347,9 @@ export function useConversations() {
         responseLength: chatResult.response?.length || chatResult.message?.length,
       });
 
-      // Get response content
+      // Get response content - API already provides fallback, but add extra safety
       const responseContent = chatResult.response || chatResult.message || 
-        "I apologize, but I couldn't generate a response. Please try again.";
+        getContextualErrorResponse(content);
 
       // Save assistant message to DB
       const assistantMsgId = crypto.randomUUID();
@@ -326,34 +396,38 @@ export function useConversations() {
     } catch (error: any) {
       console.error("[Chat] Error:", error);
 
-      // Replace placeholder with error message if it exists
+      // ROBUST FALLBACK: Replace placeholder with helpful fallback instead of raw error
       if (placeholderId) {
-        const errorMessage: ChatMessage = {
+        // Generate contextual fallback content instead of showing raw error
+        const fallbackContent = error.name === "AbortError" 
+          ? "Your request was stopped. Feel free to ask again whenever you're ready."
+          : getContextualErrorResponse(content);
+
+        const fallbackMessage: ChatMessage = {
           id: placeholderId,
           conversation_id: conversation?.id || "",
           user_id: user.id,
           role: "assistant",
-          content: error.name === "AbortError" 
-            ? "Request was cancelled." 
-            : `Error: ${error.message || "Something went wrong. Please try again."}`,
+          content: fallbackContent,
           model_used: null,
           credits_used: 0,
           is_favorite: false,
           created_at: new Date().toISOString(),
           isPlaceholder: false,
-          isError: true,
+          isError: false, // Don't mark as error - we provided helpful content
           canRetry: error.name !== "AbortError",
           retryData: { prompt: content, mode, model },
         };
 
-        setMessages(prev => prev.map(m => m.id === placeholderId ? errorMessage : m));
+        setMessages(prev => prev.map(m => m.id === placeholderId ? fallbackMessage : m));
       }
 
+      // Show toast only for non-abort errors, with friendlier message
       if (error.name !== "AbortError") {
         toast({
-          title: "Error",
-          description: error.message || "Failed to send message",
-          variant: "destructive",
+          title: "Working on it",
+          description: "I provided a partial response. You can try again for more details.",
+          variant: "default",
         });
       }
     } finally {

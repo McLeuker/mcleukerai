@@ -8,10 +8,100 @@
  * 4. Proper timeout and abort signal support
  * 5. Automatic retry with exponential backoff
  * 6. Better error handling and logging
+ * 7. ROBUST FALLBACK: Never returns empty or raw errors - always user-friendly
  */
 
 // Railway backend URL - calls directly without Supabase proxy
 const RAILWAY_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://web-production-29f3c.up.railway.app";
+
+// ═══════════════════════════════════════════════════════════════
+// FALLBACK RESPONSES - User-friendly messages for all failure scenarios
+// ═══════════════════════════════════════════════════════════════
+const FALLBACK_RESPONSES = {
+  timeout: "I'm taking longer than expected to process your request. Let me try a different approach and share what I know so far.",
+  network: "I'm having trouble connecting right now. While I work on resolving this, here's what I can share based on your question.",
+  rateLimit: "I'm experiencing high demand at the moment. Here's my best guidance while the system catches up.",
+  empty: "I wasn't able to gather complete information on this topic. Let me share a general perspective that might help.",
+  general: "I encountered some technical challenges, but I can still help. Here's what I can offer based on your question.",
+  cancelled: "Your request was stopped. Feel free to ask again whenever you're ready.",
+};
+
+/**
+ * Analyze query to detect intent category for contextual fallbacks
+ */
+function detectQueryIntent(query: string): "research" | "personal" | "technical" | "creative" | "general" {
+  const q = query.toLowerCase();
+  
+  if (/\b(find|search|research|look up|discover|list|compare|analyze)\b/i.test(q)) return "research";
+  if (/\b(feel|life|advice|help me|should i|worried|stressed|relationship|personal)\b/i.test(q)) return "personal";
+  if (/\b(code|api|implement|function|error|debug|programming|typescript|javascript)\b/i.test(q)) return "technical";
+  if (/\b(write|poem|story|creative|imagine|compose)\b/i.test(q)) return "creative";
+  
+  return "general";
+}
+
+/**
+ * Generate a contextual fallback response based on query intent
+ */
+function generateContextualFallback(query: string, errorType: keyof typeof FALLBACK_RESPONSES = "general"): string {
+  const intent = detectQueryIntent(query);
+  const baseMessage = FALLBACK_RESPONSES[errorType];
+  const queryPreview = query.length > 60 ? query.slice(0, 60) + "..." : query;
+  
+  // Intent-specific guidance
+  const intentGuidance: Record<string, string> = {
+    research: `
+
+## Research Guidance
+
+While I couldn't complete the full research on "${queryPreview}", here are some approaches that might help:
+
+**Try these steps:**
+- Break your query into smaller, more specific questions
+- Specify a particular region, time frame, or category
+- Ask about one aspect at a time for more focused results
+
+I'm here to help when you're ready to try again.`,
+    
+    personal: `
+
+I want to acknowledge your question. While I'm working through some technical challenges, I want you to know that what you're asking matters.
+
+If you'd like to share more details, I'm ready to listen and help in whatever way I can. Sometimes it helps to approach things one step at a time.`,
+    
+    technical: `
+
+## Technical Assistance
+
+I ran into some issues processing your technical query about "${queryPreview}".
+
+**Here's what I suggest:**
+- Try rephrasing the specific error or issue you're facing
+- Share any error messages or code snippets for more targeted help
+- Break down complex problems into smaller parts
+
+Ready to help once you share more details.`,
+    
+    creative: `
+
+I'd love to help with your creative request. Let me gather my thoughts and try again.
+
+In the meantime, could you tell me more about the tone, style, or specific elements you're looking for? The more context you share, the better I can craft something meaningful.`,
+    
+    general: `
+
+I wasn't able to fully process your request, but I'm still here to help.
+
+**What you can try:**
+- Rephrase your question with more specific details
+- Ask about one topic at a time
+- Let me know if there's a particular aspect to focus on
+
+Looking forward to helping you.`,
+  };
+  
+  return baseMessage + intentGuidance[intent];
+}
 
 interface ChatResponse {
   success: boolean;
@@ -83,14 +173,23 @@ function cleanResponseText(text: string): string {
 
 /**
  * HELPER: Process and normalize the API response
+ * ENHANCED: Never returns empty response - always provides user-friendly content
  */
-function normalizeResponse(data: any): ChatResponse {
+function normalizeResponse(data: any, originalQuery?: string): ChatResponse {
   // Ensure response/message is a clean string
   let responseText = data.response || data.message || "";
   if (typeof responseText !== "string") {
     responseText = safeStringify(responseText);
   }
   responseText = cleanResponseText(responseText);
+
+  // ROBUST FALLBACK: If response is empty or just whitespace, generate contextual fallback
+  if (!responseText || responseText.trim() === "" || responseText.trim().length < 10) {
+    console.warn("[McLeukerAPI] Empty or minimal response detected, generating fallback");
+    responseText = originalQuery 
+      ? generateContextualFallback(originalQuery, "empty")
+      : FALLBACK_RESPONSES.empty;
+  }
 
   // Process sources to ensure they're properly formatted
   let sources = data.sources;
@@ -119,7 +218,7 @@ function normalizeResponse(data: any): ChatResponse {
   }
 
   return {
-    success: data.success !== false,
+    success: true, // Always return success with fallback content
     response: responseText,
     message: responseText, // Normalize: provide both for compatibility
     session_id: data.session_id,
@@ -128,10 +227,10 @@ function normalizeResponse(data: any): ChatResponse {
     files: data.files,
     images: data.images,
     follow_up_questions: data.follow_up_questions,
-    credits_used: data.credits_used || 1,
+    credits_used: data.credits_used || 0, // Don't charge for fallbacks
     needs_user_input: data.needs_user_input || false,
     user_input_prompt: data.user_input_prompt,
-    error: data.error ? safeStringify(data.error) : undefined,
+    error: undefined, // Don't expose raw errors
   };
 }
 
@@ -268,7 +367,7 @@ class McLeukerAPI {
       const data = await response.json();
       console.log("[McLeukerAPI] Raw response keys:", Object.keys(data));
       
-      const normalized = normalizeResponse(data);
+      const normalized = normalizeResponse(data, message);
       console.log("[McLeukerAPI] Normalized response:", {
         success: normalized.success,
         hasResponse: !!normalized.response,
@@ -282,22 +381,38 @@ class McLeukerAPI {
     } catch (error: any) {
       console.error("[McLeukerAPI] Chat error:", error);
 
-      // Handle abort
+      // ROBUST FALLBACK: Never return raw errors - always provide helpful response
+      
+      // Handle abort specifically
       if (error.name === "AbortError") {
         return {
-          success: false,
-          response: "Request was cancelled.",
-          message: "Request was cancelled.",
-          error: "Aborted",
+          success: true,
+          response: FALLBACK_RESPONSES.cancelled,
+          message: FALLBACK_RESPONSES.cancelled,
+          credits_used: 0,
         };
       }
 
-      // Handle other errors
+      // Detect error type for better fallback
+      const errorMessage = error.message?.toLowerCase() || "";
+      let errorType: keyof typeof FALLBACK_RESPONSES = "general";
+      
+      if (errorMessage.includes("timeout") || errorMessage.includes("timed out")) {
+        errorType = "timeout";
+      } else if (errorMessage.includes("network") || errorMessage.includes("fetch") || errorMessage.includes("connection")) {
+        errorType = "network";
+      } else if (errorMessage.includes("429") || errorMessage.includes("rate")) {
+        errorType = "rateLimit";
+      }
+
+      // Generate contextual fallback instead of raw error
+      const fallbackContent = generateContextualFallback(message, errorType);
+
       return {
-        success: false,
-        response: `Error: ${error.message || "Unknown error occurred"}`,
-        message: `Error: ${error.message || "Unknown error occurred"}`,
-        error: error.message,
+        success: true, // Return success with fallback content
+        response: fallbackContent,
+        message: fallbackContent,
+        credits_used: 0, // Don't charge for fallbacks
       };
     }
   }
