@@ -1,3 +1,13 @@
+/**
+ * ChatSidebar.tsx - Premium Graphite Glass Panel
+ * 
+ * Features:
+ * - Graphite glass background with gradient
+ * - Card-style chat items with hover states
+ * - 16px inner padding to prevent clipping
+ * - Auto-height items with multi-line support
+ */
+
 import { Conversation } from "@/hooks/useConversations";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -69,15 +79,18 @@ export function ChatSidebar({
     setConversationToDelete(null);
   };
 
-  // Collapsed state - positioned below unified top bar
+  // Collapsed state - graphite glass styling
   if (!isOpen) {
     return (
-      <aside className="hidden lg:flex w-14 bg-sidebar flex-col fixed left-0 top-14 bottom-0 z-40">
+      <aside className={cn(
+        "hidden lg:flex w-14 flex-col fixed left-0 top-14 bottom-0 z-40",
+        "graphite-glass rounded-none"
+      )}>
         <div className="p-2 pt-4">
           <Button
             variant="ghost"
             size="icon"
-            className="w-10 h-10"
+            className="w-10 h-10 text-white/60 hover:text-white hover:bg-white/[0.08]"
             onClick={onToggle}
           >
             <PanelLeft className="h-4 w-4" />
@@ -89,34 +102,43 @@ export function ChatSidebar({
 
   return (
     <>
-      <aside className="hidden lg:flex w-72 bg-sidebar flex-col fixed left-0 top-14 bottom-0 z-40">
+      <aside className={cn(
+        "hidden lg:flex w-72 flex-col fixed left-0 top-14 bottom-0 z-40",
+        "graphite-glass rounded-none rounded-r-2xl"
+      )}>
         {/* Header with collapse toggle */}
         <div className="px-4 pt-6 pb-4 flex items-center justify-between">
-          <span className="font-medium text-sm text-sidebar-foreground">Chat History</span>
+          <span className="font-medium text-[13px] text-white/80">Chat History</span>
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/[0.08]"
             onClick={onToggle}
           >
             <PanelLeftClose className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* Search - bubble style */}
+        {/* Search - premium input styling */}
         <div className="px-4 py-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
             <Input
               placeholder="Search chats..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-9 h-10 text-sm bg-muted border-0 rounded-full placeholder:text-muted-foreground/60"
+              className={cn(
+                "pl-10 pr-10 h-10 text-[13px]",
+                "bg-white/[0.05] border-white/[0.08] rounded-full",
+                "text-white placeholder:text-white/35",
+                "focus:border-white/[0.15] focus:ring-1 focus:ring-white/[0.06]",
+                "transition-all duration-160"
+              )}
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -126,21 +148,21 @@ export function ChatSidebar({
 
         {/* Chat count */}
         <div className="px-4 pb-2">
-          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+          <p className="text-[10px] font-medium text-white/40 uppercase tracking-wider">
             {filteredConversations.length} {filteredConversations.length === 1 ? 'chat' : 'chats'}
           </p>
         </div>
 
-        {/* Conversation List */}
+        {/* Conversation List - with proper padding */}
         <ScrollArea className="flex-1 overflow-visible">
-          <div className="px-4 pb-4 space-y-1.5">
+          <div className="px-4 pb-4 space-y-2">
             {filteredConversations.length === 0 ? (
               <div className="px-2 py-8 text-center">
-                <MessageSquare className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">
+                <MessageSquare className="h-8 w-8 text-white/25 mx-auto mb-3" />
+                <p className="text-[13px] text-white/50">
                   {searchQuery ? "No matching chats" : "No chats yet"}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-[11px] text-white/35 mt-1">
                   {searchQuery ? "Try a different search" : "Start a new chat to begin"}
                 </p>
               </div>
@@ -149,11 +171,9 @@ export function ChatSidebar({
                 <div
                   key={conv.id}
                   className={cn(
-                    "group relative w-full text-left px-4 py-3 rounded-2xl transition-all duration-200",
-                    "bg-muted text-foreground",
-                    "hover:bg-muted/80",
-                    currentConversation?.id === conv.id &&
-                      "border-2 border-primary shadow-sm"
+                    "group relative w-full text-left px-4 py-3 rounded-xl min-h-fit",
+                    "chat-sidebar-item premium-hover",
+                    currentConversation?.id === conv.id && "chat-sidebar-item-active"
                   )}
                 >
                   <button
@@ -161,12 +181,12 @@ export function ChatSidebar({
                     className="w-full text-left"
                   >
                     <div className="flex items-center gap-2.5">
-                      <MessageSquare className="h-4 w-4 text-foreground/60 flex-shrink-0" />
+                      <MessageSquare className="h-4 w-4 text-white/50 flex-shrink-0" />
                       <div className="flex-1 min-w-0 pr-6">
-                        <p className="text-xs font-medium text-foreground line-clamp-2 leading-relaxed">
+                        <p className="text-[12px] font-medium text-white/90 line-clamp-2 leading-relaxed">
                           {conv.title}
                         </p>
-                        <p className="text-[10px] text-foreground/60 mt-1.5">
+                        <p className="text-[10px] text-white/45 mt-1.5">
                           {formatDistanceToNow(conv.updatedAt, {
                             addSuffix: true,
                           })}
@@ -181,7 +201,11 @@ export function ChatSidebar({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-foreground hover:text-foreground hover:bg-foreground/10"
+                        className={cn(
+                          "absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7",
+                          "opacity-0 group-hover:opacity-100 transition-opacity",
+                          "text-white/50 hover:text-white hover:bg-white/[0.1]"
+                        )}
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>

@@ -1,3 +1,13 @@
+/**
+ * ChatView.tsx - Premium Chat Container
+ * 
+ * Features:
+ * - Premium ombre background (radial gradient)
+ * - Graphite glass filter bar
+ * - Proper scroll container with overflow protection
+ * - Consistent message spacing (16px)
+ */
+
 import { useRef, useEffect, useState } from "react";
 import { ChatMessage, ResearchState } from "@/hooks/useConversations";
 import { ChatMessageComponent } from "./ChatMessage";
@@ -59,7 +69,7 @@ export function ChatView({
   // Show domain starter panel when no messages
   if (messages.length === 0 && !isLoading) {
     return (
-      <div className="flex-1 flex flex-col bg-black min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden premium-ombre-bg">
         <DomainStarterPanel
           onSelectPrompt={onSelectPrompt || (() => {})}
           snapshot={domainSnapshot}
@@ -70,20 +80,24 @@ export function ChatView({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-black">
-      {/* Filter Bar */}
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden premium-ombre-bg">
+      {/* Filter Bar - Graphite glass style */}
       {messages.length > 0 && (
-        <div className="flex items-center justify-between px-6 py-2.5 border-b border-white/10 bg-black">
+        <div className={cn(
+          "flex items-center justify-between px-6 md:px-8 py-3",
+          "border-b border-white/[0.08]",
+          "bg-gradient-to-b from-[hsl(0_0%_7%)] to-[hsl(0_0%_4%)]"
+        )}>
           <div className="flex items-center gap-3">
             <Button
               variant={showFavoritesOnly ? "secondary" : "ghost"}
               size="sm"
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
               className={cn(
-                "h-8 gap-2 px-4",
+                "h-8 gap-2 px-4 rounded-full transition-all duration-160",
                 showFavoritesOnly 
                   ? "bg-white text-black hover:bg-white/90" 
-                  : "text-white/70 hover:text-white hover:bg-white/10"
+                  : "text-white/70 hover:text-white hover:bg-white/[0.08]"
               )}
             >
               <Star
@@ -92,24 +106,27 @@ export function ChatView({
                   showFavoritesOnly && "fill-black text-black"
                 )}
               />
-              <span>Favorites</span>
+              <span className="text-[13px]">Favorites</span>
               {favoriteCount > 0 && (
-                <span className="ml-1 text-xs bg-white/10 px-1.5 py-0.5 rounded">
+                <span className={cn(
+                  "ml-1 text-[11px] px-1.5 py-0.5 rounded-full",
+                  showFavoritesOnly ? "bg-black/10" : "bg-white/10"
+                )}>
                   {favoriteCount}
                 </span>
               )}
             </Button>
           </div>
-          <div className="text-xs text-white/50">
+          <div className="text-[12px] text-white/45">
             {filteredMessages.length}{" "}
             {filteredMessages.length === 1 ? "message" : "messages"}
           </div>
         </div>
       )}
 
-      {/* Messages */}
-      <ScrollArea className="flex-1" ref={scrollRef}>
-        <div className="min-h-full py-4 space-y-4">
+      {/* Messages - Scroll container with proper overflow */}
+      <ScrollArea className="flex-1 overflow-x-hidden" ref={scrollRef}>
+        <div className="min-h-full py-6 space-y-4">
           {filteredMessages.map((message, index) => {
             const isLastAssistant =
               message.role === "assistant" &&
@@ -133,7 +150,7 @@ export function ChatView({
 
           {/* Research Progress Indicator */}
           {researchState?.isResearching && researchState.phase && (
-            <div className="px-4 py-4">
+            <div className="px-6 md:px-8 py-4">
               <div className="max-w-3xl mx-auto">
                 <ResearchProgress
                   phase={researchState.phase as ResearchPhase}
@@ -147,15 +164,13 @@ export function ChatView({
 
           {/* Loading indicator (for quick mode) - only show if no placeholder message exists */}
           {isLoading && !streamingContent && !researchState?.isResearching && !hasPlaceholder && (
-            <div className="px-4 py-6 bg-white/5">
-              <div className="max-w-3xl mx-auto flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                  <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 text-sm text-white/60">
-                    <span>McLeuker AI is thinking...</span>
+            <div className="px-6 md:px-8 py-6">
+              <div className="max-w-[72%] premium-bubble-ai rounded-[20px] px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-black flex items-center justify-center">
+                    <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   </div>
+                  <span className="text-[14px] text-black/55">McLeuker AI is thinking...</span>
                 </div>
               </div>
             </div>
@@ -164,16 +179,16 @@ export function ChatView({
           {/* Show message if filtering and no results */}
           {showFavoritesOnly && filteredMessages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Star className="h-12 w-12 text-white/30 mb-4" />
-              <p className="text-white/60">No favorite messages yet</p>
-              <p className="text-sm text-white/40 mt-1">
+              <Star className="h-12 w-12 text-white/25 mb-4" />
+              <p className="text-white/55 text-[15px]">No favorite messages yet</p>
+              <p className="text-[13px] text-white/35 mt-1.5">
                 Star messages to find them quickly
               </p>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowFavoritesOnly(false)}
-                className="mt-4 text-white/70 hover:text-white hover:bg-white/10"
+                className="mt-4 text-white/60 hover:text-white hover:bg-white/[0.08] rounded-full"
               >
                 <Filter className="h-4 w-4 mr-2" />
                 Show all messages

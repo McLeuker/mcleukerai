@@ -73,7 +73,7 @@ const Dashboard = () => {
   const showBottomInput = !(currentSector === "all" && messages.length === 0);
 
   return (
-    <div className="min-h-screen bg-black flex w-full overflow-x-hidden">
+    <div className="min-h-screen bg-black flex w-full overflow-x-hidden overflow-y-auto">
       {/* Desktop Sidebar */}
       <ChatSidebar
         conversations={conversations}
@@ -94,8 +94,8 @@ const Dashboard = () => {
           onNewChat={createNewConversation} 
         />
 
-        {/* Header Spacer */}
-        <div className="h-14 lg:h-[72px] bg-black" />
+        {/* Header Spacer - matches graphite glass nav */}
+        <div className="h-14 lg:h-[72px] bg-gradient-to-b from-[hsl(0_0%_7%)] to-[hsl(0_0%_4%)]" />
 
         {/* Mobile Header */}
         <div className="lg:hidden border-b border-border bg-background/95 backdrop-blur-sm sticky top-14 z-30">
@@ -138,9 +138,12 @@ const Dashboard = () => {
             domainSnapshotLoading={snapshotLoading}
           />
 
-          {/* Input Area - conditionally shown */}
+          {/* Input Area - Premium graphite styling */}
           {showBottomInput && (
-            <div className="border-t border-white/10 bg-black p-4 sticky bottom-0">
+            <div className={cn(
+              "border-t border-white/[0.08] p-4 sticky bottom-0",
+              "bg-gradient-to-b from-[hsl(0_0%_4%)] to-[hsl(0_0%_2%)]"
+            )}>
               <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 animate-fade-in">
                 <ChatInput
                   onSubmit={handleSendMessage}

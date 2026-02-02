@@ -100,7 +100,12 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true, showN
   if (isAuthPage) return null;
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-sidebar backdrop-blur-sm">
+    <header className={cn(
+      "fixed top-0 left-0 right-0 z-50",
+      "bg-gradient-to-b from-[hsl(0_0%_7%)] to-[hsl(0_0%_4%)]",
+      "border-b border-white/[0.08]",
+      "backdrop-blur-sm"
+    )}>
       <div className="h-14 flex items-center justify-between px-4 lg:px-6">
         {/* Logo + optional New Chat */}
         <div className="flex items-center gap-4 shrink-0">

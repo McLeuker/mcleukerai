@@ -83,7 +83,7 @@ export function ChatInput({
         </div>
       </div>
 
-      {/* Input Area */}
+      {/* Input Area - Premium Graphite */}
       <div className="relative">
         <Textarea
           value={message}
@@ -96,11 +96,19 @@ export function ChatInput({
           }
           disabled={isLoading}
           className={cn(
-            "min-h-[60px] max-h-[200px] pr-14 resize-none rounded-2xl",
-            "bg-zinc-800 border border-white/10 text-white",
-            "focus:ring-1 focus:ring-white/20 focus:border-white/20",
-            "placeholder:text-white/50",
-            "shadow-lg"
+            "min-h-[60px] max-h-[200px] pr-14 resize-none",
+            // Premium graphite styling
+            "rounded-[20px]",
+            "bg-gradient-to-b from-[hsl(0_0%_10%)] to-[hsl(0_0%_7%)]",
+            "border border-white/[0.10]",
+            "text-white/[0.88]",
+            "placeholder:text-white/40",
+            "shadow-[0_4px_16px_rgba(0,0,0,0.3)]",
+            // Focus state
+            "focus:border-white/[0.18]",
+            "focus:ring-[3px] focus:ring-white/[0.06]",
+            // Transitions
+            "transition-all duration-160"
           )}
           rows={2}
         />
@@ -109,11 +117,11 @@ export function ChatInput({
           size="icon"
           disabled={!message.trim() || isLoading}
           className={cn(
-            "absolute right-2 bottom-2 h-9 w-9",
-            "transition-all duration-200",
+            "absolute right-3 bottom-3 h-9 w-9 rounded-full",
+            "transition-all duration-160",
             message.trim() && !isLoading
               ? "bg-white text-black hover:bg-white/90"
-              : "bg-white/10 text-white/40"
+              : "bg-white/[0.08] text-white/40"
           )}
         >
           {isLoading ? (
