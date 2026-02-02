@@ -48,25 +48,39 @@ interface FileAttachment {
   type: string;
 }
 
-interface ChatMessageProps {
+interface MessageData {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | string;
   content: string;
-  timestamp: Date;
+  timestamp?: Date;
+  created_at?: string;
   sources?: Source[];
   reasoning?: string[];
   files?: FileAttachment[];
   images?: string[];
   followUpQuestions?: string[];
   isFavorite?: boolean;
+  is_favorite?: boolean;
   isPlaceholder?: boolean;
   isError?: boolean;
   canRetry?: boolean;
   errorMessage?: string;
   creditsUsed?: number;
+  credits_used?: number;
+  model_used?: string | null;
+  conversation_id?: string;
+  user_id?: string;
+}
+
+interface ChatMessageProps {
+  message: MessageData;
   onToggleFavorite?: (id: string) => void;
+  onDelete?: (id: string) => void;
   onRetry?: (id: string) => void;
-  onFollowUp?: (question: string) => void;
+  onFollowUpClick?: (question: string) => void;
+  isStreaming?: boolean;
+  streamingContent?: string | null;
+  researchState?: any;
 }
 
 // ============================================================================
@@ -316,27 +330,46 @@ function FollowUpSection({
 // ============================================================================
 
 export function ChatMessage({
-  id,
-  role,
-  content,
-  timestamp,
-  sources,
-  reasoning,
-  files,
-  images,
-  followUpQuestions,
-  isFavorite = false,
-  isPlaceholder = false,
-  isError = false,
-  canRetry = false,
-  errorMessage,
-  creditsUsed,
+  message,
   onToggleFavorite,
+  onDelete,
   onRetry,
-  onFollowUp,
+  onFollowUpClick,
+  isStreaming,
+  streamingContent,
+  researchState,
 }: ChatMessageProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+
+  // Extract message properties with fallbacks
+  const {
+    id,
+    role,
+    content: rawContent,
+    timestamp,
+    created_at,
+    sources,
+    reasoning,
+    files,
+    images,
+    followUpQuestions,
+    isFavorite: isFav,
+    is_favorite,
+    isPlaceholder = false,
+    isError = false,
+    canRetry = false,
+    errorMessage,
+    creditsUsed,
+    credits_used,
+  } = message;
+
+  const isFavorite = isFav || is_favorite || false;
+  const actualCreditsUsed = creditsUsed || credits_used;
+  const displayTimestamp = timestamp || (created_at ? new Date(created_at) : new Date());
+  
+  // Handle streaming content
+  const content = isStreaming && streamingContent ? streamingContent : rawContent;
 
   // Clean content for display
   const displayContent = cleanArtifacts(safeToString(content));
@@ -448,14 +481,14 @@ export function ChatMessage({
         <ImagesSection images={images || []} />
 
         {/* Follow-up questions */}
-        <FollowUpSection questions={followUpQuestions || []} onFollowUp={onFollowUp} />
+        <FollowUpSection questions={followUpQuestions || []} onFollowUp={onFollowUpClick} />
 
         {/* Footer with actions */}
         <div className="flex items-center justify-between mt-4 pt-2 border-t border-gray-700">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">{formatTime(timestamp)}</span>
-            {creditsUsed && (
-              <span className="text-xs text-gray-500">• {creditsUsed} credit{creditsUsed !== 1 ? 's' : ''}</span>
+            <span className="text-xs text-gray-500">{formatTime(displayTimestamp)}</span>
+            {actualCreditsUsed && (
+              <span className="text-xs text-gray-500">• {actualCreditsUsed} credit{actualCreditsUsed !== 1 ? 's' : ''}</span>
             )}
           </div>
           <div className="flex items-center gap-1">
