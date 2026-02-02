@@ -1,11 +1,14 @@
 /**
  * McLeuker API Client - V3.1 with Reliability Hardening
- * Handles communication with the Railway backend
+ * Handles communication with the Railway backend DIRECTLY
+ * 
+ * FIX: Removed Supabase proxy dependency - calls Railway directly
  */
 
 export interface ChatResponseV2 {
   success: boolean;
-  message?: string;
+  response?: string;  // Backend returns 'response' not 'message'
+  message?: string;   // Keep for backwards compatibility
   error?: string;
   model?: string;
   credits_used?: number;
@@ -51,13 +54,11 @@ export interface HealthResponse {
 
 class McLeukerAPI {
   private baseUrl: string;
-  private supabaseProxyUrl: string;
 
   constructor() {
-    // Use Supabase Edge Function as proxy (handles CORS properly)
-    this.supabaseProxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proxy-railway`;
-    // Direct Railway URL as fallback
+    // Direct Railway URL - no proxy needed
     this.baseUrl = import.meta.env.VITE_BACKEND_URL || "https://web-production-29f3c.up.railway.app";
+    console.log("[API] Initialized with baseUrl:", this.baseUrl);
   }
 
   /**
@@ -76,14 +77,13 @@ class McLeukerAPI {
     console.log("[API] chatV2 called:", { message: message.slice(0, 50), mode, hasSignal: !!signal });
 
     try {
-      // Try Supabase proxy first (handles auth and CORS)
+      // Call Railway backend directly
       const response = await this.fetchWithRetry(
-        this.supabaseProxyUrl,
+        `${this.baseUrl}/api/chat`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${await this.getSupabaseToken()}`,
           },
           body: JSON.stringify({
             message,
@@ -102,11 +102,24 @@ class McLeukerAPI {
       }
 
       const data = await response.json();
-      console.log("[API] Response received:", { success: data.success, hasMessage: !!data.message });
+      console.log("[API] Response received:", { 
+        success: data.success, 
+        hasResponse: !!data.response,
+        hasMessage: !!data.message,
+        responseLength: (data.response || data.message || "").length
+      });
+
+      // Normalize response field - backend returns 'response', frontend expects 'message'
+      if (data.response && !data.message) {
+        data.message = data.response;
+      }
 
       // Ensure message is a string (fix [object Object] issue)
       if (data.message && typeof data.message === "object") {
         data.message = JSON.stringify(data.message, null, 2);
+      }
+      if (data.response && typeof data.response === "object") {
+        data.response = JSON.stringify(data.response, null, 2);
       }
 
       return data;
@@ -128,72 +141,14 @@ class McLeukerAPI {
   }
 
   /**
-   * Fetch with automatic retry on failure
-   */
-  private async fetchWithRetry(
-    url: string,
-    options: RequestInit,
-    maxRetries: number = 2
-  ): Promise<Response> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`[API] Fetch attempt ${attempt + 1}/${maxRetries + 1}`);
-        const response = await fetch(url, options);
-        return response;
-      } catch (error: any) {
-        lastError = error;
-        console.warn(`[API] Fetch attempt ${attempt + 1} failed:`, error.message);
-
-        // Don't retry on abort
-        if (error.name === "AbortError") {
-          throw error;
-        }
-
-        // Wait before retry (exponential backoff)
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-        }
-      }
-    }
-
-    throw lastError || new Error("All fetch attempts failed");
-  }
-
-  /**
-   * Get Supabase auth token
-   */
-  private async getSupabaseToken(): Promise<string> {
-    try {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_ANON_KEY
-      );
-      const { data } = await supabase.auth.getSession();
-      return data.session?.access_token || "";
-    } catch {
-      return "";
-    }
-  }
-
-  /**
    * Health check endpoint
    */
   async health(): Promise<HealthResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/health`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
+      const response = await fetch(`${this.baseUrl}/health`);
       if (!response.ok) {
         throw new Error(`Health check failed: ${response.status}`);
       }
-
       return await response.json();
     } catch (error: any) {
       console.error("[API] Health check error:", error);
@@ -213,26 +168,39 @@ class McLeukerAPI {
   }
 
   /**
-   * Get available models
+   * Fetch with automatic retry on failure
    */
-  async getModels(): Promise<string[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/models`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+  private async fetchWithRetry(
+    url: string,
+    options: RequestInit,
+    maxRetries: number = 2
+  ): Promise<Response> {
+    let lastError: Error | null = null;
 
-      if (!response.ok) {
-        return ["grok-4.1-fast-reasoning"];
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[API] Fetch attempt ${attempt + 1}/${maxRetries + 1} to ${url}`);
+        const response = await fetch(url, options);
+        return response;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`[API] Fetch attempt ${attempt + 1} failed:`, error.message);
+
+        // Don't retry on abort
+        if (error.name === "AbortError") {
+          throw error;
+        }
+
+        // Wait before retry (exponential backoff)
+        if (attempt < maxRetries) {
+          const waitTime = 1000 * (attempt + 1);
+          console.log(`[API] Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
       }
-
-      const data = await response.json();
-      return data.models || ["grok-4.1-fast-reasoning"];
-    } catch {
-      return ["grok-4.1-fast-reasoning"];
     }
+
+    throw lastError || new Error("All fetch attempts failed");
   }
 }
 
