@@ -1,6 +1,6 @@
 import { useRef, useEffect } from "react";
-import { ChatMessage as ChatMessageType, ResearchState } from "@/hooks/useConversations";
-import { ChatMessageComponent } from "./ChatMessage";
+import { Message, ResearchState } from "@/hooks/useConversations";
+import ChatMessageComponent from "./ChatMessage";
 import { ResearchProgress, ResearchPhase } from "./ResearchProgress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
 import { DomainStarterPanel } from "./DomainStarterPanel";
 
 interface ChatViewProps {
-  messages: ChatMessageType[];
-  streamingContent: string;
+  messages: Message[];
+  streamingContent: string | null;
   isLoading: boolean;
   researchState?: ResearchState;
   onToggleFavorite: (messageId: string) => void;
@@ -161,9 +161,9 @@ export function ChatView({
               <div className="max-w-3xl mx-auto">
                 <ResearchProgress
                   phase={researchState.phase as ResearchPhase}
-                  currentStep={researchState.currentStep}
-                  totalSteps={researchState.totalSteps}
-                  message={researchState.message}
+                  currentStep={typeof researchState.currentStep === 'number' ? researchState.currentStep : 0}
+                  totalSteps={researchState.totalSteps || 1}
+                  message={researchState.message || ""}
                 />
               </div>
             </div>
