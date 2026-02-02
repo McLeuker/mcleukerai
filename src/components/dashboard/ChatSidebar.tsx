@@ -132,8 +132,8 @@ export function ChatSidebar({
         </div>
 
         {/* Conversation List */}
-        <ScrollArea className="flex-1">
-          <div className="px-2 pb-4 space-y-1">
+        <ScrollArea className="flex-1 overflow-visible">
+          <div className="px-4 pb-4 space-y-1.5">
             {filteredConversations.length === 0 ? (
               <div className="px-2 py-8 text-center">
                 <MessageSquare className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
@@ -149,11 +149,11 @@ export function ChatSidebar({
                 <div
                   key={conv.id}
                   className={cn(
-                    "group relative w-full text-left px-4 py-3 rounded-full transition-all duration-200",
+                    "group relative w-full text-left px-4 py-3 rounded-2xl transition-all duration-200",
                     "bg-muted text-foreground",
                     "hover:bg-muted/80",
                     currentConversation?.id === conv.id &&
-                      "ring-2 ring-primary ring-offset-2 ring-offset-sidebar"
+                      "border-2 border-primary shadow-sm"
                   )}
                 >
                   <button
