@@ -635,4 +635,51 @@
   .chat-message-content a:hover {
     color: #93C5FD;
   }
+
+  /* ========================================
+     DOMAIN PAGE PREMIUM SYSTEM
+     Consistent grayscale for all domain pages
+     ======================================== */
+
+  /* Domain page feed section background */
+  .domain-feed-section {
+    background: linear-gradient(180deg, #0B0B0B 0%, #090909 50%, #070707 100%);
+  }
+
+  /* Domain page graphite card - matches chat bubbles */
+  .domain-card {
+    background: linear-gradient(180deg, #232323 0%, #191919 100%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+    border-radius: 20px;
+    transition: all 160ms ease;
+  }
+
+  .domain-card:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  /* Graphite pill/chip for suggestion chips and badges */
+  .graphite-pill {
+    background: #141414;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    transition: all 160ms ease;
+  }
+
+  .graphite-pill:hover {
+    background: #1A1A1A;
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  /* Module card - slightly different gradient for hierarchy */
+  .domain-module-card {
+    background: linear-gradient(180deg, #1A1A1A 0%, #141414 100%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    transition: all 160ms ease;
+  }
+
+  .domain-module-card:hover {
+    background: linear-gradient(180deg, #202020 0%, #181818 100%);
+    border-color: rgba(255, 255, 255, 0.18);
+  }
 }

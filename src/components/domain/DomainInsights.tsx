@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Sector } from "@/contexts/SectorContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw, AlertCircle, Signal, TrendingUp } from "lucide-react";
@@ -81,12 +80,12 @@ function extractSourceName(sourceStr: string, url?: string): string {
   }
 }
 
-// Confidence level styling
+// Confidence level styling - graphite style
 function getConfidenceBadge(confidence: 'high' | 'medium' | 'low') {
   const styles = {
-    high: 'bg-foreground/10 text-foreground border-foreground/20',
-    medium: 'bg-muted text-muted-foreground border-muted-foreground/20',
-    low: 'bg-muted/50 text-muted-foreground/70 border-muted-foreground/10',
+    high: 'bg-[#141414] text-white/[0.78] border-white/[0.12]',
+    medium: 'bg-[#141414] text-white/[0.65] border-white/[0.10]',
+    low: 'bg-[#141414] text-white/50 border-white/[0.08]',
   };
   return styles[confidence] || styles.medium;
 }
@@ -124,80 +123,89 @@ export function DomainInsights({
   const displayItems = items.slice(0, 6);
 
   return (
-    <section className="w-full max-w-6xl mx-auto px-6 md:px-8 py-12 md:py-14">
-      <div className="flex items-center justify-between mb-10">
-        <div className="flex flex-col gap-2">
-          <h2 className="font-editorial text-2xl md:text-3xl text-foreground">
-            What's Happening Now
-          </h2>
-          <div className="flex items-center gap-3">
-            {source === 'perplexity' && !isLoading && items.length > 0 && (
-              <Badge variant="outline" className="text-[11px] px-2 py-0.5 h-5 border-foreground/20">
-                <Signal className="h-3 w-3 mr-1.5" />
-                Live
-              </Badge>
-            )}
-            {source === 'fallback' && !isLoading && items.length > 0 && (
-              <Badge variant="outline" className="text-[11px] px-2 py-0.5 h-5 text-muted-foreground border-muted-foreground/20">
-                <TrendingUp className="h-3 w-3 mr-1.5" />
-                Predictive
-              </Badge>
-            )}
-            {seasonContext && !isLoading && (
-              <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                {seasonContext}
-              </span>
-            )}
-          </div>
-        </div>
-        
-        {onRefresh && !isLoading && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRefresh}
-            className="h-9 px-3 text-muted-foreground hover:text-foreground hover:bg-transparent"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            <span className="text-[13px]">Refresh</span>
-          </Button>
-        )}
-      </div>
-
-      {isLoading ? (
-        <div className="space-y-6">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="p-6 md:p-8 border border-border rounded-2xl bg-card">
-              <Skeleton className="h-5 w-3/4 mb-3" />
-              <Skeleton className="h-4 w-full mb-4" />
-              <div className="flex items-center gap-3">
-                <Skeleton className="h-3 w-16" />
-                <Skeleton className="h-3 w-24" />
-              </div>
+    <section className="w-full bg-[#0B0B0B]">
+      <div className="max-w-[1120px] mx-auto px-7 py-12 md:py-14">
+        <div className="flex items-center justify-between mb-10">
+          <div className="flex flex-col gap-2">
+            <h2 className="font-editorial text-2xl md:text-3xl text-white/[0.92]">
+              What's Happening Now
+            </h2>
+            <div className="flex items-center gap-3">
+              {source === 'perplexity' && !isLoading && items.length > 0 && (
+                <Badge variant="outline" className="text-[11px] px-2 py-0.5 h-5 bg-[#141414] text-white/[0.78] border-white/[0.12]">
+                  <Signal className="h-3 w-3 mr-1.5" />
+                  Live
+                </Badge>
+              )}
+              {source === 'fallback' && !isLoading && items.length > 0 && (
+                <Badge variant="outline" className="text-[11px] px-2 py-0.5 h-5 bg-[#141414] text-white/[0.65] border-white/[0.10]">
+                  <TrendingUp className="h-3 w-3 mr-1.5" />
+                  Predictive
+                </Badge>
+              )}
+              {seasonContext && !isLoading && (
+                <span className="text-[11px] uppercase tracking-widest text-white/50">
+                  {seasonContext}
+                </span>
+              )}
             </div>
-          ))}
-        </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <AlertCircle className="h-10 w-10 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground text-[15px] mb-6">{error}</p>
-          {onRefresh && (
-            <Button variant="outline" size="sm" onClick={onRefresh} className="h-10 px-5">
+          </div>
+          
+          {onRefresh && !isLoading && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRefresh}
+              className="h-9 px-3 bg-[#141414] border border-white/[0.10] text-white/70 hover:bg-[#1A1A1A] hover:text-white/90 rounded-lg"
+            >
               <RefreshCw className="h-4 w-4 mr-2" />
-              Try Again
+              <span className="text-[13px]">Refresh</span>
             </Button>
           )}
         </div>
-      ) : items.length > 0 ? (
-        <div className="space-y-6">
-          {/* Intelligence Cards - 3 columns grid */}
+
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="p-6 rounded-[20px] bg-gradient-to-b from-[#232323] to-[#191919] border border-white/[0.12]">
+                <Skeleton className="h-5 w-20 mb-3 bg-white/10" />
+                <Skeleton className="h-5 w-3/4 mb-3 bg-white/10" />
+                <Skeleton className="h-4 w-full mb-4 bg-white/10" />
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-3 w-16 bg-white/10" />
+                  <Skeleton className="h-3 w-24 bg-white/10" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <AlertCircle className="h-10 w-10 text-white/50 mb-4" />
+            <p className="text-white/60 text-[15px] mb-6">{error}</p>
+            {onRefresh && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onRefresh} 
+                className="h-10 px-5 bg-[#141414] border-white/[0.10] text-white/70 hover:bg-[#1A1A1A] hover:text-white"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            )}
+          </div>
+        ) : items.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {displayItems.map((item, idx) => (
               <article
                 key={idx}
                 className={cn(
-                  "group p-6 md:p-8 border border-border rounded-2xl",
-                  "bg-card transition-colors duration-200"
+                  "group p-6 rounded-[20px]",
+                  "bg-gradient-to-b from-[#232323] to-[#191919]",
+                  "border border-white/[0.12]",
+                  "shadow-[0_14px_40px_rgba(0,0,0,0.55)]",
+                  "transition-all duration-200",
+                  "hover:border-white/[0.18]"
                 )}
               >
                 {/* Line 1: Confidence only */}
@@ -219,48 +227,52 @@ export function DomainInsights({
                     href={item.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block text-base font-medium text-foreground leading-snug mb-3 hover:underline underline-offset-2 transition-colors"
+                    className="block text-base font-medium text-white/[0.92] leading-snug mb-3 hover:underline underline-offset-2 transition-colors"
                   >
                     {item.title}
                   </a>
                 ) : (
-                  <h3 className="text-base font-medium text-foreground leading-snug mb-3">
+                  <h3 className="text-base font-medium text-white/[0.92] leading-snug mb-3">
                     {item.title}
                   </h3>
                 )}
                 
                 {/* Line 3: Description */}
-                <p className="text-[15px] text-foreground/70 leading-relaxed mb-4">
+                <p className="text-[15px] text-white/[0.72] leading-relaxed mb-4">
                   {item.description}
                 </p>
                 
                 {/* Line 4: Clock emoji + date */}
-                <div className="text-[13px] text-muted-foreground mb-1">
+                <div className="text-[13px] text-white/50 mb-1">
                   🕐 {formatDate(item.date)}
                 </div>
                 
                 {/* Line 5: Source name only */}
-                <div className="text-[13px] text-muted-foreground">
+                <div className="text-[13px] text-white/50">
                   {extractSourceName(item.source, item.sourceUrl)}
                 </div>
               </article>
             ))}
           </div>
-
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-muted-foreground text-[15px]">
-            No recent updates found for {sector}. Check back soon!
-          </p>
-          {onRefresh && (
-            <Button variant="outline" size="sm" onClick={onRefresh} className="mt-6 h-10 px-5">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          )}
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <p className="text-white/60 text-[15px]">
+              No recent updates found for {sector}. Check back soon!
+            </p>
+            {onRefresh && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onRefresh} 
+                className="mt-6 h-10 px-5 bg-[#141414] border-white/[0.10] text-white/70 hover:bg-[#1A1A1A] hover:text-white"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

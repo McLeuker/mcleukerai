@@ -91,7 +91,7 @@ const DomainLanding = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-[#070707] flex flex-col overflow-x-hidden">
       <TopNavigation showSectorTabs={true} showCredits={true} />
       
       <div className="h-14 lg:h-[72px]" />

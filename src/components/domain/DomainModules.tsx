@@ -328,14 +328,12 @@ export function DomainModules({ sector, onModuleClick }: DomainModulesProps) {
   const modules = domainModules[sector] || domainModules.all;
 
   return (
-    <div className="bg-foreground">
-    <section className="w-full max-w-6xl mx-auto px-6 md:px-8 py-8 md:py-10">
-      <h2 className="font-editorial text-2xl md:text-3xl text-primary-foreground mb-10">
-        Intelligence Modules
-      </h2>
+    <div className="bg-[#0A0A0A]">
+      <section className="max-w-[1120px] mx-auto px-7 py-10 md:py-12">
+        <h2 className="font-editorial text-2xl md:text-3xl text-white/[0.92] mb-10">
+          Intelligence Modules
+        </h2>
 
-      {/* AI Interface Card Wrapper - Black background */}
-      <div className="border border-border/20 rounded-2xl bg-foreground p-6 md:p-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {modules.map((module) => {
             const Icon = module.icon;
@@ -344,31 +342,33 @@ export function DomainModules({ sector, onModuleClick }: DomainModulesProps) {
                 key={module.id}
                 onClick={() => onModuleClick(module.prompt)}
                 className={cn(
-                  "group text-left p-5 rounded-xl border border-background/20",
-                  "bg-background/10 transition-all duration-200",
-                  "hover:bg-background/20 hover:border-background/40"
+                  "group text-left p-5 rounded-[18px]",
+                  "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+                  "border border-white/[0.10]",
+                  "transition-all duration-200",
+                  "hover:from-[#202020] hover:to-[#181818]",
+                  "hover:border-white/[0.18]"
                 )}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <Icon className="h-5 w-5 text-background/50 group-hover:text-background transition-colors" />
+                  <Icon className="h-5 w-5 text-white/50 group-hover:text-white transition-colors" />
                   {module.outputHint && (
-                    <span className="text-[11px] uppercase tracking-widest text-background/60">
+                    <span className="text-[11px] uppercase tracking-widest text-white/60">
                       {module.outputHint}
                     </span>
                   )}
                 </div>
-                <h3 className="text-base font-medium text-background mb-1.5">
+                <h3 className="text-base font-medium text-white/[0.92] mb-1.5">
                   {module.label}
                 </h3>
-                <p className="text-[13px] text-background/60 leading-relaxed">
+                <p className="text-[13px] text-white/60 leading-relaxed">
                   {module.description}
                 </p>
               </button>
             );
           })}
         </div>
-      </div>
-    </section>
+      </section>
     </div>
   );
 }
