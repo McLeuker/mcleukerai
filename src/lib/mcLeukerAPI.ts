@@ -350,16 +350,24 @@ class McLeukerAPI {
         }
       );
 
-      // Handle non-OK responses
+      // Handle non-OK responses - NEVER return raw errors to user
       if (!response.ok) {
         const errorText = await response.text();
         console.error("[McLeukerAPI] Error response:", response.status, errorText);
         
+        // Detect error type for contextual fallback
+        let errorType: keyof typeof FALLBACK_RESPONSES = "general";
+        if (response.status === 429) errorType = "rateLimit";
+        else if (response.status >= 500) errorType = "network";
+        else if (response.status === 408) errorType = "timeout";
+        
+        // Return helpful fallback instead of raw error
+        const fallbackContent = generateContextualFallback(message, errorType);
         return {
-          success: false,
-          response: `API error: ${response.status} - ${errorText}`,
-          message: `API error: ${response.status} - ${errorText}`,
-          error: errorText,
+          success: true,
+          response: fallbackContent,
+          message: fallbackContent,
+          credits_used: 0,
         };
       }
 

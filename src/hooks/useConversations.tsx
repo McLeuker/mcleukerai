@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { mcLeukerAPI } from "@/lib/mcLeukerAPI";
 import { useToast } from "@/hooks/use-toast";
+import { postProcessAssistantText } from "@/lib/assistantPostprocess";
 
 // ═══════════════════════════════════════════════════════════════
 // CONTEXTUAL ERROR RESPONSES - Never show raw errors to users
@@ -347,9 +348,14 @@ export function useConversations() {
         responseLength: chatResult.response?.length || chatResult.message?.length,
       });
 
-      // Get response content - API already provides fallback, but add extra safety
-      const responseContent = chatResult.response || chatResult.message || 
-        getContextualErrorResponse(content);
+      // Get response content - apply post-processing to ensure user-friendly output
+      let responseContent = chatResult.response || chatResult.message || "";
+      
+      // Post-process to clean artifacts and replace unhelpful content
+      responseContent = postProcessAssistantText({
+        query: content,
+        text: responseContent,
+      });
 
       // Save assistant message to DB
       const assistantMsgId = crypto.randomUUID();
