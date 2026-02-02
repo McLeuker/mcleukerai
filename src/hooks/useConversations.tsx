@@ -181,7 +181,7 @@ export function useConversations() {
       return currentConversation;
     }
 
-    // Create a new conversation
+    // Create new conversation
     const { data, error } = await supabase
       .from("conversations")
       .insert({
@@ -201,335 +201,11 @@ export function useConversations() {
       return null;
     }
 
-    const newConv: Conversation = {
-      id: data.id,
-      user_id: data.user_id,
-      title: data.title,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-    };
-
-    setCurrentConversation(newConv);
-    setConversations((prev) => [newConv, ...prev]);
-    return newConv;
+    const newConversation = data as Conversation;
+    setCurrentConversation(newConversation);
+    setConversations((prev) => [newConversation, ...prev]);
+    return newConversation;
   };
-
-  // Send a message in the current conversation
-  const sendMessage = async (
-    prompt: string, 
-    mode: ResearchMode = "quick", 
-    model?: string,
-    domain?: string
-  ): Promise<void> => {
-    console.log("[Chat] Starting sendMessage:", { prompt: prompt.slice(0, 50), mode, hasUser: !!user });
-    if (!user) return;
-
-    setLoading(true);
-    setStreamingContent("");
-    setResearchState({
-      isResearching: mode === "deep",
-      phase: mode === "deep" ? "planning" : null,
-      currentStep: 0,
-      totalSteps: 0,
-      message: mode === "deep" ? "Starting research..." : "",
-    });
-
-    // Get or create conversation
-    const conversation = await getOrCreateConversation();
-    if (!conversation) {
-      setLoading(false);
-      setResearchState(prev => ({ ...prev, isResearching: false, phase: null }));
-      return;
-    }
-    console.log("[Chat] Conversation ready:", conversation.id);
-
-    // Add user message to database
-    const { data: userMsg, error: userMsgError } = await supabase
-      .from("chat_messages")
-      .insert({
-        conversation_id: conversation.id,
-        user_id: user.id,
-        role: "user",
-        content: prompt,
-      })
-      .select()
-      .single();
-
-    if (userMsgError) {
-      console.error("[Chat] Error creating user message:", userMsgError);
-      toast({
-        title: "Error",
-        description: "Failed to send message",
-        variant: "destructive",
-      });
-      setLoading(false);
-      setResearchState(prev => ({ ...prev, isResearching: false, phase: null }));
-      return;
-    }
-    console.log("[Chat] User message saved:", userMsg.id);
-
-    // Add user message to local state
-    const newUserMessage: ChatMessage = {
-      id: userMsg.id,
-      conversation_id: userMsg.conversation_id,
-      user_id: userMsg.user_id,
-      role: "user",
-      content: userMsg.content,
-      model_used: null,
-      credits_used: 0,
-      is_favorite: false,
-      created_at: userMsg.created_at,
-    };
-    setMessages((prev) => [...prev, newUserMessage]);
-
-    // Add placeholder assistant message immediately for instant feedback
-    const placeholderId = `placeholder-${Date.now()}`;
-    const placeholderMessage: ChatMessage = {
-      id: placeholderId,
-      conversation_id: conversation.id,
-      user_id: user.id,
-      role: "assistant",
-      content: mode === "deep" ? "Researching..." : "Thinking...",
-      model_used: null,
-      credits_used: 0,
-      is_favorite: false,
-      created_at: new Date().toISOString(),
-      isPlaceholder: true,
-    };
-    setMessages((prev) => [...prev, placeholderMessage]);
-    console.log("[Chat] Placeholder added:", placeholderId);
-
-    // Update conversation title if it's the first message
-    if (messages.length === 0) {
-      const title = prompt.slice(0, 50) + (prompt.length > 50 ? "..." : "");
-      await supabase
-        .from("conversations")
-        .update({ title, updated_at: new Date().toISOString() })
-        .eq("id", conversation.id);
-
-      setCurrentConversation((prev) =>
-        prev ? { ...prev, title } : prev
-      );
-      setConversations((prev) =>
-        prev.map((c) => (c.id === conversation.id ? { ...c, title } : c))
-      );
-    }
-
-    // Setup AbortController with timeout
-    abortControllerRef.current = new AbortController();
-    const timeoutMs = mode === "deep" ? 120000 : 45000; // 120s deep, 45s quick
-    const timeoutId = setTimeout(() => {
-      abortControllerRef.current?.abort();
-    }, timeoutMs);
-
-    // Call Railway backend API V2.0.0 - Unified endpoint with mode parameter
-    try {
-      console.log("[Chat] Calling backend API...");
-      let content = "";
-      let sources: Source[] = [];
-      let isResearched = mode === "deep";
-      let generatedFiles: ChatMessage["generatedFiles"] = undefined;
-      let reasoning: string | undefined = undefined;
-      let reasoningSteps: ReasoningStep[] | undefined = undefined;
-      let followUpQuestions: string[] | undefined = undefined;
-      let creditsUsed = mode === "deep" ? 25 : 1;
-      let dbMessageId: string | undefined = undefined;
-
-      // Update research state for deep mode
-      if (mode === "deep") {
-        setResearchState(prev => ({
-          ...prev,
-          phase: "searching",
-          message: "Deep reasoning in progress...",
-        }));
-      }
-
-      // Use unified V2 chat endpoint with mode parameter and signal
-      const chatResult = await mcLeukerAPI.chatV2(
-        prompt, 
-        conversation.id, 
-        mode,
-        abortControllerRef.current.signal
-      );
-      
-      // Clear timeout on successful response
-      clearTimeout(timeoutId);
-      console.log("[Chat] Backend response:", { 
-        hasMessage: !!chatResult.message, 
-        messageLength: chatResult.message?.length 
-      });
-      
-      content = chatResult.message;
-      creditsUsed = chatResult.credits_used || (mode === "deep" ? 25 : 1);
-      reasoning = chatResult.reasoning;
-      followUpQuestions = chatResult.follow_up_questions;
-      
-      // Map sources from V2.0.0 format
-      if (chatResult.sources && chatResult.sources.length > 0) {
-        sources = chatResult.sources.map((src) => ({
-          title: src.title,
-          url: src.url,
-          snippet: "",
-          type: "search" as const,
-        }));
-      }
-
-      // Map generated files with download URLs
-      if (chatResult.files && chatResult.files.length > 0) {
-        generatedFiles = chatResult.files.map((file) => ({
-          name: file.filename,
-          type: mapFileFormat(file.type || "pdf"),
-          url: mcLeukerAPI.getFileDownloadUrl(file.filename),
-          size: parseInt(file.size || "0") || 0,
-          path: file.filepath,
-          created_at: new Date().toISOString(),
-        }));
-      }
-
-      if (mode === "deep") {
-        setResearchState(prev => ({
-          ...prev,
-          phase: "completed",
-          message: "Deep analysis complete",
-        }));
-      }
-
-      // Update streaming content for display
-      setStreamingContent(content);
-
-      // Use fallback message if content is empty
-      const finalContent = content || "I apologize, but I couldn't generate a response. Please try again.";
-
-      // Save assistant message to database (only if we have real content)
-      if (content) {
-        const { data: assistantMsg, error: assistantError } = await supabase
-          .from("chat_messages")
-          .insert({
-            conversation_id: conversation.id,
-            user_id: user.id,
-            role: "assistant",
-            content,
-            model_used: mode === "deep" ? "McLeuker Deep" : "McLeuker Quick",
-            credits_used: creditsUsed,
-          })
-          .select()
-          .single();
-
-        if (!assistantError && assistantMsg) {
-          dbMessageId = assistantMsg.id;
-        }
-
-        // Update conversation timestamp
-        await supabase
-          .from("conversations")
-          .update({ updated_at: new Date().toISOString() })
-          .eq("id", conversation.id);
-      }
-
-      // ALWAYS replace the placeholder (even if content is empty)
-      const newAssistantMessage: ChatMessage = {
-        id: dbMessageId || placeholderId,
-        conversation_id: conversation.id,
-        user_id: user.id,
-        role: "assistant",
-        content: finalContent,
-        model_used: mode === "deep" ? "McLeuker Deep" : "McLeuker Quick",
-        credits_used: creditsUsed,
-        is_favorite: false,
-        created_at: new Date().toISOString(),
-        sources: sources.length > 0 ? sources : undefined,
-        isResearched,
-        reasoning,
-        reasoningSteps,
-        generatedFiles,
-        followUpQuestions,
-        isPlaceholder: false, // Explicitly mark as not placeholder
-      };
-      console.log("[Chat] Replacing placeholder:", placeholderId);
-      setMessages((prev) => prev.map(m => 
-        m.id === placeholderId ? newAssistantMessage : m
-      ));
-
-      setStreamingContent("");
-      setResearchState({
-        isResearching: false,
-        phase: mode === "deep" ? "completed" : null,
-        currentStep: 0,
-        totalSteps: 0,
-        message: "",
-      });
-    } catch (error) {
-      clearTimeout(timeoutId);
-      
-      if ((error as Error).name === "AbortError") {
-        console.log("[Chat] Request aborted/timed out");
-        // Replace placeholder with timeout error + retry
-        setMessages((prev) => prev.map(m =>
-          m.id === placeholderId
-            ? {
-                ...m,
-                content: "Request timed out. Click retry to try again.",
-                isPlaceholder: false,
-                isError: true,
-                retryData: { prompt, mode, model, domain },
-              }
-            : m
-        ));
-        toast({
-          title: "Request Timed Out",
-          description: "The request took too long. You can retry from the chat.",
-          variant: "destructive",
-        });
-      } else {
-        console.error("[Chat] API processing error:", error);
-        // Replace placeholder with error + retry
-        setMessages((prev) => prev.map(m =>
-          m.id === placeholderId
-            ? {
-                ...m,
-                content: `Failed to get response: ${error instanceof Error ? error.message : "Unknown error"}`,
-                isPlaceholder: false,
-                isError: true,
-                retryData: { prompt, mode, model, domain },
-              }
-            : m
-        ));
-        toast({
-          title: "Message Failed",
-          description: error instanceof Error ? error.message : "AI processing failed",
-          variant: "destructive",
-        });
-      }
-      setResearchState(prev => ({ ...prev, isResearching: false, phase: "failed" }));
-    } finally {
-      // ALWAYS reset loading state (guarantees UI reset)
-      console.log("[Chat] Finally block - resetting state");
-      setLoading(false);
-      setStreamingContent("");
-      abortControllerRef.current = null;
-    }
-
-    await fetchConversations();
-  };
-
-  // Cancel ongoing request
-  const cancelRequest = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    setLoading(false);
-    setStreamingContent("");
-    // Remove any placeholder messages when cancelled
-    setMessages((prev) => prev.filter(m => !m.isPlaceholder));
-    setResearchState({
-      isResearching: false,
-      phase: null,
-      currentStep: 0,
-      totalSteps: 0,
-      message: "",
-    });
-  }, []);
 
   // Retry a failed message
   const retryMessage = useCallback(async (messageId: string) => {
@@ -547,77 +223,293 @@ export function useConversations() {
     }
   }, [messages]);
 
-  // Create a new conversation (user explicitly clicks New Chat)
-  const createNewConversation = async (): Promise<void> => {
-    setCurrentConversation(null);
-    setMessages([]);
-    setStreamingContent("");
-  };
-
-  // Select an existing conversation
-  const selectConversation = async (conversation: Conversation): Promise<void> => {
-    setCurrentConversation(conversation);
-    setStreamingContent("");
-    const msgs = await fetchMessages(conversation.id);
-    setMessages(msgs);
-  };
-
-  // Toggle favorite on a message
-  const toggleFavorite = async (messageId: string): Promise<void> => {
-    const message = messages.find((m) => m.id === messageId);
-    if (!message) return;
-
-    const newFavoriteState = !message.is_favorite;
-
-    const { error } = await supabase
-      .from("chat_messages")
-      .update({ is_favorite: newFavoriteState })
-      .eq("id", messageId);
-
-    if (error) {
-      console.error("Error toggling favorite:", error);
+  // Send message with FULL reliability hardening
+  const sendMessage = async (
+    prompt: string,
+    mode: ResearchMode = "quick",
+    model?: string,
+    domain?: string
+  ) => {
+    console.log("[Chat] Starting sendMessage:", { prompt, mode, hasUser: !!user });
+    
+    if (!user) {
       toast({
         title: "Error",
-        description: "Failed to update favorite",
+        description: "Please sign in to send messages",
         variant: "destructive",
       });
       return;
     }
 
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === messageId ? { ...m, is_favorite: newFavoriteState } : m
-      )
-    );
+    // Track placeholder ID for replacement
+    let placeholderId: string | null = null;
+    let conversation: Conversation | null = null;
 
-    toast({
-      title: newFavoriteState ? "Added to favorites" : "Removed from favorites",
-    });
-  };
-
-  // Delete a message
-  const deleteMessage = async (messageId: string): Promise<void> => {
-    const { error } = await supabase
-      .from("chat_messages")
-      .delete()
-      .eq("id", messageId);
-
-    if (error) {
-      console.error("Error deleting message:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete message",
-        variant: "destructive",
+    // OUTER try/finally - guarantees state cleanup no matter what
+    setLoading(true);
+    if (mode === "deep") {
+      setResearchState({
+        isResearching: true,
+        phase: "planning",
+        currentStep: 0,
+        totalSteps: 5,
+        message: "Starting deep research...",
       });
-      return;
     }
 
-    setMessages((prev) => prev.filter((m) => m.id !== messageId));
-    toast({ title: "Message deleted" });
+    try {
+      // Get or create conversation
+      conversation = await getOrCreateConversation();
+      if (!conversation) {
+        throw new Error("Failed to create conversation");
+      }
+      console.log("[Chat] Conversation ready:", conversation.id);
+
+      // Add user message to state immediately
+      const userMessage: ChatMessage = {
+        id: `temp-user-${Date.now()}`,
+        conversation_id: conversation.id,
+        user_id: user.id,
+        role: "user",
+        content: prompt,
+        model_used: null,
+        credits_used: 0,
+        is_favorite: false,
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, userMessage]);
+
+      // Save user message to database
+      const { data: userMsg, error: userError } = await supabase
+        .from("chat_messages")
+        .insert({
+          conversation_id: conversation.id,
+          user_id: user.id,
+          role: "user",
+          content: prompt,
+        })
+        .select()
+        .single();
+
+      if (userError) {
+        console.error("Error saving user message:", userError);
+        throw new Error("Failed to save message");
+      }
+      console.log("[Chat] User message saved:", userMsg.id);
+
+      // Update user message with real ID
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === userMessage.id ? { ...m, id: userMsg.id } : m
+        )
+      );
+
+      // Add placeholder assistant message IMMEDIATELY
+      placeholderId = `placeholder-${Date.now()}`;
+      const placeholderMessage: ChatMessage = {
+        id: placeholderId,
+        conversation_id: conversation.id,
+        user_id: user.id,
+        role: "assistant",
+        content: mode === "deep" ? "🔍 Researching..." : "💭 Thinking...",
+        model_used: null,
+        credits_used: 0,
+        is_favorite: false,
+        created_at: new Date().toISOString(),
+        isPlaceholder: true,
+      };
+      setMessages((prev) => [...prev, placeholderMessage]);
+      console.log("[Chat] Placeholder created:", placeholderId);
+
+      // Update conversation title (best-effort, don't block on failure)
+      try {
+        const currentMessages = await fetchMessages(conversation.id);
+        if (currentMessages.length <= 1) {
+          const titlePrompt = prompt.slice(0, 50) + (prompt.length > 50 ? "..." : "");
+          await supabase
+            .from("conversations")
+            .update({ title: titlePrompt })
+            .eq("id", conversation.id);
+        }
+      } catch (titleError) {
+        console.warn("[Chat] Title update failed (non-blocking):", titleError);
+      }
+
+      // Setup AbortController with timeout
+      abortControllerRef.current = new AbortController();
+      const timeoutMs = mode === "deep" ? 180000 : 60000; // 3min deep, 1min quick
+      const timeoutId = setTimeout(() => {
+        console.log("[Chat] Request timeout triggered");
+        abortControllerRef.current?.abort();
+      }, timeoutMs);
+
+      console.log("[Chat] Calling backend API...");
+
+      // Call backend API with abort signal
+      const chatResult = await mcLeukerAPI.chatV2(
+        prompt,
+        conversation.id,
+        mode,
+        abortControllerRef.current.signal
+      );
+
+      clearTimeout(timeoutId);
+      console.log("[Chat] Backend response received:", {
+        hasMessage: !!chatResult.message,
+        messageLength: chatResult.message?.length,
+        hasError: !!chatResult.error,
+      });
+
+      // Process response
+      const content = chatResult.message || chatResult.error || "I apologize, but I couldn't generate a response. Please try again.";
+      
+      // Extract sources, reasoning, files, follow-ups from response
+      const sources = chatResult.sources || [];
+      const reasoning = chatResult.reasoning || "";
+      const reasoningSteps = chatResult.reasoning_steps || [];
+      const followUpQuestions = chatResult.follow_up_questions || [];
+      
+      // Process generated files
+      const generatedFiles = (chatResult.generated_files || []).map((file: any) => ({
+        name: file.name || file.filename || "file",
+        type: mapFileFormat(file.format || file.type || "pdf"),
+        url: file.url || file.download_url || "",
+        size: file.size || 0,
+        path: file.path,
+        created_at: file.created_at,
+      }));
+
+      // Save assistant message to database
+      let dbMessageId: string | null = null;
+      try {
+        const { data: assistantMsg, error: assistantError } = await supabase
+          .from("chat_messages")
+          .insert({
+            conversation_id: conversation.id,
+            user_id: user.id,
+            role: "assistant",
+            content: content,
+            model_used: chatResult.model || model || "grok",
+            credits_used: chatResult.credits_used || 0,
+          })
+          .select()
+          .single();
+
+        if (!assistantError && assistantMsg) {
+          dbMessageId = assistantMsg.id;
+        }
+      } catch (dbError) {
+        console.warn("[Chat] DB save failed (non-blocking):", dbError);
+      }
+
+      // Create final assistant message
+      const newAssistantMessage: ChatMessage = {
+        id: dbMessageId || placeholderId!,
+        conversation_id: conversation.id,
+        user_id: user.id,
+        role: "assistant",
+        content: content,
+        model_used: chatResult.model || model || "grok",
+        credits_used: chatResult.credits_used || 0,
+        is_favorite: false,
+        created_at: new Date().toISOString(),
+        sources: sources,
+        isResearched: mode === "deep",
+        reasoning: reasoning,
+        reasoningSteps: reasoningSteps,
+        generatedFiles: generatedFiles,
+        followUpQuestions: followUpQuestions,
+        isPlaceholder: false,
+        isError: false,
+      };
+
+      // ALWAYS replace placeholder with real message
+      console.log("[Chat] Replacing placeholder:", placeholderId);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === placeholderId ? newAssistantMessage : m))
+      );
+
+      // Update conversation in list
+      await fetchConversations();
+
+    } catch (error: any) {
+      console.error("[Chat] Error:", error);
+      
+      // Determine error message
+      let errorMessage = "Something went wrong. Please try again.";
+      if (error.name === "AbortError") {
+        errorMessage = "Request timed out. The server took too long to respond. Please try again.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      // Replace placeholder with error message (if placeholder exists)
+      if (placeholderId) {
+        const errorAssistantMessage: ChatMessage = {
+          id: placeholderId,
+          conversation_id: conversation?.id || "",
+          user_id: user.id,
+          role: "assistant",
+          content: `❌ ${errorMessage}`,
+          model_used: null,
+          credits_used: 0,
+          is_favorite: false,
+          created_at: new Date().toISOString(),
+          isPlaceholder: false,
+          isError: true,
+          retryData: {
+            prompt,
+            mode,
+            model,
+            domain,
+          },
+        };
+
+        setMessages((prev) =>
+          prev.map((m) => (m.id === placeholderId ? errorAssistantMessage : m))
+        );
+      }
+
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+
+    } finally {
+      // ALWAYS reset state - this runs no matter what
+      console.log("[Chat] Cleanup - resetting state");
+      setLoading(false);
+      setStreamingContent("");
+      setResearchState({
+        isResearching: false,
+        phase: null,
+        currentStep: 0,
+        totalSteps: 0,
+        message: "",
+      });
+      abortControllerRef.current = null;
+    }
   };
 
-  // Delete an entire conversation
-  const deleteConversation = async (conversationId: string): Promise<void> => {
+  // Cancel ongoing request
+  const cancelRequest = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setLoading(false);
+      setStreamingContent("");
+      setResearchState({
+        isResearching: false,
+        phase: null,
+        currentStep: 0,
+        totalSteps: 0,
+        message: "",
+      });
+    }
+  }, []);
+
+  // Delete conversation
+  const deleteConversation = async (conversationId: string) => {
     const { error } = await supabase
       .from("conversations")
       .delete()
@@ -638,7 +530,34 @@ export function useConversations() {
       setCurrentConversation(null);
       setMessages([]);
     }
-    toast({ title: "Chat deleted" });
+  };
+
+  // Toggle message favorite
+  const toggleFavorite = async (messageId: string) => {
+    const message = messages.find((m) => m.id === messageId);
+    if (!message) return;
+
+    const { error } = await supabase
+      .from("chat_messages")
+      .update({ is_favorite: !message.is_favorite })
+      .eq("id", messageId);
+
+    if (error) {
+      console.error("Error toggling favorite:", error);
+      return;
+    }
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId ? { ...m, is_favorite: !m.is_favorite } : m
+      )
+    );
+  };
+
+  // Start new chat
+  const startNewChat = () => {
+    setCurrentConversation(null);
+    setMessages([]);
   };
 
   return {
@@ -648,12 +567,11 @@ export function useConversations() {
     loading,
     streamingContent,
     researchState,
+    setCurrentConversation,
     sendMessage,
-    createNewConversation,
-    selectConversation,
-    toggleFavorite,
-    deleteMessage,
     deleteConversation,
+    toggleFavorite,
+    startNewChat,
     cancelRequest,
     retryMessage,
     fetchConversations,
