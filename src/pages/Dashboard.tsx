@@ -126,7 +126,7 @@ const Dashboard = () => {
             onToggleFavorite={toggleFavorite}
             onDeleteMessage={deleteMessage}
             onNewChat={createNewConversation}
-            onSelectPrompt={(prompt) => handleSendMessage(prompt, "quick")}
+            onSelectPrompt={(prompt, mode, model) => handleSendMessage(prompt, mode || "quick", model)}
             onFollowUpClick={(question) => handleSendMessage(question, "quick")}
             domainSnapshot={domainSnapshot}
             domainSnapshotLoading={snapshotLoading}
