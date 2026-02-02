@@ -256,32 +256,6 @@ const Landing = () => {
               </Button>
             </div>
 
-            {/* Try a prompt input */}
-            <div className="mt-12 max-w-xl mx-auto">
-              <p className="text-xs text-white/40 uppercase tracking-widest mb-3">Or try a prompt</p>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleSubmit(e);
-                    }
-                  }}
-                  placeholder="e.g., Analyze SS26 color trends..."
-                  className={cn(
-                    "w-full px-5 py-4 rounded-[20px]",
-                    "bg-gradient-to-b from-[#1B1B1B] to-[#111111]",
-                    "border border-white/[0.10]",
-                    "text-white/[0.88] placeholder:text-white/40",
-                    "focus:outline-none focus:border-white/[0.18]",
-                    "focus:ring-[3px] focus:ring-white/[0.06]",
-                    "text-[15px]"
-                  )}
-                />
-              </div>
-            </div>
           </div>
         </div>
       </section>
