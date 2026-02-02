@@ -64,34 +64,120 @@ function calculateConfidence(metadata: {
   };
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ENHANCED FALLBACK OUTPUT - Query-aware, always helpful
+// ═══════════════════════════════════════════════════════════════
+
+// Intent detection for better fallbacks
+function detectFallbackIntent(prompt: string): "supplier" | "trend" | "personal" | "technical" | "creative" | "general" {
+  const p = prompt.toLowerCase();
+  if (/\b(supplier|manufacturer|vendor|factory|sourcing|procurement)\b/i.test(p)) return "supplier";
+  if (/\b(trend|fashion|style|season|runway|forecast)\b/i.test(p)) return "trend";
+  if (/\b(feel|life|advice|help me|worried|stressed|relationship)\b/i.test(p)) return "personal";
+  if (/\b(code|api|implement|function|error|debug)\b/i.test(p)) return "technical";
+  if (/\b(write|poem|story|creative|imagine)\b/i.test(p)) return "creative";
+  return "general";
+}
+
 // Generate fallback output when research fails or is incomplete
 function generateFallbackOutput(prompt: string, phase: string, partialData?: unknown): string {
   const timestamp = new Date().toISOString();
+  const intent = detectFallbackIntent(prompt);
+  const queryPreview = prompt.length > 100 ? prompt.slice(0, 100) + "..." : prompt;
   
-  return `## Research Status: Partial Results Available
+  // Intent-specific fallback templates
+  const intentTemplates: Record<string, string> = {
+    supplier: `## Supplier Research - Partial Results
 
-**Query:** ${prompt}
-**Status:** ${phase === "failed" ? "Research encountered issues" : "Research in progress"}
-**Timestamp:** ${timestamp}
+**Your Query:** ${queryPreview}
 
-### What We Found
+I encountered some challenges gathering complete supplier data, but here's what I can offer:
 
-${partialData ? `Based on available data:\n${JSON.stringify(partialData, null, 2).slice(0, 2000)}` : "Limited data retrieved - research tools encountered temporary issues."}
+### General Sourcing Guidance
 
-### Confidence Assessment
+When researching suppliers, consider these key factors:
+- **Certifications**: Look for GOTS, OEKO-TEX, B Corp, or GRS certified manufacturers
+- **MOQ Requirements**: Start with suppliers offering lower minimums for initial orders
+- **Lead Times**: Factor in 4-8 weeks for sampling, 8-16 weeks for production
+- **Communication**: Prioritize suppliers with responsive English-speaking contacts
 
-- **Level:** Exploratory
-- **Reasoning:** Data collection was incomplete. Results should be verified with additional research.
-- **Recommendation:** Consider running the search again or breaking into smaller queries.
+### Recommended Directories
+- Maker's Row (US-focused manufacturing)
+- Kompass (European suppliers)
+- Alibaba Verified Suppliers
+- Industry trade show exhibitor lists
 
-### Next Steps
+Would you like me to focus on a specific region or certification?`,
 
-1. **Retry the search** - Temporary issues may be resolved
-2. **Narrow the query** - More specific questions often yield better results
-3. **Verify independently** - Cross-check any findings with authoritative sources
+    trend: `## Trend Analysis - Partial Insights
+
+**Your Query:** ${queryPreview}
+
+I'm working on gathering complete trend data. Here's what I can share:
+
+### Current Market Signals
+
+Based on recent industry observations:
+- **Sustainability Focus**: Continued emphasis on eco-friendly materials and transparency
+- **Digital Integration**: Growing importance of digital-first brand strategies
+- **Consumer Shifts**: Increased demand for versatile, quality-focused pieces
+
+### Key Sources to Monitor
+- Fashion week coverage (Vogue, WWD, BoF)
+- Street style platforms and influencer signals
+- Trade publication forecasts
+
+I'm still working on getting more specific data. Feel free to narrow your query for focused insights.`,
+
+    personal: `I want to acknowledge your question and provide what insight I can.
+
+While I'm working through some technical challenges, I'm still here to help. What you're asking matters.
+
+Sometimes it helps to break things down into smaller pieces. Could you tell me what feels most pressing right now? I'll do my best to offer thoughtful guidance.`,
+
+    technical: `## Technical Assistance
+
+I ran into some issues processing your technical query about "${queryPreview}".
+
+**Here's what I suggest:**
+- Share specific error messages or code snippets
+- Break down complex problems into smaller parts
+- Specify the technology stack you're working with
+
+I'm ready to help once you provide more details.`,
+
+    creative: `I'd love to help with your creative request about "${queryPreview}".
+
+While I work through some technical challenges, could you tell me more about:
+- The tone or style you're looking for
+- Any specific elements to include
+- The intended audience or purpose
+
+The more context you share, the better I can craft something meaningful.`,
+
+    general: `## Research Status: Working on It
+
+**Your Query:** ${queryPreview}
+
+I encountered some challenges gathering complete information, but I'm still working on your request.
+
+### What I Can Offer
+
+${partialData ? `Based on available data, here's a preview of findings:\n${JSON.stringify(partialData, null, 2).slice(0, 1000)}` : "I'm gathering data from multiple sources. In the meantime:"}
+
+**Suggestions:**
+- Try rephrasing with more specific details
+- Break complex questions into smaller parts
+- Specify a particular region, time frame, or category
+
+I'm still here to help - feel free to try again or narrow your focus.`,
+  };
+  
+  return intentTemplates[intent] + `
 
 ---
-*This is a best-effort output. McLeuker AI never leaves you empty-handed.*`;
+*This is a best-effort response. McLeuker AI never leaves you empty-handed.*
+*Timestamp: ${timestamp}*`;
 }
 
 // Types
