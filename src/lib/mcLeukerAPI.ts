@@ -1,366 +1,240 @@
-import type {
-  TaskResult,
-  ChatResponse,
-  ChatResponseV2,
-  DeepChatResponse,
-  AISearchResponse,
-  QuickAnswerResponse,
-  ResearchResponse,
-  TaskInterpretation,
-  ConfigStatus,
-  HealthResponse,
-  StatusResponse,
-  SearchOptions,
-  UserCredits,
-  PricingResponse,
-  GeneratedFile,
-} from "@/types/mcLeuker";
+/**
+ * McLeuker API Client - V3.1 with Reliability Hardening
+ * Handles communication with the Railway backend
+ */
 
-// Use the Supabase proxy function to avoid CORS issues
-const PROXY_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proxy-railway`;
+export interface ChatResponseV2 {
+  success: boolean;
+  message?: string;
+  error?: string;
+  model?: string;
+  credits_used?: number;
+  sources?: Array<{
+    title: string;
+    url: string;
+    snippet?: string;
+  }>;
+  reasoning?: string;
+  reasoning_steps?: Array<{
+    step: number;
+    title: string;
+    content: string;
+  }>;
+  generated_files?: Array<{
+    name: string;
+    filename?: string;
+    format?: string;
+    type?: string;
+    url: string;
+    download_url?: string;
+    size?: number;
+    path?: string;
+    created_at?: string;
+  }>;
+  follow_up_questions?: string[];
+  needs_user_input?: boolean;
+  clarification_prompt?: string;
+}
 
-// V2.0.0 Chat Mode
-export type ChatMode = 'quick' | 'deep';
+export interface HealthResponse {
+  status: string;
+  version: string;
+  services: {
+    grok: boolean;
+    perplexity: boolean;
+    exa: boolean;
+    browserless: boolean;
+    e2b: boolean;
+    nano_banana: boolean;
+  };
+}
 
 class McLeukerAPI {
   private baseUrl: string;
+  private supabaseProxyUrl: string;
 
-  constructor(baseUrl: string = PROXY_BASE_URL) {
-    this.baseUrl = baseUrl;
+  constructor() {
+    // Use Supabase Edge Function as proxy (handles CORS properly)
+    this.supabaseProxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proxy-railway`;
+    // Direct Railway URL as fallback
+    this.baseUrl = import.meta.env.VITE_BACKEND_URL || "https://web-production-29f3c.up.railway.app";
   }
 
   /**
-   * Construct the download URL for a generated file (through proxy)
+   * Chat V2 endpoint with full reliability features
+   * @param message - User message
+   * @param conversationId - Optional conversation ID
+   * @param mode - "quick" or "deep" research mode
+   * @param signal - Optional AbortSignal for cancellation
    */
-  getFileDownloadUrl(filename: string): string {
-    return `${this.baseUrl}/api/files/${filename}`;
+  async chatV2(
+    message: string,
+    conversationId?: string,
+    mode: "quick" | "deep" = "quick",
+    signal?: AbortSignal
+  ): Promise<ChatResponseV2> {
+    console.log("[API] chatV2 called:", { message: message.slice(0, 50), mode, hasSignal: !!signal });
+
+    try {
+      // Try Supabase proxy first (handles auth and CORS)
+      const response = await this.fetchWithRetry(
+        this.supabaseProxyUrl,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${await this.getSupabaseToken()}`,
+          },
+          body: JSON.stringify({
+            message,
+            conversation_id: conversationId,
+            mode,
+          }),
+          signal,
+        },
+        2 // max retries
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[API] Response not OK:", response.status, errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log("[API] Response received:", { success: data.success, hasMessage: !!data.message });
+
+      // Ensure message is a string (fix [object Object] issue)
+      if (data.message && typeof data.message === "object") {
+        data.message = JSON.stringify(data.message, null, 2);
+      }
+
+      return data;
+
+    } catch (error: any) {
+      console.error("[API] chatV2 error:", error);
+
+      // Re-throw abort errors
+      if (error.name === "AbortError") {
+        throw error;
+      }
+
+      // Return error response
+      return {
+        success: false,
+        error: error.message || "Failed to connect to AI backend. Please try again.",
+      };
+    }
+  }
+
+  /**
+   * Fetch with automatic retry on failure
+   */
+  private async fetchWithRetry(
+    url: string,
+    options: RequestInit,
+    maxRetries: number = 2
+  ): Promise<Response> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[API] Fetch attempt ${attempt + 1}/${maxRetries + 1}`);
+        const response = await fetch(url, options);
+        return response;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`[API] Fetch attempt ${attempt + 1} failed:`, error.message);
+
+        // Don't retry on abort
+        if (error.name === "AbortError") {
+          throw error;
+        }
+
+        // Wait before retry (exponential backoff)
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        }
+      }
+    }
+
+    throw lastError || new Error("All fetch attempts failed");
+  }
+
+  /**
+   * Get Supabase auth token
+   */
+  private async getSupabaseToken(): Promise<string> {
+    try {
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_ANON_KEY
+      );
+      const { data } = await supabase.auth.getSession();
+      return data.session?.access_token || "";
+    } catch {
+      return "";
+    }
   }
 
   /**
    * Health check endpoint
    */
-  async getHealth(): Promise<HealthResponse> {
-    const response = await fetch(`${this.baseUrl}/health`);
-    if (!response.ok) {
-      throw new Error(`Health check failed: ${response.status}`);
+  async health(): Promise<HealthResponse> {
+    try {
+      const response = await fetch(`${this.baseUrl}/health`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Health check failed: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error("[API] Health check error:", error);
+      return {
+        status: "error",
+        version: "unknown",
+        services: {
+          grok: false,
+          perplexity: false,
+          exa: false,
+          browserless: false,
+          e2b: false,
+          nano_banana: false,
+        },
+      };
     }
-    return response.json();
   }
 
   /**
-   * System status endpoint
+   * Get available models
    */
-  async getStatus(): Promise<StatusResponse> {
-    const response = await fetch(`${this.baseUrl}/api/status`);
-    if (!response.ok) {
-      throw new Error(`Status check failed: ${response.status}`);
+  async getModels(): Promise<string[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/models`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        return ["grok-4.1-fast-reasoning"];
+      }
+
+      const data = await response.json();
+      return data.models || ["grok-4.1-fast-reasoning"];
+    } catch {
+      return ["grok-4.1-fast-reasoning"];
     }
-    return response.json();
-  }
-
-  /**
-   * Configuration status endpoint
-   */
-  async getConfigStatus(): Promise<ConfigStatus> {
-    const response = await fetch(`${this.baseUrl}/api/config/status`);
-    if (!response.ok) {
-      throw new Error(`Config status check failed: ${response.status}`);
-    }
-    return response.json();
-  }
-
-  /**
-   * Synchronous task execution - waits for completion
-   */
-  async createTask(prompt: string, userId?: string): Promise<TaskResult> {
-    const response = await fetch(`${this.baseUrl}/api/tasks/sync`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, user_id: userId }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Task creation failed: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    // Map files with download URLs
-    if (result.files) {
-      result.files = result.files.map((file: { filename: string }) => ({
-        ...file,
-        download_url: this.getFileDownloadUrl(file.filename),
-      }));
-    }
-
-    return result;
-  }
-
-  /**
-   * Async task creation - returns immediately with task ID
-   */
-  async createTaskAsync(prompt: string, userId?: string): Promise<{ task_id: string }> {
-    const response = await fetch(`${this.baseUrl}/api/tasks`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, user_id: userId }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Async task creation failed: ${response.status}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Poll task status
-   */
-  async getTaskStatus(taskId: string): Promise<TaskResult> {
-    const response = await fetch(`${this.baseUrl}/api/tasks/${taskId}`);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Task status check failed: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    // Map files with download URLs
-    if (result.files) {
-      result.files = result.files.map((file: { filename: string }) => ({
-        ...file,
-        download_url: this.getFileDownloadUrl(file.filename),
-      }));
-    }
-
-    return result;
-  }
-
-  /**
-   * Chat interaction V2.0.0 - Unified endpoint with mode parameter
-   */
-  async chatV2(
-    message: string, 
-    conversationId?: string, 
-    mode: ChatMode = 'quick',
-    signal?: AbortSignal
-  ): Promise<ChatResponseV2> {
-    const response = await fetch(`${this.baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        message, 
-        conversation_id: conversationId,
-        mode 
-      }),
-      signal,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Chat request failed: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    // Normalize response for V2.0.0 format
-    const normalizedResult: ChatResponseV2 = {
-      message: result.message || result.response || "",
-      conversation_id: result.conversation_id,
-      reasoning: result.reasoning,
-      sources: result.sources,
-      files: result.files?.map((file: { filename: string; filepath?: string; type?: string; size?: string }) => ({
-        ...file,
-        download_url: this.getFileDownloadUrl(file.filename),
-      })),
-      follow_up_questions: result.follow_up_questions,
-      credits_used: result.credits_used,
-    };
-
-    return normalizedResult;
-  }
-
-  /**
-   * Chat interaction (Quick mode - 1 credit) - Legacy method
-   */
-  async chat(message: string, conversationId?: string): Promise<ChatResponse> {
-    const response = await fetch(`${this.baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, conversation_id: conversationId }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Chat request failed: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    // Normalize response: Railway API returns "response" but we expect "message"
-    const normalizedResult: ChatResponse = {
-      message: result.message || result.response || "",
-      conversation_id: result.conversation_id,
-      credits_used: result.credits_used,
-      files: result.files,
-    };
-    
-    // Map files with download URLs
-    if (normalizedResult.files) {
-      normalizedResult.files = normalizedResult.files.map((file: GeneratedFile) => ({
-        ...file,
-        download_url: this.getFileDownloadUrl(file.filename),
-      }));
-    }
-
-    return normalizedResult;
-  }
-
-  /**
-   * Deep Chat with reasoning (Deep mode - 25 credits)
-   */
-  async chatDeep(message: string, conversationId?: string): Promise<DeepChatResponse> {
-    const response = await fetch(`${this.baseUrl}/api/chat/deep`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, conversation_id: conversationId }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Deep chat request failed: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    // Normalize response: Railway API may return "response" but we expect "message"
-    const normalizedResult: DeepChatResponse = {
-      message: result.message || result.response || "",
-      conversation_id: result.conversation_id,
-      credits_used: result.credits_used,
-      files: result.files,
-      reasoning_steps: result.reasoning_steps,
-      sources: result.sources,
-      confidence: result.confidence,
-    };
-    
-    // Map files with download URLs
-    if (normalizedResult.files) {
-      normalizedResult.files = normalizedResult.files.map((file: GeneratedFile) => ({
-        ...file,
-        download_url: this.getFileDownloadUrl(file.filename),
-      }));
-    }
-
-    return normalizedResult;
-  }
-
-  /**
-   * Get user credit balance
-   */
-  async getUserCredits(userId: string): Promise<UserCredits> {
-    const response = await fetch(`${this.baseUrl}/api/credits/${userId}`);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Credits fetch failed: ${response.status}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Get pricing plans
-   */
-  async getPricing(): Promise<PricingResponse> {
-    const response = await fetch(`${this.baseUrl}/api/pricing`);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Pricing fetch failed: ${response.status}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * AI-powered search with summarization
-   */
-  async search(query: string, options?: SearchOptions): Promise<AISearchResponse> {
-    const response = await fetch(`${this.baseUrl}/api/search`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, ...options }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Search failed: ${response.status}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Quick Q&A endpoint
-   */
-  async quickAnswer(question: string): Promise<QuickAnswerResponse> {
-    const response = await fetch(`${this.baseUrl}/api/search/quick`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Quick answer failed: ${response.status}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Deep research endpoint
-   */
-  async research(topic: string, depth: "shallow" | "medium" | "deep" = "medium"): Promise<ResearchResponse> {
-    const response = await fetch(`${this.baseUrl}/api/research`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic, depth }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Research failed: ${response.status}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Task interpretation endpoint (for debugging/preview)
-   */
-  async interpret(prompt: string): Promise<TaskInterpretation> {
-    const response = await fetch(`${this.baseUrl}/api/interpret`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Interpretation failed: ${response.status}`);
-    }
-
-    return response.json();
   }
 }
 
-// Export a singleton instance
+// Export singleton instance
 export const mcLeukerAPI = new McLeukerAPI();
-
-// Also export the class for custom instantiation
-export { McLeukerAPI };
