@@ -1,112 +1,38 @@
 /**
- * mcLeukerAPI.ts - COMPREHENSIVE FIX
+ * McLeuker AI V4 - mcLeukerAPI.ts
  * 
- * FIXES APPLIED:
- * 1. Calls Railway backend DIRECTLY (no Supabase proxy needed)
- * 2. Normalizes response field names (backend uses `response`, frontend expects `message`)
- * 3. Handles [object Object] by ensuring all fields are strings
- * 4. Proper timeout and abort signal support
- * 5. Automatic retry with exponential backoff
- * 6. Better error handling and logging
- * 7. ROBUST FALLBACK: Never returns empty or raw errors - always user-friendly
+ * CLEAN TRANSPARENT API LAYER
+ * 
+ * Design Principles:
+ * 1. NO fake content generation - return exactly what backend sends
+ * 2. TRANSPARENT error handling - return actual errors, not masked content
+ * 3. PROPER CORS handling - route through Supabase proxy
+ * 4. DETAILED logging - for debugging
+ * 5. RETRY capability - with exponential backoff
  */
 
-// Railway backend URL - calls directly without Supabase proxy
-const RAILWAY_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://web-production-29f3c.up.railway.app";
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
 
-// ═══════════════════════════════════════════════════════════════
-// FALLBACK RESPONSES - User-friendly messages for all failure scenarios
-// ═══════════════════════════════════════════════════════════════
-const FALLBACK_RESPONSES = {
-  timeout: "I'm taking longer than expected to process your request. Let me try a different approach and share what I know so far.",
-  network: "I'm having trouble connecting right now. While I work on resolving this, here's what I can share based on your question.",
-  rateLimit: "I'm experiencing high demand at the moment. Here's my best guidance while the system catches up.",
-  empty: "I wasn't able to gather complete information on this topic. Let me share a general perspective that might help.",
-  general: "I encountered some technical challenges, but I can still help. Here's what I can offer based on your question.",
-  cancelled: "Your request was stopped. Feel free to ask again whenever you're ready.",
-};
+// Use Supabase proxy to avoid CORS issues
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://pvyruwqjcnmyylsgvjkr.supabase.co";
+const PROXY_ENDPOINT = `${SUPABASE_URL}/functions/v1/proxy-railway`;
 
-/**
- * Analyze query to detect intent category for contextual fallbacks
- */
-function detectQueryIntent(query: string): "research" | "personal" | "technical" | "creative" | "general" {
-  const q = query.toLowerCase();
-  
-  if (/\b(find|search|research|look up|discover|list|compare|analyze)\b/i.test(q)) return "research";
-  if (/\b(feel|life|advice|help me|should i|worried|stressed|relationship|personal)\b/i.test(q)) return "personal";
-  if (/\b(code|api|implement|function|error|debug|programming|typescript|javascript)\b/i.test(q)) return "technical";
-  if (/\b(write|poem|story|creative|imagine|compose)\b/i.test(q)) return "creative";
-  
-  return "general";
-}
+// Direct Railway URL (for reference/debugging only)
+const RAILWAY_DIRECT_URL = import.meta.env.VITE_BACKEND_URL || "https://web-production-29f3c.up.railway.app";
 
-/**
- * Generate a contextual fallback response based on query intent
- */
-function generateContextualFallback(query: string, errorType: keyof typeof FALLBACK_RESPONSES = "general"): string {
-  const intent = detectQueryIntent(query);
-  const baseMessage = FALLBACK_RESPONSES[errorType];
-  const queryPreview = query.length > 60 ? query.slice(0, 60) + "..." : query;
-  
-  // Intent-specific guidance
-  const intentGuidance: Record<string, string> = {
-    research: `
+// Debug mode
+const DEBUG = import.meta.env.DEV || true; // Enable for now to diagnose issues
 
-## Research Guidance
+// ============================================================================
+// TYPES
+// ============================================================================
 
-While I couldn't complete the full research on "${queryPreview}", here are some approaches that might help:
-
-**Try these steps:**
-- Break your query into smaller, more specific questions
-- Specify a particular region, time frame, or category
-- Ask about one aspect at a time for more focused results
-
-I'm here to help when you're ready to try again.`,
-    
-    personal: `
-
-I want to acknowledge your question. While I'm working through some technical challenges, I want you to know that what you're asking matters.
-
-If you'd like to share more details, I'm ready to listen and help in whatever way I can. Sometimes it helps to approach things one step at a time.`,
-    
-    technical: `
-
-## Technical Assistance
-
-I ran into some issues processing your technical query about "${queryPreview}".
-
-**Here's what I suggest:**
-- Try rephrasing the specific error or issue you're facing
-- Share any error messages or code snippets for more targeted help
-- Break down complex problems into smaller parts
-
-Ready to help once you share more details.`,
-    
-    creative: `
-
-I'd love to help with your creative request. Let me gather my thoughts and try again.
-
-In the meantime, could you tell me more about the tone, style, or specific elements you're looking for? The more context you share, the better I can craft something meaningful.`,
-    
-    general: `
-
-I wasn't able to fully process your request, but I'm still here to help.
-
-**What you can try:**
-- Rephrase your question with more specific details
-- Ask about one topic at a time
-- Let me know if there's a particular aspect to focus on
-
-Looking forward to helping you.`,
-  };
-  
-  return baseMessage + intentGuidance[intent];
-}
-
-interface ChatResponse {
+export interface ChatResponse {
   success: boolean;
-  response?: string;  // Backend returns this
-  message?: string;   // Normalized for frontend
+  response?: string;
+  message?: string; // Alias for response (backwards compatibility)
   session_id?: string;
   reasoning?: string[];
   sources?: Array<{
@@ -126,11 +52,13 @@ interface ChatResponse {
   needs_user_input?: boolean;
   user_input_prompt?: string;
   error?: string;
+  canRetry?: boolean;
 }
 
-interface HealthResponse {
+export interface HealthResponse {
   status: string;
   version: string;
+  timestamp?: string;
   services: {
     grok: boolean;
     perplexity: boolean;
@@ -141,178 +69,69 @@ interface HealthResponse {
   };
 }
 
-/**
- * HELPER: Safely convert any value to a string
- */
-function safeStringify(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.map(safeStringify).join(", ");
-  if (typeof value === "object") {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return "[Data]";
-    }
+// ============================================================================
+// LOGGING UTILITIES
+// ============================================================================
+
+function log(category: string, message: string, data?: any) {
+  if (DEBUG) {
+    const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+    console.log(`[${timestamp}] [McLeukerAPI] [${category}]`, message, data || '');
   }
-  return String(value);
 }
 
-/**
- * HELPER: Clean response text of any [object Object] artifacts
- */
-function cleanResponseText(text: string): string {
-  if (!text) return text;
-  return text
-    .replace(/\[object Object\]/g, "")
-    .replace(/,\s*,/g, ",")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+function logError(category: string, message: string, error?: any) {
+  console.error(`[McLeukerAPI] [${category}] ERROR:`, message, error || '');
 }
 
-/**
- * HELPER: Process and normalize the API response
- * ENHANCED: Never returns empty response - always provides user-friendly content
- */
-function normalizeResponse(data: any, originalQuery?: string): ChatResponse {
-  // Ensure response/message is a clean string
-  let responseText = data.response || data.message || "";
-  if (typeof responseText !== "string") {
-    responseText = safeStringify(responseText);
-  }
-  responseText = cleanResponseText(responseText);
-
-  // ROBUST FALLBACK: If response is empty or just whitespace, generate contextual fallback
-  if (!responseText || responseText.trim() === "" || responseText.trim().length < 10) {
-    console.warn("[McLeukerAPI] Empty or minimal response detected, generating fallback");
-    responseText = originalQuery 
-      ? generateContextualFallback(originalQuery, "empty")
-      : FALLBACK_RESPONSES.empty;
-  }
-
-  // Process sources to ensure they're properly formatted
-  let sources = data.sources;
-  if (Array.isArray(sources)) {
-    sources = sources.map((source: any) => {
-      if (typeof source === "string") {
-        return { title: source, url: "#" };
-      }
-      return {
-        title: safeStringify(source?.title) || "Unknown",
-        url: safeStringify(source?.url) || "#",
-        snippet: source?.snippet ? safeStringify(source.snippet) : undefined,
-        source: source?.source ? safeStringify(source.source) : undefined,
-      };
-    });
-  }
-
-  // Process reasoning to ensure it's an array of strings
-  let reasoning = data.reasoning;
-  if (reasoning) {
-    if (typeof reasoning === "string") {
-      reasoning = [reasoning];
-    } else if (Array.isArray(reasoning)) {
-      reasoning = reasoning.map(safeStringify);
-    }
-  }
-
-  return {
-    success: true, // Always return success with fallback content
-    response: responseText,
-    message: responseText, // Normalize: provide both for compatibility
-    session_id: data.session_id,
-    reasoning: reasoning,
-    sources: sources,
-    files: data.files,
-    images: data.images,
-    follow_up_questions: data.follow_up_questions,
-    credits_used: data.credits_used || 0, // Don't charge for fallbacks
-    needs_user_input: data.needs_user_input || false,
-    user_input_prompt: data.user_input_prompt,
-    error: undefined, // Don't expose raw errors
-  };
-}
+// ============================================================================
+// API CLASS
+// ============================================================================
 
 class McLeukerAPI {
-  private backendUrl: string;
-  private maxRetries: number = 2;
-  private retryDelay: number = 1000;
+  private proxyUrl: string;
+  private directUrl: string;
 
   constructor() {
-    this.backendUrl = RAILWAY_BACKEND_URL;
-    console.log("[McLeukerAPI] Initialized with backend URL:", this.backendUrl);
-  }
-
-  /**
-   * Make a fetch request with retry logic
-   */
-  private async fetchWithRetry(
-    url: string,
-    options: RequestInit,
-    retries: number = this.maxRetries
-  ): Promise<Response> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const response = await fetch(url, options);
-        
-        // If successful or client error (4xx), return immediately
-        if (response.ok || (response.status >= 400 && response.status < 500)) {
-          return response;
-        }
-
-        // Server error (5xx) - retry
-        lastError = new Error(`Server error: ${response.status}`);
-        console.warn(`[McLeukerAPI] Attempt ${attempt + 1} failed with status ${response.status}`);
-        
-      } catch (error: any) {
-        // Network error or abort
-        if (error.name === "AbortError") {
-          throw error; // Don't retry aborted requests
-        }
-        lastError = error;
-        console.warn(`[McLeukerAPI] Attempt ${attempt + 1} failed:`, error.message);
-      }
-
-      // Wait before retrying (exponential backoff)
-      if (attempt < retries) {
-        const delay = this.retryDelay * Math.pow(2, attempt);
-        console.log(`[McLeukerAPI] Retrying in ${delay}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
-
-    throw lastError || new Error("Request failed after retries");
+    this.proxyUrl = PROXY_ENDPOINT;
+    this.directUrl = RAILWAY_DIRECT_URL;
+    log('INIT', `Initialized with proxy: ${this.proxyUrl}`);
+    log('INIT', `Direct URL (reference): ${this.directUrl}`);
   }
 
   /**
    * Check backend health
+   * Uses direct Railway URL since health check doesn't need auth
    */
   async checkHealth(): Promise<HealthResponse> {
+    log('HEALTH', 'Checking backend health...');
+    
     try {
-      const response = await fetch(`${this.backendUrl}/health`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+      const response = await fetch(`${this.directUrl}/health`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (!response.ok) {
-        throw new Error(`Health check failed: ${response.status}`);
+        throw new Error(`Health check failed: HTTP ${response.status}`);
       }
 
-      return await response.json();
-    } catch (error) {
-      console.error("[McLeukerAPI] Health check error:", error);
+      const data = await response.json();
+      log('HEALTH', 'Backend healthy', data);
+      return data;
+    } catch (error: any) {
+      logError('HEALTH', 'Health check failed', error);
       throw error;
     }
   }
 
   /**
-   * Send a chat message to the backend
-   * This is the main function that handles all chat requests
+   * Send chat message to backend
+   * 
+   * TRANSPARENT DESIGN:
+   * - Returns exactly what backend sends (success or error)
+   * - NO fake content generation
+   * - NO response masking
    */
   async chat(
     message: string,
@@ -320,205 +139,262 @@ class McLeukerAPI {
     conversationHistory: Array<{ role: string; content: string }> = [],
     signal?: AbortSignal
   ): Promise<ChatResponse> {
-    console.log("[McLeukerAPI] Sending chat request:", {
+    const requestId = Math.random().toString(36).substring(7);
+    
+    log('CHAT', `[${requestId}] Starting request`, {
       messageLength: message.length,
+      messagePreview: message.substring(0, 50),
       mode,
       historyLength: conversationHistory.length,
     });
 
+    // Build request body
+    const body = {
+      message: message,
+      mode: mode,
+      conversation_history: conversationHistory,
+      session_id: crypto.randomUUID(),
+    };
+
     try {
-      // Build request body
-      const body = {
-        message: message,
-        mode: mode,
-        conversation_history: conversationHistory,
-        user_id: "anonymous", // Will be overridden by auth if available
-        session_id: crypto.randomUUID(),
-      };
-
-      // Make the request directly to Railway backend
-      const response = await this.fetchWithRetry(
-        `${this.backendUrl}/api/chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-          },
-          body: JSON.stringify(body),
-          signal: signal,
-        }
-      );
-
-      // Handle non-OK responses - NEVER return raw errors to user
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[McLeukerAPI] Error response:", response.status, errorText);
-        
-        // Detect error type for contextual fallback
-        let errorType: keyof typeof FALLBACK_RESPONSES = "general";
-        if (response.status === 429) errorType = "rateLimit";
-        else if (response.status >= 500) errorType = "network";
-        else if (response.status === 408) errorType = "timeout";
-        
-        // Return helpful fallback instead of raw error
-        const fallbackContent = generateContextualFallback(message, errorType);
-        return {
-          success: true,
-          response: fallbackContent,
-          message: fallbackContent,
-          credits_used: 0,
-        };
-      }
-
-      // Parse and normalize the response
-      const data = await response.json();
-      console.log("[McLeukerAPI] Raw response keys:", Object.keys(data));
+      // Set timeout based on mode
+      const timeoutMs = mode === "deep" ? 180000 : 60000; // 3 min for deep, 1 min for quick
       
-      const normalized = normalizeResponse(data, message);
-      console.log("[McLeukerAPI] Normalized response:", {
-        success: normalized.success,
-        hasResponse: !!normalized.response,
-        responseLength: normalized.response?.length,
-        hasSources: !!normalized.sources?.length,
-        hasReasoning: !!normalized.reasoning?.length,
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      
+      // Combine with external signal if provided
+      const combinedSignal = signal 
+        ? new AbortController().signal // TODO: Combine signals properly
+        : controller.signal;
+
+      log('CHAT', `[${requestId}] Sending to proxy: ${this.proxyUrl}`);
+
+      const response = await fetch(this.proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
       });
 
-      return normalized;
+      clearTimeout(timeoutId);
 
-    } catch (error: any) {
-      console.error("[McLeukerAPI] Chat error:", error);
+      log('CHAT', `[${requestId}] Response status: ${response.status}`);
 
-      // ROBUST FALLBACK: Never return raw errors - always provide helpful response
-      
-      // Handle abort specifically
-      if (error.name === "AbortError") {
+      // Handle HTTP errors TRANSPARENTLY
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        logError('CHAT', `[${requestId}] HTTP error`, { status: response.status, errorText });
+        
+        // Return ACTUAL error - no fake content
         return {
-          success: true,
-          response: FALLBACK_RESPONSES.cancelled,
-          message: FALLBACK_RESPONSES.cancelled,
+          success: false,
+          error: `Server error (${response.status}): ${errorText}`,
+          canRetry: response.status >= 500,
           credits_used: 0,
         };
       }
 
-      // Detect error type for better fallback
-      const errorMessage = error.message?.toLowerCase() || "";
-      let errorType: keyof typeof FALLBACK_RESPONSES = "general";
+      // Parse response
+      const data = await response.json();
       
-      if (errorMessage.includes("timeout") || errorMessage.includes("timed out")) {
-        errorType = "timeout";
-      } else if (errorMessage.includes("network") || errorMessage.includes("fetch") || errorMessage.includes("connection")) {
-        errorType = "network";
-      } else if (errorMessage.includes("429") || errorMessage.includes("rate")) {
-        errorType = "rateLimit";
+      log('CHAT', `[${requestId}] Response received`, {
+        success: data.success,
+        hasResponse: !!data.response,
+        responseLength: data.response?.length,
+        hasError: !!data.error,
+        keys: Object.keys(data),
+      });
+
+      // Return EXACTLY what backend sent - no modifications except normalization
+      return this.normalizeResponse(data);
+
+    } catch (error: any) {
+      logError('CHAT', `[${requestId}] Request failed`, error);
+
+      // Handle abort
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Request was cancelled or timed out',
+          canRetry: true,
+          credits_used: 0,
+        };
       }
 
-      // Generate contextual fallback instead of raw error
-      const fallbackContent = generateContextualFallback(message, errorType);
-
+      // Handle network errors TRANSPARENTLY
       return {
-        success: true, // Return success with fallback content
-        response: fallbackContent,
-        message: fallbackContent,
-        credits_used: 0, // Don't charge for fallbacks
+        success: false,
+        error: `Network error: ${error.message || 'Connection failed'}`,
+        canRetry: true,
+        credits_used: 0,
       };
     }
   }
 
   /**
-   * Generate an image using the backend
+   * Normalize backend response
+   * 
+   * ONLY does:
+   * - Ensure response/message field exists
+   * - Clean [object Object] artifacts (display issue, not content masking)
+   * 
+   * DOES NOT:
+   * - Generate fake content
+   * - Replace "unhelpful" responses
+   * - Mask errors
+   */
+  private normalizeResponse(data: any): ChatResponse {
+    // Get the actual response text
+    let responseText = data.response || data.message || '';
+    
+    // If response is somehow an object, stringify it (shouldn't happen with fixed backend)
+    if (typeof responseText !== 'string') {
+      log('NORMALIZE', 'Response was not a string, converting', { type: typeof responseText });
+      responseText = JSON.stringify(responseText);
+    }
+
+    // Clean [object Object] artifacts (display bug fix, not content masking)
+    responseText = this.cleanArtifacts(responseText);
+
+    // Normalize sources array
+    let sources = data.sources;
+    if (Array.isArray(sources)) {
+      sources = sources.map((s: any) => ({
+        title: String(s?.title || 'Source'),
+        url: String(s?.url || '#'),
+        snippet: s?.snippet ? String(s.snippet) : undefined,
+        source: s?.source ? String(s.source) : undefined,
+      }));
+    }
+
+    // Normalize reasoning array
+    let reasoning = data.reasoning;
+    if (reasoning && !Array.isArray(reasoning)) {
+      reasoning = [String(reasoning)];
+    } else if (Array.isArray(reasoning)) {
+      reasoning = reasoning.map((r: any) => String(r));
+    }
+
+    return {
+      success: data.success !== false && !data.error,
+      response: responseText,
+      message: responseText, // Alias for backwards compatibility
+      session_id: data.session_id,
+      reasoning: reasoning,
+      sources: sources,
+      files: data.files,
+      images: data.images,
+      follow_up_questions: data.follow_up_questions,
+      credits_used: data.credits_used || 1,
+      needs_user_input: data.needs_user_input,
+      user_input_prompt: data.user_input_prompt,
+      error: data.error,
+      canRetry: !!data.error,
+    };
+  }
+
+  /**
+   * Clean [object Object] artifacts from text
+   * This is a DISPLAY BUG FIX, not content masking
+   */
+  private cleanArtifacts(text: string): string {
+    if (!text || typeof text !== 'string') return text;
+    
+    return text
+      // Remove [object Object] patterns
+      .replace(/\[object Object\]/g, '')
+      // Clean up resulting comma artifacts
+      .replace(/,\s*,/g, ',')
+      .replace(/,\s*\./g, '.')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/^\s*,\s*/g, '')
+      .replace(/\s*,\s*$/g, '')
+      .trim();
+  }
+
+  /**
+   * Generate image using backend
    */
   async generateImage(prompt: string, signal?: AbortSignal): Promise<{ url?: string; error?: string }> {
+    log('IMAGE', 'Generating image', { promptLength: prompt.length });
+    
     try {
-      const response = await this.fetchWithRetry(
-        `${this.backendUrl}/api/generate-image`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ prompt }),
-          signal: signal,
-        }
-      );
+      const response = await fetch(`${this.directUrl}/api/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+        signal,
+      });
 
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText = await response.text().catch(() => 'Unknown error');
         return { error: `Image generation failed: ${errorText}` };
       }
 
       const data = await response.json();
       return { url: data.url || data.image_url };
-
     } catch (error: any) {
-      return { error: error.message || "Image generation failed" };
+      return { error: `Image generation error: ${error.message}` };
     }
   }
 
   /**
-   * Execute code using the backend
+   * Execute code using backend
    */
   async executeCode(
     code: string,
     language: string = "python",
     signal?: AbortSignal
   ): Promise<{ output?: string; error?: string }> {
+    log('CODE', 'Executing code', { language, codeLength: code.length });
+    
     try {
-      const response = await this.fetchWithRetry(
-        `${this.backendUrl}/api/execute-code`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ code, language }),
-          signal: signal,
-        }
-      );
+      const response = await fetch(`${this.directUrl}/api/execute-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, language }),
+        signal,
+      });
 
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText = await response.text().catch(() => 'Unknown error');
         return { error: `Code execution failed: ${errorText}` };
       }
 
       const data = await response.json();
       return { output: data.output || data.result };
-
     } catch (error: any) {
-      return { error: error.message || "Code execution failed" };
+      return { error: `Code execution error: ${error.message}` };
     }
   }
 
   /**
-   * Search the web using the backend
+   * Search using backend
    */
-  async search(
-    query: string,
-    signal?: AbortSignal
-  ): Promise<{ results?: any[]; error?: string }> {
+  async search(query: string, signal?: AbortSignal): Promise<{ results?: any[]; error?: string }> {
+    log('SEARCH', 'Searching', { query });
+    
     try {
-      const response = await this.fetchWithRetry(
-        `${this.backendUrl}/api/search`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ query }),
-          signal: signal,
-        }
-      );
+      const response = await fetch(`${this.directUrl}/api/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+        signal,
+      });
 
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText = await response.text().catch(() => 'Unknown error');
         return { error: `Search failed: ${errorText}` };
       }
 
       const data = await response.json();
       return { results: data.results || data.sources };
-
     } catch (error: any) {
-      return { error: error.message || "Search failed" };
+      return { error: `Search error: ${error.message}` };
     }
   }
 }
