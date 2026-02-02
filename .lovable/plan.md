@@ -1,21 +1,54 @@
 
-# Layout Composition Improvements - Gutter, Centered Message Column & Subtle Left→Right Gradient
+# Domain Pages Premium Grayscale Redesign
 
 ## Overview
 
-The current chat bubbles feel too close to the sidebar boundary. This plan introduces proper spacing, a centered message column with constrained width, reduced bubble widths, and a subtle left-to-right gradient to add depth.
+Redesign all domain pages (`/domain/fashion`, `/domain/beauty`, etc.) to match the premium grayscale dashboard/chat system. The main issue is the jarring white "What's Happening Now" section that breaks visual consistency.
 
 ---
 
 ## Current Issues
 
-| Problem | Current State |
-|---------|---------------|
-| No dedicated gutter | Sidebar and chat share edge, bubbles feel cramped |
-| Full-width message area | Messages stretch across entire content area |
-| Bubbles too wide | `max-width: 72%` is too large for chat feel |
-| Hard divider | `border-white/[0.08]` creates harsh separation |
-| Flat background | Radial vignette lacks directional depth |
+| Component | Problem |
+|-----------|---------|
+| `DomainLanding.tsx` | Uses `bg-background` (light theme) instead of dark base |
+| `DomainHero.tsx` | Input doesn't match dashboard composer styling |
+| `DomainInsights.tsx` | Uses `bg-card` (white) and light card styling - **main culprit** |
+| `DomainModules.tsx` | Close but could better align with premium token system |
+
+---
+
+## Color System (Matching Dashboard)
+
+### Page Foundation
+| Element | Value |
+|---------|-------|
+| Page background | `#070707` |
+| Section background | `#0B0B0B` or gradient `#0A0A0A → #070707` |
+| Panel/card gradient | `linear-gradient(180deg, #232323 0%, #191919 100%)` |
+
+### Feed Cards (Graphite Style)
+| Element | Value |
+|---------|-------|
+| Card bg | `linear-gradient(180deg, #232323 0%, #191919 100%)` |
+| Card border | `rgba(255,255,255,0.12)` |
+| Card shadow | `0 14px 40px rgba(0,0,0,0.55)` |
+| Card radius | `20px` |
+
+### Text Colors
+| Element | Value |
+|---------|-------|
+| Title | `rgba(255,255,255,0.92)` |
+| Description | `rgba(255,255,255,0.72)` |
+| Meta (source/date) | `rgba(255,255,255,0.50)` |
+
+### Input & Chips
+| Element | Value |
+|---------|-------|
+| Input bg | `linear-gradient(180deg, #1B1B1B 0%, #111111 100%)` |
+| Input border | `rgba(255,255,255,0.10)` |
+| Chip default | `#141414` + border `rgba(255,255,255,0.10)` |
+| Chip hover | `#1A1A1A` |
 
 ---
 
@@ -23,237 +56,298 @@ The current chat bubbles feel too close to the sidebar boundary. This plan intro
 
 | File | Changes |
 |------|---------|
-| `src/pages/Dashboard.tsx` | Add gutter spacing, update main layout |
-| `src/components/dashboard/ChatView.tsx` | Add centered message column container |
-| `src/components/dashboard/ChatMessage.tsx` | Reduce bubble widths, add AI left inset |
-| `src/index.css` | Add left→right gradient class, soften dividers |
+| `src/pages/DomainLanding.tsx` | Dark background (`#070707`), consistent layout |
+| `src/components/domain/DomainHero.tsx` | Premium input styling, reduced height, graphite chips |
+| `src/components/domain/DomainInsights.tsx` | Dark section + graphite cards (main fix) |
+| `src/components/domain/DomainModules.tsx` | Align with premium token system |
+| `src/index.css` | Add domain-specific utility classes |
 
 ---
 
-## 1. Dashboard.tsx - Add Dedicated Gutter
+## 1. DomainLanding.tsx Updates
 
-**Current:** Sidebar uses `fixed` positioning, main content has `lg:pl-64` or `lg:pl-14` padding.
-
-**Updated:** Add explicit gutter spacing to create breathing room between sidebar and chat:
+### Change page background to dark
 
 ```tsx
-// Current (line 118-121):
-<main className={cn(
-  "flex-1 flex flex-col min-h-0 relative",
-  sidebarOpen ? "lg:pl-64" : "lg:pl-14"
-)}>
-
-// Updated with gutter:
-<main className={cn(
-  "flex-1 flex flex-col min-h-0 relative",
-  sidebarOpen ? "lg:pl-[304px]" : "lg:pl-[72px]"  // sidebar + 32px gutter
-)}>
-```
-
-**Calculation:**
-- Sidebar open: 288px (w-72) + 32px gutter = 320px, using `pl-[304px]` for balance
-- Sidebar collapsed: 56px (w-14) + 16px gutter = 72px
-
----
-
-## 2. ChatView.tsx - Centered Message Column
-
-**Add a wrapper container for all messages with max-width and centering:**
-
-```tsx
-// Inside ScrollArea, wrap messages in centered container:
-<div className="min-h-full py-6">
-  {/* Centered message column */}
-  <div className="max-w-[1040px] mx-auto px-6 lg:px-8 space-y-4">
-    {filteredMessages.map((message, index) => (
-      // ... messages
-    ))}
-  </div>
-</div>
-```
-
-**Benefits:**
-- `max-width: 1040px` prevents messages from stretching on wide screens
-- `mx-auto` centers the column
-- `px-6 lg:px-8` provides inner padding (24-32px)
-
----
-
-## 3. ChatMessage.tsx - Reduce Bubble Widths & Add AI Inset
-
-### Updated Max-Widths
-
-| Bubble Type | Current | New |
-|-------------|---------|-----|
-| AI bubble | `max-w-[72%]` | `max-w-[65%]` |
-| User bubble | `max-w-[72%]` | `max-w-[55%]` |
-
-### Add Extra Left Inset for AI Messages
-
-```tsx
-// AI message container:
-<div className="flex justify-start pl-3 lg:pl-4">
-  <div className="max-w-[65%] rounded-[20px] px-5 py-4 graphite-bubble-ai">
-    {/* ... content */}
-  </div>
-</div>
-
-// User message container (right-aligned, no extra inset):
-<div className="flex justify-end">
-  <div className="max-w-[55%] rounded-[20px] px-5 py-4 graphite-bubble-user">
-    {/* ... content */}
-  </div>
-</div>
-```
-
-The `pl-3 lg:pl-4` (12-16px) on AI rows creates additional separation from the left boundary.
-
----
-
-## 4. Soften the Sidebar Divider
-
-**Current graphite-glass class:**
-```css
-.graphite-glass {
-  background: linear-gradient(180deg, #0F0F0F 0%, #0A0A0A 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);  /* visible border */
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.50);
-}
-```
-
-**Updated - softer right border:**
-```css
-.graphite-glass {
-  background: linear-gradient(180deg, #0F0F0F 0%, #0A0A0A 100%);
-  border: 1px solid rgba(255, 255, 255, 0.05);  /* softer */
-  border-right-color: rgba(255, 255, 255, 0.03);  /* even softer on dividing edge */
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.50);
-}
-```
-
-Alternatively, use a gradient fade instead of a hard border on the right edge.
-
----
-
-## 5. Add Left→Right Gradient to Main Chat Panel
-
-**New CSS class in index.css:**
-
-```css
-/* Subtle left→right gradient for chat panel depth */
-.chat-panel-gradient {
-  background: 
-    linear-gradient(90deg, #060606 0%, #080808 35%, #0A0A0A 100%),
-    radial-gradient(
-      ellipse 80% 60% at 50% 40%,
-      #0C0C0C 0%,
-      #070707 50%,
-      #050505 100%
-    );
-}
-```
-
-**Apply to ChatView:**
-```tsx
-// Current:
-<div className="flex-1 flex flex-col min-h-0 overflow-hidden premium-ombre-bg">
+// Current (line 94):
+<div className="min-h-screen bg-background flex flex-col">
 
 // Updated:
-<div className="flex-1 flex flex-col min-h-0 overflow-hidden chat-panel-gradient">
+<div className="min-h-screen bg-[#070707] flex flex-col overflow-x-hidden">
 ```
 
-This layers the left→right gradient on top of the existing radial vignette for subtle directional depth.
+### Consistent structure
+
+The page structure is already good - Hero → Insights → Modules. Just need to ensure consistent dark theming flows through.
 
 ---
 
-## Implementation Summary
+## 2. DomainHero.tsx Updates
 
-### Dashboard.tsx Changes (lines 118-121)
-
-```tsx
-<main className={cn(
-  "flex-1 flex flex-col min-h-0 relative",
-  sidebarOpen ? "lg:pl-[304px]" : "lg:pl-[72px]"
-)}>
-```
-
-### ChatView.tsx Changes (around line 128-129)
-
-Wrap the message list in a centered container:
+### Reduce vertical height
 
 ```tsx
-<ScrollArea className="flex-1 overflow-x-hidden" ref={scrollRef}>
-  <div className="min-h-full py-6">
-    <div className="max-w-[1040px] mx-auto px-6 lg:px-8 space-y-4">
-      {filteredMessages.map((message, index) => (
-        // ... existing message rendering
-      ))}
-      
-      {/* Loading indicator moved inside centered container */}
-      {/* Research progress moved inside centered container */}
-      {/* Empty state moved inside centered container */}
-    </div>
-  </div>
-</ScrollArea>
+// Current (line 86):
+<div className="... pt-16 md:pt-24 pb-20 md:pb-28">
+
+// Updated - reduce bottom padding:
+<div className="... pt-12 md:pt-16 pb-12 md:pb-16">
 ```
 
-Apply the new gradient class:
+### Match input to dashboard composer
+
 ```tsx
-<div className="flex-1 flex flex-col min-h-0 overflow-hidden chat-panel-gradient">
+// Current input styling (lines 106-111):
+"bg-white/10 border-white/20 text-white placeholder:text-white/50"
+
+// Updated - match premium-input from dashboard:
+className={cn(
+  "min-h-[56px] max-h-[120px] resize-none pr-14",
+  "bg-gradient-to-b from-[#1B1B1B] to-[#111111]",
+  "border border-white/[0.10]",
+  "text-white/[0.88] placeholder:text-white/40",
+  "focus:border-white/[0.18] focus-visible:ring-0",
+  "text-[15px] rounded-[20px]",
+  "shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
+)}
 ```
 
-### ChatMessage.tsx Changes
+### Match suggestion chips to graphite pill style
 
-**AI messages (around line 324):**
 ```tsx
-<div className="flex justify-start pl-3 lg:pl-4">
-  <div className="max-w-[65%] rounded-[20px] px-5 py-4 graphite-bubble-ai">
+// Current chip styling (lines 135-139):
+"border border-white/30 text-white/80"
+"hover:bg-white hover:text-black"
+
+// Updated - graphite pill style:
+className={cn(
+  "text-[13px] px-4 py-2 rounded-full",
+  "bg-[#141414] border border-white/[0.10]",
+  "text-white/78",
+  "hover:bg-[#1A1A1A] hover:border-white/[0.15]",
+  "active:bg-[#1C1C1C] active:border-white/[0.18]",
+  "transition-all duration-150"
+)}
 ```
 
-**User messages (around line 258):**
+---
+
+## 3. DomainInsights.tsx Updates (Main Fix)
+
+### Change section background to dark
+
 ```tsx
-<div className="flex justify-end">
-  <div className="max-w-[55%] rounded-[20px] px-5 py-4 graphite-bubble-user">
+// Current (line 127):
+<section className="w-full max-w-6xl mx-auto px-6 md:px-8 py-12 md:py-14">
+
+// Updated - dark background section:
+<section className="w-full bg-[#0B0B0B]">
+  <div className="max-w-[1120px] mx-auto px-7 py-12 md:py-14">
 ```
 
-**Placeholder messages (around line 275):**
+### Update section header styling
+
 ```tsx
-<div className="flex justify-start pl-3 lg:pl-4">
-  <div className="max-w-[65%] rounded-[20px] px-5 py-4 graphite-bubble-ai">
+// Current (lines 130-131):
+<h2 className="font-editorial text-2xl md:text-3xl text-foreground">
+
+// Updated - white text on dark:
+<h2 className="font-editorial text-2xl md:text-3xl text-white/[0.92]">
 ```
 
-**Error messages (around line 297):**
+### Convert cards from white to graphite
+
 ```tsx
-<div className="flex justify-start pl-3 lg:pl-4">
-  <div className="max-w-[65%] ...">
+// Current card styling (lines 198-201):
+className={cn(
+  "group p-6 md:p-8 border border-border rounded-2xl",
+  "bg-card transition-colors duration-200"
+)}
+
+// Updated - graphite card styling:
+className={cn(
+  "group p-6 rounded-[20px]",
+  "bg-gradient-to-b from-[#232323] to-[#191919]",
+  "border border-white/[0.12]",
+  "shadow-[0_14px_40px_rgba(0,0,0,0.55)]",
+  "transition-all duration-200",
+  "hover:border-white/[0.18]"
+)}
 ```
 
-### index.css Changes
+### Update card text colors
 
-**Add new gradient class (after line 479):**
+```tsx
+// Title (line 222-223):
+// Current: text-foreground
+// Updated: text-white/[0.92]
+
+// Description (line 233):
+// Current: text-foreground/70
+// Updated: text-white/[0.72]
+
+// Meta/date (line 238):
+// Current: text-muted-foreground
+// Updated: text-white/50
+```
+
+### Update confidence badge styling
+
+```tsx
+// Current getConfidenceBadge (lines 85-92):
+const styles = {
+  high: 'bg-foreground/10 text-foreground border-foreground/20',
+  medium: 'bg-muted text-muted-foreground border-muted-foreground/20',
+  low: 'bg-muted/50 text-muted-foreground/70 border-muted-foreground/10',
+};
+
+// Updated - graphite badge style:
+const styles = {
+  high: 'bg-[#141414] text-white/78 border-white/[0.12]',
+  medium: 'bg-[#141414] text-white/65 border-white/[0.10]',
+  low: 'bg-[#141414] text-white/50 border-white/[0.08]',
+};
+```
+
+### Update Live/Predictive badges
+
+```tsx
+// Current (lines 135-145):
+<Badge variant="outline" className="... border-foreground/20">
+
+// Updated - graphite style:
+<Badge variant="outline" className="text-[11px] px-2 py-0.5 h-5 bg-[#141414] text-white/78 border-white/[0.12]">
+```
+
+### Update refresh button
+
+```tsx
+// Current (lines 155-163):
+<Button variant="ghost" className="... text-muted-foreground hover:text-foreground">
+
+// Updated - graphite button:
+<Button
+  variant="ghost"
+  size="sm"
+  onClick={onRefresh}
+  className="h-9 px-3 bg-[#141414] border border-white/[0.10] text-white/70 hover:bg-[#1A1A1A] hover:text-white/90 rounded-lg"
+>
+```
+
+### Update loading skeleton
+
+```tsx
+// Current (lines 168-179):
+<div className="p-6 md:p-8 border border-border rounded-2xl bg-card">
+
+// Updated - graphite skeleton container:
+<div className="p-6 rounded-[20px] bg-gradient-to-b from-[#232323] to-[#191919] border border-white/[0.12]">
+  <Skeleton className="h-5 w-3/4 mb-3 bg-white/10" />
+  <Skeleton className="h-4 w-full mb-4 bg-white/10" />
+  ...
+</div>
+```
+
+---
+
+## 4. DomainModules.tsx Updates
+
+### Align with premium system
+
+The modules section is already dark (`bg-foreground`). Update to use exact hex values:
+
+```tsx
+// Current (line 331):
+<div className="bg-foreground">
+
+// Updated - explicit hex:
+<div className="bg-[#0A0A0A]">
+```
+
+### Update module card styling
+
+```tsx
+// Current (lines 346-349):
+className={cn(
+  "group text-left p-5 rounded-xl border border-background/20",
+  "bg-background/10 transition-all duration-200",
+  "hover:bg-background/20 hover:border-background/40"
+)}
+
+// Updated - match graphite card language:
+className={cn(
+  "group text-left p-5 rounded-[18px]",
+  "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+  "border border-white/[0.10]",
+  "transition-all duration-200",
+  "hover:bg-gradient-to-b hover:from-[#202020] hover:to-[#181818]",
+  "hover:border-white/[0.18]"
+)}
+```
+
+### Update text colors
+
+```tsx
+// Icon (line 353):
+// Current: text-background/50 group-hover:text-background
+// Updated: text-white/50 group-hover:text-white
+
+// Title (line 360):
+// Current: text-background
+// Updated: text-white/[0.92]
+
+// Description (line 363):
+// Current: text-background/60
+// Updated: text-white/60
+```
+
+---
+
+## 5. index.css Updates
+
+### Add domain-specific utility classes
 
 ```css
-/* Subtle left→right gradient for chat panel depth */
-.chat-panel-gradient {
-  background: 
-    linear-gradient(90deg, #060606 0%, #080808 35%, #0A0A0A 100%),
-    radial-gradient(
-      ellipse 80% 60% at 50% 40%,
-      #0C0C0C 0%,
-      #070707 50%,
-      #050505 100%
-    );
+/* Domain page feed section background */
+.domain-feed-section {
+  background: linear-gradient(180deg, #0B0B0B 0%, #090909 50%, #070707 100%);
 }
-```
 
-**Soften graphite-glass border (around line 482-486):**
+/* Domain page graphite card - matches chat bubbles */
+.domain-card {
+  background: linear-gradient(180deg, #232323 0%, #191919 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  border-radius: 20px;
+  transition: all 160ms ease;
+}
 
-```css
-.graphite-glass {
-  background: linear-gradient(180deg, #0F0F0F 0%, #0A0A0A 100%);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-right-color: rgba(255, 255, 255, 0.03);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.50);
+.domain-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Graphite pill/chip for suggestion chips and badges */
+.graphite-pill {
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  transition: all 160ms ease;
+}
+
+.graphite-pill:hover {
+  background: #1A1A1A;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Module card - slightly different gradient for hierarchy */
+.domain-module-card {
+  background: linear-gradient(180deg, #1A1A1A 0%, #141414 100%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  transition: all 160ms ease;
+}
+
+.domain-module-card:hover {
+  background: linear-gradient(180deg, #202020 0%, #181818 100%);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 ```
 
@@ -261,55 +355,109 @@ Apply the new gradient class:
 
 ## Visual Comparison
 
+### Before (Current State)
 ```text
-BEFORE:
 ┌─────────────────────────────────────────────────────────────────────┐
-│ [Sidebar]│[Chat bubbles crammed against left edge]                  │
-│          │ ┌────────────────────────────────────────────────────┐   │
-│          │ │ Wide AI bubble (72%) no breathing room            │   │
-│          │ └────────────────────────────────────────────────────┘   │
-│          │                                                          │
-│          │               ┌──────────────────────────────────────┐   │
-│          │               │ Wide user bubble (72%)               │   │
-│          │               └──────────────────────────────────────┘   │
+│  [DARK HERO - "Fashion" title + input]                              │
+│  bg-black                                                            │
+├─────────────────────────────────────────────────────────────────────┤
+│  [WHITE SECTION - "What's Happening Now"]                           │
+│  bg-card (white), white cards ← JARRING CONTRAST                    │
+│  ┌───────────┐ ┌───────────┐ ┌───────────┐                         │
+│  │ White     │ │ White     │ │ White     │                         │
+│  │ Card      │ │ Card      │ │ Card      │                         │
+│  └───────────┘ └───────────┘ └───────────┘                         │
+├─────────────────────────────────────────────────────────────────────┤
+│  [DARK SECTION - Intelligence Modules]                              │
+│  bg-foreground (dark) - OK                                          │
 └─────────────────────────────────────────────────────────────────────┘
+```
 
-AFTER:
+### After (Redesigned)
+```text
 ┌─────────────────────────────────────────────────────────────────────┐
-│[Sidebar]░░░░│      [Centered column with max-width 1040px]          │
-│         soft│                                                        │
-│         fade│   ┌──────────────────────────────────┐                │
-│             │   │ AI bubble (65%) with left inset  │                │
-│             │   └──────────────────────────────────┘                │
-│      gutter │                                                        │
-│       32px  │              ┌────────────────────────┐               │
-│             │              │ User bubble (55%)      │               │
-│             │              └────────────────────────┘               │
-│             │              [Subtle L→R gradient adds depth]         │
+│  [DARK HERO - Reduced height, premium input]                        │
+│  bg-black → gradient                                                 │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ Graphite input bar (from-#1B1B1B to-#111111)                │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│  [Graphite chips] [Graphite chips]                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│  [DARK SECTION - "What's Happening Now"]                            │
+│  bg-[#0B0B0B] - seamless transition                                 │
+│  ┌───────────┐ ┌───────────┐ ┌───────────┐                         │
+│  │ Graphite  │ │ Graphite  │ │ Graphite  │                         │
+│  │ Card      │ │ Card      │ │ Card      │                         │
+│  │ #232323   │ │ #232323   │ │ #232323   │                         │
+│  └───────────┘ └───────────┘ └───────────┘                         │
+├─────────────────────────────────────────────────────────────────────┤
+│  [DARK SECTION - Intelligence Modules]                              │
+│  bg-[#0A0A0A] - consistent                                          │
+│  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐          │
+│  │ Module    │ │ Module    │ │ Module    │ │ Module    │          │
+│  │ #1A1A1A   │ │ #1A1A1A   │ │ #1A1A1A   │ │ #1A1A1A   │          │
+│  └───────────┘ └───────────┘ └───────────┘ └───────────┘          │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Acceptance Criteria
+## Reusable Template Architecture
 
-| Requirement | Implementation |
-|-------------|----------------|
-| AI bubbles not glued to sidebar | 32px gutter + 12-16px AI inset |
-| Comfortable breathing room | Centered column with max-width 1040px |
-| No horizontal scrolling | Keep `overflow-x-hidden` + `overflow-wrap: anywhere` |
-| Readable bubble widths | AI: 65%, User: 55% |
-| Soft divider | Border reduced to 5% opacity, right edge 3% |
-| Subtle left→right gradient | Layered gradient adds directional depth |
+The current architecture is already template-based via `DomainLanding.tsx` which uses:
+- `useSector()` for domain config (title, tagline, placeholder)
+- `DOMAIN_STARTERS` for suggestion chips
+- `domainModules` in DomainModules.tsx for domain-specific modules
+
+This remains the same - only the visual styling changes to be consistently dark.
+
+### Domain Configuration (Already Exists)
+
+```tsx
+// SectorContext.tsx provides:
+- config.label → Hero title
+- config.placeholder → Input placeholder
+- config.tagline → Subtitle
+
+// DOMAIN_STARTERS provides:
+- Suggestion chips per domain
+
+// domainModules in DomainModules.tsx provides:
+- Module cards per domain
+```
+
+No architectural changes needed - just visual styling updates.
 
 ---
 
-## Responsive Behavior
+## Acceptance Checklist
 
-| Breakpoint | Gutter Size | Bubble Max-Width |
-|------------|-------------|------------------|
-| Desktop (lg+) | 32px | AI: 65%, User: 55% |
-| Tablet (md) | 24px | AI: 70%, User: 60% |
-| Mobile | 16px padding | AI: 85%, User: 80% |
+| Requirement | Implementation |
+|-------------|----------------|
+| No white sections | All sections use dark backgrounds (#070707, #0B0B0B, #0A0A0A) |
+| Graphite cards in feed | `linear-gradient(180deg, #232323 0%, #191919 100%)` |
+| Premium input styling | Matches dashboard composer exactly |
+| Graphite chips | `#141414` default, `#1A1A1A` hover |
+| Consistent spacing | Centered containers with max-width and padding |
+| Single template | All domains use same DomainLanding with config differences |
+| Typography consistent | Serif only in hero title, UI font elsewhere |
+| No horizontal scrolling | `overflow-x-hidden` on root container |
 
-The centered message column naturally adapts as viewport shrinks. On mobile, the sidebar is hidden, so the full width is available for the chat column.
+---
+
+## Technical Summary
+
+### Files Modified
+| File | Change Type |
+|------|-------------|
+| `src/pages/DomainLanding.tsx` | Background color update |
+| `src/components/domain/DomainHero.tsx` | Input styling, chip styling, reduced height |
+| `src/components/domain/DomainInsights.tsx` | Dark section, graphite cards, text colors |
+| `src/components/domain/DomainModules.tsx` | Align card styling with premium system |
+| `src/index.css` | Add domain utility classes |
+
+### CSS Utility Classes Added
+- `.domain-feed-section` - Feed section background
+- `.domain-card` - Graphite card styling
+- `.graphite-pill` - Chip/badge styling
+- `.domain-module-card` - Module card styling
