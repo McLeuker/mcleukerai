@@ -1,289 +1,265 @@
 
-# Dashboard Dark-First Redesign Plan
+# Chat UI Redesign: Fix Clipping + White Bubbles + Background Activity Panel
 
-## Current State Analysis
+## Problem Summary (from screenshot analysis)
 
-The dashboard currently has:
-- **White L-shape**: Sidebar (`bg-sidebar`) + TopNavigation (`bg-sidebar`) - this should remain
-- **Light input area**: Bottom footer with `bg-background/95` - currently light, needs to be black
-- **Header spacer**: `bg-sidebar` (beige) between nav and content
-- **Two inputs**: One in `DomainStarterPanel` (for "All Domains"), another in the bottom footer (always visible)
-- **ChatView**: Has light backgrounds in filter bar and loading states
-- **Centering**: Currently uses screen-relative centering via `max-w-3xl mx-auto`
+Based on the screenshot, I've identified these issues:
 
----
-
-## Implementation Summary
-
-| Change | Files Affected |
-|--------|---------------|
-| Remove bottom input for all domains | `Dashboard.tsx` |
-| Make main content area black | `Dashboard.tsx`, `ChatView.tsx` |
-| Dark-theme input styling | `ChatInput.tsx` |
-| Dark-theme mode toggles | `ResearchModeToggle.tsx`, `ModelSelector.tsx` |
-| Increase New Chat button size by 8% | `TopNavigation.tsx` |
-| Fix centering within black box | `Dashboard.tsx`, `ChatView.tsx` |
-| Add dark utility classes | `index.css` |
+1. **Sidebar clipping**: The selected chat item bubble is cut off on the left edge
+2. **Favorites star**: The "★ Favorites" header row might be clipped
+3. **No chat bubbles**: Messages appear as flat rows, not as distinct white bubbles on black
+4. **No background activity panel**: The existing `ReasoningDisplay` only shows after completion; no real-time progress during generation
 
 ---
 
-## Detailed Changes
+## A) Fix Clipping Issues
 
-### 1. Dashboard.tsx - Main Layout
+### A1. Sidebar Chat List Bubble Clipping
 
-**Remove bottom input when on "All Domains"**:
-The `DomainStarterPanel` already has an integrated search bar for the "all" sector. The bottom `ChatInput` should only appear when there are messages OR when viewing a specific domain.
+**Root cause**: The `px-2` padding on the list container combined with `ring-2 ring-offset-2` on selected items causes the ring to extend outside the container bounds.
+
+**File**: `src/components/dashboard/ChatSidebar.tsx`
+
+**Changes**:
+- Increase inner padding from `px-2` to `px-4` on the list container (line 136)
+- Change from `ring-offset-2` to using a solid border approach that stays within bounds
+- Ensure `overflow-visible` on parent if needed
 
 ```text
 Current:
-┌────────────────────────────────────────────┐
-│  [Sidebar]  │  [Black Content Area]        │
-│             │  ┌──────────────────────┐    │
-│             │  │  DomainStarterPanel  │    │
-│             │  │  (with input)        │    │
-│             │  └──────────────────────┘    │
-│             │  ┌──────────────────────┐    │
-│             │  │  ChatInput (bottom)  │ ← DELETE for "all"
-│             │  └──────────────────────┘    │
-└────────────────────────────────────────────┘
+<div className="px-2 pb-4 space-y-1">
+  <div className="...ring-2 ring-primary ring-offset-2 ring-offset-sidebar">
 
-After:
+Fixed:
+<div className="px-4 pb-4 space-y-1.5">
+  <div className="...border-2 border-primary shadow-sm">
+```
+
+### A2. Favorites Star Clipping (in ChatView)
+
+**File**: `src/components/dashboard/ChatView.tsx`
+
+**Changes**:
+- Add left padding to the filter bar header
+- Ensure the Star icon has proper spacing
+
+---
+
+## B) Chat Bubbles (White on Black)
+
+### B1. Visual Theme Update
+
+Convert the current flat message rows to distinct white bubbles with black text.
+
+**File**: `src/components/dashboard/ChatMessage.tsx`
+
+**Current structure**:
+```text
 ┌────────────────────────────────────────────┐
-│  [Sidebar]  │  [Black Content Area]        │
-│  (white)    │  ┌──────────────────────┐    │
-│             │  │  DomainStarterPanel  │    │
-│             │  │  (centered input)    │    │
-│             │  └──────────────────────┘    │
-│             │  [NO bottom input]           │
+│ Avatar │ Header + Content (flat bg)        │
 └────────────────────────────────────────────┘
 ```
 
-**Background changes**:
-- Change `bg-background` → `bg-black` for main wrapper
-- Header spacer: `bg-sidebar` → `bg-black` (or remove if not needed)
-- Input area footer: `bg-background/95` → `bg-black border-white/10`
+**New structure**:
+```text
+                ┌──────────────────────────┐
+                │ White bubble, black text │  ← User (right-aligned)
+                └──────────────────────────┘
 
-**Centering fix**:
-Content currently uses `max-w-3xl mx-auto` which centers relative to full width. Instead, the black content area should be its own flex container with centered children.
+┌──────────────────────────────────┐
+│ White bubble, black text         │  ← AI (left-aligned)
+│ with avatar header inside        │
+└──────────────────────────────────┘
+```
 
-### 2. ChatInput.tsx - Dark Theme Restyling
+**Key styling changes**:
+- Wrapper: `bg-black` (consistent dark background)
+- Message bubbles: `bg-white text-black rounded-2xl px-5 py-4`
+- User messages: `ml-auto max-w-[80%]` (right-aligned)
+- AI messages: `mr-auto max-w-[80%]` (left-aligned)
+- Outer gutters: `px-4 md:px-8` to ensure bubbles never touch edges
+- Spacing between bubbles: `space-y-4`
 
-Transform from light to dark:
+### B2. ChatView Wrapper
+
+**File**: `src/components/dashboard/ChatView.tsx`
+
+**Changes**:
+- Ensure the message list area has consistent `bg-black`
+- Add proper vertical spacing between message bubbles
+- Keep filter bar styled for dark theme
+
+---
+
+## C) Background Activity Panel (Manus-style)
+
+Create a new component that shows real-time progress during AI generation.
+
+### C1. New Component: `BackgroundActivityPanel.tsx`
+
+**File**: `src/components/dashboard/BackgroundActivityPanel.tsx` (NEW)
+
+**Features**:
+- Collapsible panel with chevron toggle
+- Header: "Background activity" + status ("Running..." / "Complete")
+- Step list with status icons:
+  - `in_progress`: Loader2 spinner
+  - `done`: Check icon
+  - `error`: AlertCircle icon
+- Safe, user-facing step labels (no hidden chain-of-thought)
+- Smooth expand/collapse animation
+
+**Step taxonomy**:
+```typescript
+const ACTIVITY_STEPS = [
+  { id: "understanding", label: "Understanding request" },
+  { id: "planning", label: "Planning approach" },
+  { id: "gathering", label: "Gathering information" },
+  { id: "generating", label: "Generating answer" },
+  { id: "finalizing", label: "Finalizing output" },
+];
+```
+
+### C2. Placement
+
+**Location**: Inside `ChatMessage.tsx`, displayed above the AI response bubble when:
+- Message is currently streaming (`isStreaming === true`)
+- OR message has activity history and panel is expanded
+
+### C3. Panel UI Design
 
 ```text
-Before                          After
-┌─────────────────────┐        ┌─────────────────────┐
-│ bg-background       │   →    │ bg-black            │
-│ border-border       │   →    │ border-white/15     │
-│ text-foreground     │   →    │ text-white          │
-│ placeholder: gray   │   →    │ placeholder: white/40│
-│ button: bg-muted    │   →    │ button: bg-white/10 │
-└─────────────────────┘        └─────────────────────┘
+┌────────────────────────────────────────────┐
+│ Background activity           Running... ▼ │
+├────────────────────────────────────────────┤
+│ ✓ Understanding request                    │
+│ ✓ Planning approach                        │
+│ ⟳ Generating answer                        │
+│ ○ Finalizing output                        │
+└────────────────────────────────────────────┘
 ```
 
-**Specific changes**:
-- Textarea: `bg-black border border-white/15 text-white placeholder:text-white/40`
-- Send button active: `bg-white text-black` (inverted for visibility)
-- Send button disabled: `bg-white/10 text-white/40`
-- Research mode toggle background: `bg-white/10` instead of `bg-muted`
-- Model selector: white text on dark
+**Styling**:
+- Container: `bg-zinc-900 border border-white/10 rounded-xl`
+- Header: `text-white/90` with toggle chevron
+- Step rows: `text-white/70` with status icons
+- Collapsed state: Single-line summary "Complete ✓"
 
-### 3. ChatView.tsx - Dark Theme
+### C4. Integration with useConversations
 
-**Filter bar** (when messages exist):
-- Current: `bg-background/50 border-border`
-- New: `bg-black border-white/10`
+**File**: `src/hooks/useConversations.tsx`
 
-**Loading indicator**:
-- Current: `bg-muted/30`
-- New: `bg-white/5` or transparent with white/10 border
+**Changes**:
+- Add `activitySteps` to the `ResearchState` interface
+- Update `setResearchState` during message flow to track progress phases
+- Pass activity state to `ChatMessage` component
 
-**Message area scroll**:
-- Already inherits from parent, but ensure no light backgrounds leak through
+### C5. Streaming Behavior
 
-### 4. ResearchModeToggle.tsx - Dark Theme
-
-**Container**:
-- Current: `bg-muted` (light gray)
-- New: `bg-white/10` (subtle dark)
-
-**Active button**:
-- Current: `bg-background text-foreground`
-- New: `bg-white text-black` (inverted for contrast)
-
-**Inactive button**:
-- Current: `text-muted-foreground`
-- New: `text-white/60 hover:text-white`
-
-### 5. TopNavigation.tsx - New Chat Button Size Increase
-
-Current button classes:
-```
-px-3 py-1.5 h-auto text-xs
-```
-
-Increase by ~8%:
-```
-px-3.5 py-2 h-auto text-[13px]
-```
-
-This maintains the pill shape while making it slightly more prominent.
-
-### 6. DomainStarterPanel.tsx - Minor Adjustments
-
-The "All Domains" hero is already dark. Ensure:
-- Input maintains dark styling
-- Topic buttons have subtle white/10-20 borders
-- No white backgrounds anywhere
-
-### 7. index.css - Add Dark Dashboard Utilities
-
-Add utility classes for consistent dark theme:
-
-```css
-/* Dashboard dark theme */
-.dashboard-dark-input {
-  @apply bg-black border border-white/15 text-white;
-  @apply placeholder:text-white/40;
-  @apply focus:border-white/30 focus:ring-white/10;
-}
-
-.dashboard-dark-button {
-  @apply bg-white/10 text-white/80;
-  @apply hover:bg-white/15 hover:text-white;
-  @apply border border-white/10;
-}
-
-.dashboard-dark-button-active {
-  @apply bg-white text-black;
-  @apply hover:bg-white/90;
-}
-```
+During AI response generation:
+1. Show panel expanded with steps updating
+2. Mark steps as done progressively
+3. When complete, collapse to summary line
+4. Keep panel expandable for review
 
 ---
 
-## Visual Architecture After Redesign
+## D) Layout Rules
 
-```text
-┌─────────────────────────────────────────────────────┐
-│  TopNavigation (bg-sidebar/beige)                   │
-│  [Logo] [+New Chat 8% bigger] [Tabs] [Credits][👤] │
-├──────────┬──────────────────────────────────────────┤
-│          │                                          │
-│ Sidebar  │  ████████████████████████████████████   │
-│ (beige)  │  ██                                ██   │
-│          │  ██    [centered within black]     ██   │
-│ Chat     │  ██                                ██   │
-│ History  │  ██   "Where is my mind?"          ██   │
-│          │  ██                                ██   │
-│ [bubbles]│  ██   [Quick] [Deep] | [Model]     ██   │
-│          │  ██                                ██   │
-│          │  ██   ┌───────────────────────┐    ██   │
-│          │  ██   │ Ask anything...   [→] │    ██   │
-│          │  ██   └───────────────────────┘    ██   │
-│          │  ██        (dark input)            ██   │
-│          │  ██                                ██   │
-│          │  ██   [topic] [topic] [topic]      ██   │
-│          │  ██                                ██   │
-│          │  ████████████████████████████████████   │
-│          │                                          │
-│          │  (NO SECOND INPUT - removed)             │
-└──────────┴──────────────────────────────────────────┘
+### D1. Main Chat Scroll
 
-Legend:
-- ████ = Pure black (#000)
-- beige = bg-sidebar (the white L-shape)
-- All borders within black area = white at 10-15% opacity
+**File**: `src/components/dashboard/ChatView.tsx`
+
+- Main chat area scrolls vertically (already working via ScrollArea)
+- Ensure no horizontal overflow from bubbles
+
+### D2. Input Pinning
+
+**File**: `src/pages/Dashboard.tsx`
+
+- Input stays pinned at bottom (already implemented with `sticky bottom-0`)
+- Ensure no clipping of input elements
+
+### D3. Overflow Handling
+
+- Remove any `overflow-hidden` that clips the sidebar selected state
+- Ensure `overflow-visible` where ring effects are used
+
+---
+
+## File Changes Summary
+
+| File | Action | Changes |
+|------|--------|---------|
+| `src/components/dashboard/ChatSidebar.tsx` | Modify | Fix padding, change ring to border, prevent clipping |
+| `src/components/dashboard/ChatMessage.tsx` | Modify | Convert to white bubble UI, add BackgroundActivityPanel |
+| `src/components/dashboard/ChatView.tsx` | Modify | Update spacing, fix favorites star padding |
+| `src/components/dashboard/BackgroundActivityPanel.tsx` | Create | New Manus-style progress panel |
+| `src/hooks/useConversations.tsx` | Modify | Add activity steps tracking |
+| `src/index.css` | Modify | Add bubble utility classes |
+
+---
+
+## Technical Implementation Details
+
+### ChatMessage Bubble Structure
+
+```tsx
+// User message
+<div className="flex justify-end px-4 md:px-8 py-2">
+  <div className="bg-white text-black rounded-2xl px-5 py-4 max-w-[80%]">
+    {/* Content */}
+  </div>
+</div>
+
+// AI message  
+<div className="flex justify-start px-4 md:px-8 py-2">
+  <div className="bg-white text-black rounded-2xl px-5 py-4 max-w-[80%]">
+    {/* Activity panel (collapsible) */}
+    {/* Header with avatar, time, model */}
+    {/* Markdown content */}
+  </div>
+</div>
 ```
 
----
+### BackgroundActivityPanel Props
 
-## Component-by-Component File Changes
+```typescript
+interface BackgroundActivityPanelProps {
+  steps: Array<{
+    id: string;
+    label: string;
+    status: "pending" | "in_progress" | "done" | "error";
+    detail?: string;
+  }>;
+  isActive: boolean;
+  defaultExpanded?: boolean;
+}
+```
 
-### File: `src/pages/Dashboard.tsx`
+### Activity Steps Mapping
 
-1. **Line 72**: Change `bg-background` → `bg-black`
-2. **Line 94**: Header spacer - change `bg-sidebar` → `bg-black` 
-3. **Lines 137-147**: Conditionally hide bottom input when `currentSector === "all"` AND `messages.length === 0`
-4. **Line 138**: Change input area footer from `bg-background/95` → `bg-black border-t border-white/10`
-
-### File: `src/components/dashboard/ChatInput.tsx`
-
-1. **Lines 98-103**: Textarea styling - add dark variant classes
-2. **Lines 110-115**: Button styling - invert colors for dark theme
-3. **Line 127**: Credit hint text - use `text-white/50` instead of `text-muted-foreground`
-
-### File: `src/components/dashboard/ChatView.tsx`
-
-1. **Line 78**: Filter bar - change `bg-background/50` → `bg-black border-white/10`
-2. **Line 169**: Loading indicator - change `bg-muted/30` → `bg-white/5`
-
-### File: `src/components/dashboard/ResearchModeToggle.tsx`
-
-1. **Line 25**: Container - change `bg-muted` → `bg-white/10`
-2. **Lines 33-36**: Active state - change to `bg-white text-black`
-3. **Line 37**: Inactive text - change to `text-white/60`
-
-### File: `src/components/layout/TopNavigation.tsx`
-
-1. **Lines 117-122**: New Chat button - increase padding and font size by ~8%
-   - `px-3` → `px-3.5`
-   - `py-1.5` → `py-2`
-   - `text-xs` → `text-[13px]`
-   - Icon: `h-3.5 w-3.5` → `h-4 w-4`
-
-### File: `src/components/dashboard/DomainStarterPanel.tsx`
-
-1. **Lines 88-95**: Ensure input has explicit dark classes (already partially dark)
-2. **Lines 113-125**: Topic buttons - verify border is `border-white/20` not `border-white/30`
-
-### File: `src/index.css`
-
-Add new utility classes for dashboard dark theme consistency.
+Map the existing `ResearchState.phase` to activity steps:
+- `"planning"` → Step 1-2 in progress
+- `"searching"` → Step 3 in progress
+- `"generating"` → Step 4 in progress
+- `"completed"` → All steps done
 
 ---
 
-## Acceptance Criteria Checklist
+## Acceptance Criteria
 
 | Requirement | Implementation |
 |-------------|----------------|
-| Everything black except white L-shape | Main container `bg-black`, sidebar/nav stay `bg-sidebar` |
-| Only one input exists | Hide bottom ChatInput when `currentSector === "all"` && no messages |
-| Content centered within black box only | Use flex centering relative to content area, not screen |
-| New Chat bubble ~8% bigger | Increase px/py/font by ~8% |
-| No white panels/strips remain | Replace all `bg-background`, `bg-muted`, `bg-card` with dark equivalents |
-| Subtle borders for separation | Use `border-white/10` to `border-white/20` |
-| Hover states: outline/brightness only | No `hover:bg-white`, use `hover:bg-white/10` or `hover:brightness-110` |
-
----
-
-## Technical Notes
-
-### Centering Strategy
-
-The key insight is that centering should be calculated relative to the **visible black content area**, not the full viewport. This means:
-
-```jsx
-// Current (wrong - centers relative to full width)
-<div className="max-w-3xl mx-auto">
-
-// Correct approach - content area is its own flex container
-<main className="flex-1 flex flex-col items-center justify-center">
-  <div className="w-full max-w-2xl">
-    {/* Content naturally centers within black area */}
-  </div>
-</main>
-```
-
-### Color Reference
-
-| Element | Current | New |
-|---------|---------|-----|
-| Main background | `bg-background` (white) | `bg-black` |
-| Input background | `bg-background` | `bg-black` |
-| Input border | `border-border` | `border-white/15` |
-| Input text | `text-foreground` | `text-white` |
-| Placeholder | `text-muted-foreground/60` | `text-white/40` |
-| Active button | `bg-foreground text-background` | `bg-white text-black` |
-| Inactive button | `bg-muted text-muted-foreground` | `bg-white/10 text-white/60` |
-| Separator borders | `border-border` | `border-white/10` |
+| Selected chat bubble not clipped | Increased padding + border instead of ring |
+| Favorites star fully visible | Added left padding to filter bar |
+| White bubbles with black text | New bubble wrapper styling |
+| User messages right-aligned | `justify-end` + `ml-auto` |
+| AI messages left-aligned | `justify-start` + `mr-auto` |
+| Bubbles have 70-80% max width | `max-w-[80%]` |
+| Outer gutters prevent edge touching | `px-4 md:px-8` |
+| Background activity panel visible during generation | New component + streaming integration |
+| Panel collapses after completion | Collapsible with summary state |
+| No hidden reasoning exposed | Only safe step labels shown |
+| Smooth animations | Height transition on collapse |
+| Keyboard accessible | Focus states on toggle buttons |
