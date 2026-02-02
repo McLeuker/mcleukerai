@@ -1,14 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, ReactNode } from "react";
 import { ChatMessage as ChatMessageType } from "@/hooks/useConversations";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Star, Trash2, User, Bot, Cpu, Coins, Copy, Check, ExternalLink, Sparkles, RefreshCw, Loader2, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "react-markdown";
+import remarkGfm from "remark-gfm";
 import DOMPurify from "dompurify";
 import { TrendIndicator, parseTrendFromText } from "./TrendIndicator";
 import { ExportActions } from "./ExportActions";
+import { cleanForDisplay } from "@/lib/assistantPostprocess";
 import { FileDownloadCard, FileDownloadList, GeneratedFile } from "./FileDownloadCard";
 import { ReasoningDisplay } from "./ReasoningDisplay";
 import {
@@ -28,6 +29,35 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+/**
+ * Safely extract text from React children without causing [object Object]
+ * Returns empty string if children contain complex React elements
+ */
+function extractTextFromChildren(children: ReactNode): string {
+  if (children === null || children === undefined) return "";
+  if (typeof children === "string") return children;
+  if (typeof children === "number") return String(children);
+  if (typeof children === "boolean") return "";
+  
+  if (Array.isArray(children)) {
+    // Only process if all children are primitives
+    const allPrimitives = children.every(
+      child => typeof child === "string" || typeof child === "number" || child === null || child === undefined
+    );
+    if (allPrimitives) {
+      return children.map(child => {
+        if (child === null || child === undefined) return "";
+        return String(child);
+      }).join("");
+    }
+    // Complex children - return empty to avoid [object Object]
+    return "";
+  }
+  
+  // React element or other object - return empty
+  return "";
+}
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -55,10 +85,12 @@ export function ChatMessageComponent({
 
   const displayContent = isStreaming ? streamingContent : message.content;
 
-  // Sanitize content for assistant messages
+  // Sanitize and clean content for assistant messages
   const sanitizedContent = useMemo(() => {
     if (message.role === "user") return displayContent;
-    return DOMPurify.sanitize(displayContent, {
+    // Clean artifacts first, then sanitize
+    const cleaned = cleanForDisplay(displayContent);
+    return DOMPurify.sanitize(cleaned, {
       ALLOWED_TAGS: [],
       ALLOWED_ATTR: [],
     });
@@ -164,6 +196,7 @@ export function ChatMessageComponent({
               )}
               
               <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 components={{
                   h1: ({ children }) => (
                     <h1 className="font-editorial text-2xl text-foreground mt-6 mb-4 first:mt-0 pb-2 border-b border-border">
@@ -182,14 +215,15 @@ export function ChatMessageComponent({
                     </h3>
                   ),
                   p: ({ children }) => {
-                    // Check for trend indicators in text
-                    const childText = String(children);
+                    // Safely extract text from children without [object Object]
+                    const childText = extractTextFromChildren(children);
                     const hasTrendUp = childText.includes("↑");
                     const hasTrendDown = childText.includes("↓");
                     // Check for citation patterns [1], [2], etc.
                     const hasCitations = /\[\d+\]/.test(childText);
                     
-                    if (hasTrendUp || hasTrendDown) {
+                    // Only process special formatting for simple text content
+                    if ((hasTrendUp || hasTrendDown) && typeof children === "string") {
                       return (
                         <p className="text-foreground leading-relaxed mb-4 text-[15px] flex items-center gap-1 flex-wrap">
                           {childText.split(/(↑|↓)/).map((part, i) => {
@@ -205,8 +239,8 @@ export function ChatMessageComponent({
                       );
                     }
 
-                    // Handle inline citations [1], [2], etc. as superscripts
-                    if (hasCitations) {
+                    // Handle inline citations [1], [2], etc. as superscripts - only for simple text
+                    if (hasCitations && typeof children === "string") {
                       return (
                         <p className="text-foreground leading-relaxed mb-4 text-[15px]">
                           {childText.split(/(\[\d+\])/).map((part, i) => {
@@ -228,6 +262,7 @@ export function ChatMessageComponent({
                       );
                     }
                     
+                    // Default: render children as-is (preserves React elements like bold, links)
                     return (
                       <p className="text-foreground leading-relaxed mb-4 text-[15px]">
                         {children}
@@ -268,9 +303,10 @@ export function ChatMessageComponent({
                     </th>
                   ),
                   td: ({ children }) => {
-                    const cellText = String(children);
-                    // Check for trend indicators in cell
-                    if (cellText.includes("↑") || cellText.includes("positive") || cellText.includes("Positive")) {
+                    // Safely extract text without [object Object]
+                    const cellText = extractTextFromChildren(children);
+                    // Check for trend indicators in cell - only for simple text
+                    if (typeof children === "string" && (cellText.includes("↑") || cellText.includes("positive") || cellText.includes("Positive"))) {
                       return (
                         <td className="px-4 py-3 text-sm text-foreground border-t border-border">
                           <span className="flex items-center gap-1.5">
@@ -280,7 +316,7 @@ export function ChatMessageComponent({
                         </td>
                       );
                     }
-                    if (cellText.includes("↓") || cellText.includes("negative") || cellText.includes("Negative") || cellText.includes("polarized") || cellText.includes("Polarized")) {
+                    if (typeof children === "string" && (cellText.includes("↓") || cellText.includes("negative") || cellText.includes("Negative") || cellText.includes("polarized") || cellText.includes("Polarized"))) {
                       return (
                         <td className="px-4 py-3 text-sm text-foreground border-t border-border">
                           <span className="flex items-center gap-1.5">
@@ -290,6 +326,7 @@ export function ChatMessageComponent({
                         </td>
                       );
                     }
+                    // Default: render children as-is
                     return (
                       <td className="px-4 py-3 text-sm text-foreground border-t border-border">
                         {children}
