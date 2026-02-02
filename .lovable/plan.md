@@ -1,64 +1,189 @@
 
-## Fix Chat Input Response - Callback Type Mismatch
 
-### Root Cause
-The `onSelectPrompt` callback chain has mismatched function signatures:
+## Fix Intermittent Chat Response - Reliability Hardening
 
-```text
-DomainStarterPanel → calls with (prompt, mode, model)
-                  ↓
-ChatView interface → expects only (prompt: string)
-                  ↓  
-Dashboard handler → ignores mode/model, hardcodes "quick"
-```
+### Root Causes Identified
 
-**Result:** User selections for Quick/Deep mode and model are lost.
+1. **AbortController never connected**: `abortControllerRef` exists (line 98) but is never set before the API call, and `chatV2()` doesn't accept an AbortSignal
+2. **No timeout**: Fetch can hang indefinitely with no user feedback
+3. **No immediate placeholder**: User sends message → waits for full API response → appears to "do nothing" if slow/fails
+4. **Error only shows toast**: Toast can be missed; no persistent visual feedback in chat
 
 ---
 
-### Technical Fix
+### Technical Changes
 
-#### 1. Update ChatView Interface
-**File:** `src/components/dashboard/ChatView.tsx`
+#### 1. Add AbortSignal Support to API Layer
 
-Update the `onSelectPrompt` type to accept all parameters:
+**File:** `src/lib/mcLeukerAPI.ts`
+
+Update `chatV2` method to accept optional signal:
 
 ```typescript
-// Line 20 - Change from:
-onSelectPrompt?: (prompt: string) => void;
-
-// To:
-onSelectPrompt?: (prompt: string, mode?: "quick" | "deep", model?: string) => void;
+async chatV2(
+  message: string, 
+  conversationId?: string, 
+  mode: ChatMode = 'quick',
+  signal?: AbortSignal  // NEW
+): Promise<ChatResponseV2> {
+  const response = await fetch(`${this.baseUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, conversation_id: conversationId, mode }),
+    signal,  // NEW - enables cancellation
+  });
+  // ... rest unchanged
+}
 ```
 
 ---
 
-#### 2. Update Dashboard Handler
-**File:** `src/pages/Dashboard.tsx`
+#### 2. Add Placeholder Message + Timeout + Retry in useConversations
 
-Update the `onSelectPrompt` prop to pass mode and model:
+**File:** `src/hooks/useConversations.tsx`
 
+**A) Add placeholder assistant message immediately after user message:**
 ```typescript
-// Line 129 - Change from:
-onSelectPrompt={(prompt) => handleSendMessage(prompt, "quick")}
+// After adding user message to state (around line 271)
+const placeholderId = `placeholder-${Date.now()}`;
+const placeholderMessage: ChatMessage = {
+  id: placeholderId,
+  conversation_id: conversation.id,
+  user_id: user.id,
+  role: "assistant",
+  content: mode === "deep" ? "Researching..." : "Thinking...",
+  model_used: null,
+  credits_used: 0,
+  is_favorite: false,
+  created_at: new Date().toISOString(),
+  isPlaceholder: true,  // NEW field to identify placeholder
+};
+setMessages((prev) => [...prev, placeholderMessage]);
+```
 
-// To:
-onSelectPrompt={(prompt, mode, model) => handleSendMessage(prompt, mode || "quick", model)}
+**B) Create AbortController with timeout before API call:**
+```typescript
+// Before calling mcLeukerAPI.chatV2 (around line 290)
+abortControllerRef.current = new AbortController();
+const timeoutMs = mode === "deep" ? 120000 : 45000; // 120s deep, 45s quick
+const timeoutId = setTimeout(() => {
+  abortControllerRef.current?.abort();
+}, timeoutMs);
+
+try {
+  const chatResult = await mcLeukerAPI.chatV2(
+    prompt, 
+    conversation.id, 
+    mode,
+    abortControllerRef.current.signal  // Pass signal
+  );
+  clearTimeout(timeoutId);
+  // ... process result
+```
+
+**C) Replace placeholder with real response or error:**
+```typescript
+// On success - replace placeholder with real message
+setMessages((prev) => prev.map(m => 
+  m.id === placeholderId 
+    ? { ...newAssistantMessage } 
+    : m
+));
+
+// On error - replace placeholder with error + retry option
+setMessages((prev) => prev.map(m =>
+  m.id === placeholderId
+    ? { 
+        ...m, 
+        content: "Failed to get response. Click to retry.",
+        isError: true,
+        retryData: { prompt, mode, model, domain }
+      }
+    : m
+));
+```
+
+**D) Add retry function:**
+```typescript
+const retryMessage = useCallback(async (messageId: string) => {
+  const msg = messages.find(m => m.id === messageId);
+  if (msg?.retryData) {
+    // Remove error message
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+    // Resend with original parameters
+    await sendMessage(
+      msg.retryData.prompt,
+      msg.retryData.mode,
+      msg.retryData.model,
+      msg.retryData.domain
+    );
+  }
+}, [messages, sendMessage]);
+```
+
+---
+
+#### 3. Update ChatMessage Interface
+
+**File:** `src/hooks/useConversations.tsx`
+
+Add new fields to `ChatMessage` interface:
+```typescript
+export interface ChatMessage {
+  // ... existing fields
+  isPlaceholder?: boolean;
+  isError?: boolean;
+  retryData?: {
+    prompt: string;
+    mode: ResearchMode;
+    model?: string;
+    domain?: string;
+  };
+}
+```
+
+---
+
+#### 4. Render Error State with Retry Button
+
+**File:** `src/components/dashboard/ChatMessage.tsx`
+
+Handle error state in message rendering:
+```typescript
+{message.isError && (
+  <div className="flex items-center gap-2 mt-2">
+    <Button 
+      variant="outline" 
+      size="sm"
+      onClick={() => onRetry?.(message.id)}
+      className="text-destructive"
+    >
+      <RefreshCw className="h-4 w-4 mr-1" />
+      Retry
+    </Button>
+  </div>
+)}
 ```
 
 ---
 
 ### Summary Table
 
-| File | Line | Change |
-|------|------|--------|
-| `src/components/dashboard/ChatView.tsx` | 20 | Update `onSelectPrompt` type signature |
-| `src/pages/Dashboard.tsx` | 129 | Pass `mode` and `model` to `handleSendMessage` |
+| File | Change |
+|------|--------|
+| `src/lib/mcLeukerAPI.ts` | Add `signal` parameter to `chatV2()` |
+| `src/hooks/useConversations.tsx` | Add placeholder message, timeout, AbortController setup, retry logic |
+| `src/components/dashboard/ChatMessage.tsx` | Render error state with retry button |
 
-### Expected Result After Fix
+---
 
-| User Action | Before Fix | After Fix |
-|-------------|------------|-----------|
-| Type in All Domains + select Deep + press Enter | Sent as "quick" | Sent as "deep" |
-| Type in All Domains + select model + press Enter | Model ignored | Model passed to backend |
-| Click starter suggestion with Deep mode | Sent as "quick" | Sent as "deep" |
+### Expected Behavior After Fix
+
+| Scenario | Before | After |
+|----------|--------|-------|
+| User sends message | No feedback until response | Immediate "Thinking..." bubble appears |
+| Backend slow (>45s quick, >120s deep) | Hangs forever | Auto-cancels, shows "Timed out. Retry" |
+| Network error / backend error | Toast only, looks like nothing happened | Error message in chat with Retry button |
+| User clicks Cancel | Nothing happens | Request aborted, placeholder removed |
+| Retry click | N/A | Resends original message with same mode/model |
+
