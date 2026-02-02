@@ -158,21 +158,24 @@ export function ChatView({
             </div>
           )}
 
-          {/* Loading indicator (for quick mode) */}
-          {isLoading && !streamingContent && !researchState?.isResearching && (
-            <div className="px-4 py-6 bg-muted/30">
-              <div className="max-w-3xl mx-auto flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-                  <div className="h-4 w-4 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>McLeuker AI is thinking...</span>
+          {/* Loading indicator (for quick mode) - only show if no placeholder message exists */}
+          {(() => {
+            const hasPlaceholder = filteredMessages.some(m => m.isPlaceholder);
+            return isLoading && !streamingContent && !researchState?.isResearching && !hasPlaceholder ? (
+              <div className="px-4 py-6 bg-muted/30">
+                <div className="max-w-3xl mx-auto flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                    <div className="h-4 w-4 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>McLeuker AI is thinking...</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            ) : null;
+          })()}
 
           {/* Show message if filtering and no results */}
           {showFavoritesOnly && filteredMessages.length === 0 && (

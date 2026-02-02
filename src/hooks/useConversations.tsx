@@ -221,6 +221,7 @@ export function useConversations() {
     model?: string,
     domain?: string
   ): Promise<void> => {
+    console.log("[Chat] Starting sendMessage:", { prompt: prompt.slice(0, 50), mode, hasUser: !!user });
     if (!user) return;
 
     setLoading(true);
@@ -240,6 +241,7 @@ export function useConversations() {
       setResearchState(prev => ({ ...prev, isResearching: false, phase: null }));
       return;
     }
+    console.log("[Chat] Conversation ready:", conversation.id);
 
     // Add user message to database
     const { data: userMsg, error: userMsgError } = await supabase
@@ -254,7 +256,7 @@ export function useConversations() {
       .single();
 
     if (userMsgError) {
-      console.error("Error creating user message:", userMsgError);
+      console.error("[Chat] Error creating user message:", userMsgError);
       toast({
         title: "Error",
         description: "Failed to send message",
@@ -264,6 +266,7 @@ export function useConversations() {
       setResearchState(prev => ({ ...prev, isResearching: false, phase: null }));
       return;
     }
+    console.log("[Chat] User message saved:", userMsg.id);
 
     // Add user message to local state
     const newUserMessage: ChatMessage = {
@@ -294,6 +297,7 @@ export function useConversations() {
       isPlaceholder: true,
     };
     setMessages((prev) => [...prev, placeholderMessage]);
+    console.log("[Chat] Placeholder added:", placeholderId);
 
     // Update conversation title if it's the first message
     if (messages.length === 0) {
@@ -320,6 +324,7 @@ export function useConversations() {
 
     // Call Railway backend API V2.0.0 - Unified endpoint with mode parameter
     try {
+      console.log("[Chat] Calling backend API...");
       let content = "";
       let sources: Source[] = [];
       let isResearched = mode === "deep";
@@ -328,6 +333,7 @@ export function useConversations() {
       let reasoningSteps: ReasoningStep[] | undefined = undefined;
       let followUpQuestions: string[] | undefined = undefined;
       let creditsUsed = mode === "deep" ? 25 : 1;
+      let dbMessageId: string | undefined = undefined;
 
       // Update research state for deep mode
       if (mode === "deep") {
@@ -348,6 +354,10 @@ export function useConversations() {
       
       // Clear timeout on successful response
       clearTimeout(timeoutId);
+      console.log("[Chat] Backend response:", { 
+        hasMessage: !!chatResult.message, 
+        messageLength: chatResult.message?.length 
+      });
       
       content = chatResult.message;
       creditsUsed = chatResult.credits_used || (mode === "deep" ? 25 : 1);
@@ -387,7 +397,10 @@ export function useConversations() {
       // Update streaming content for display
       setStreamingContent(content);
 
-      // Save assistant message to database
+      // Use fallback message if content is empty
+      const finalContent = content || "I apologize, but I couldn't generate a response. Please try again.";
+
+      // Save assistant message to database (only if we have real content)
       if (content) {
         const { data: assistantMsg, error: assistantError } = await supabase
           .from("chat_messages")
@@ -403,34 +416,7 @@ export function useConversations() {
           .single();
 
         if (!assistantError && assistantMsg) {
-          const newAssistantMessage: ChatMessage = {
-            id: assistantMsg.id,
-            conversation_id: assistantMsg.conversation_id,
-            user_id: assistantMsg.user_id,
-            role: "assistant",
-            content: assistantMsg.content,
-            model_used: assistantMsg.model_used,
-            credits_used: assistantMsg.credits_used || 0,
-            is_favorite: false,
-            created_at: assistantMsg.created_at,
-            sources: sources.length > 0 ? sources : undefined,
-            isResearched,
-            reasoning,
-            reasoningSteps,
-            generatedFiles,
-            followUpQuestions,
-          };
-          // Replace placeholder with real message
-          setMessages((prev) => prev.map(m => 
-            m.id === placeholderId ? newAssistantMessage : m
-          ));
-        } else {
-          // If DB save failed, still show the response (replace placeholder)
-          setMessages((prev) => prev.map(m => 
-            m.id === placeholderId 
-              ? { ...m, content, isPlaceholder: false, reasoning, followUpQuestions, generatedFiles } 
-              : m
-          ));
+          dbMessageId = assistantMsg.id;
         }
 
         // Update conversation timestamp
@@ -439,6 +425,30 @@ export function useConversations() {
           .update({ updated_at: new Date().toISOString() })
           .eq("id", conversation.id);
       }
+
+      // ALWAYS replace the placeholder (even if content is empty)
+      const newAssistantMessage: ChatMessage = {
+        id: dbMessageId || placeholderId,
+        conversation_id: conversation.id,
+        user_id: user.id,
+        role: "assistant",
+        content: finalContent,
+        model_used: mode === "deep" ? "McLeuker Deep" : "McLeuker Quick",
+        credits_used: creditsUsed,
+        is_favorite: false,
+        created_at: new Date().toISOString(),
+        sources: sources.length > 0 ? sources : undefined,
+        isResearched,
+        reasoning,
+        reasoningSteps,
+        generatedFiles,
+        followUpQuestions,
+        isPlaceholder: false, // Explicitly mark as not placeholder
+      };
+      console.log("[Chat] Replacing placeholder:", placeholderId);
+      setMessages((prev) => prev.map(m => 
+        m.id === placeholderId ? newAssistantMessage : m
+      ));
 
       setStreamingContent("");
       setResearchState({
@@ -452,7 +462,7 @@ export function useConversations() {
       clearTimeout(timeoutId);
       
       if ((error as Error).name === "AbortError") {
-        console.log("Request aborted/timed out");
+        console.log("[Chat] Request aborted/timed out");
         // Replace placeholder with timeout error + retry
         setMessages((prev) => prev.map(m =>
           m.id === placeholderId
@@ -471,7 +481,7 @@ export function useConversations() {
           variant: "destructive",
         });
       } else {
-        console.error("Railway API processing error:", error);
+        console.error("[Chat] API processing error:", error);
         // Replace placeholder with error + retry
         setMessages((prev) => prev.map(m =>
           m.id === placeholderId
@@ -491,10 +501,14 @@ export function useConversations() {
         });
       }
       setResearchState(prev => ({ ...prev, isResearching: false, phase: "failed" }));
+    } finally {
+      // ALWAYS reset loading state (guarantees UI reset)
+      console.log("[Chat] Finally block - resetting state");
+      setLoading(false);
+      setStreamingContent("");
+      abortControllerRef.current = null;
     }
 
-    setLoading(false);
-    abortControllerRef.current = null;
     await fetchConversations();
   };
 
