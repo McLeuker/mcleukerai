@@ -165,7 +165,7 @@ export function exportToExcel(
   const headers = ["Timestamp", "Role", "Message", "Model", "Credits", "Favorite", "Research Type"];
   
   const rows = messages.map((msg) => [
-    new Date(msg.created_at).toISOString(),
+    msg.created_at,
     msg.role === "user" ? "You" : "McLeuker AI",
     `"${msg.content.replace(/"/g, '""').replace(/\n/g, " ")}"`,
     msg.model_used || "",
@@ -192,7 +192,7 @@ export function exportToExcel(
       (idx + 1).toString(),
       `"${(source.title || "").replace(/"/g, '""')}"`,
       source.url,
-      source.type,
+      source.type || "",
       source.relevance_score?.toFixed(2) || "",
       `"${(source.snippet || "").replace(/"/g, '""').slice(0, 100)}"`,
     ]);
@@ -272,7 +272,7 @@ export function exportToWord(
             <td style="text-align: center;">${idx + 1}</td>
             <td>${source.title || "Source"}</td>
             <td><a href="${source.url}">${source.url}</a></td>
-            <td>${source.type}</td>
+            <td>${source.type || ""}</td>
           </tr>
         `).join("")}
       </table>

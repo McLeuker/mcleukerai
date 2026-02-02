@@ -1,19 +1,18 @@
-import { useRef, useEffect } from "react";
-import { ChatMessage as ChatMessageType, ResearchState } from "@/hooks/useConversations";
+import { useRef, useEffect, useState } from "react";
+import { ChatMessage, ResearchState } from "@/hooks/useConversations";
 import { ChatMessageComponent } from "./ChatMessage";
 import { ResearchProgress, ResearchPhase } from "./ResearchProgress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Star, Filter } from "lucide-react";
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { DomainStarterPanel } from "./DomainStarterPanel";
 
 interface ChatViewProps {
-  messages: ChatMessageType[];
-  streamingContent: string;
+  messages: ChatMessage[];
+  streamingContent: string | null;
   isLoading: boolean;
-  researchState?: ResearchState;
+  researchState?: ResearchState | null;
   onToggleFavorite: (messageId: string) => void;
   onDeleteMessage: (messageId: string) => void;
   onNewChat: () => void;
@@ -54,8 +53,7 @@ export function ChatView({
 
   const favoriteCount = messages.filter((m) => m.is_favorite).length;
 
-  // FIX: Check for placeholder in FULL messages array, not filteredMessages
-  // This prevents double loading indicator when favorites filter is on
+  // Check for placeholder in FULL messages array
   const hasPlaceholder = messages.some((m) => m.isPlaceholder);
 
   // Show domain starter panel when no messages
@@ -125,35 +123,13 @@ export function ChatView({
                 onToggleFavorite={onToggleFavorite}
                 onDelete={onDeleteMessage}
                 isStreaming={isLastAssistant}
-                streamingContent={isLastAssistant ? streamingContent : undefined}
+                streamingContent={isLastAssistant ? streamingContent || undefined : undefined}
                 onFollowUpClick={onFollowUpClick || onSelectPrompt}
                 onRetry={onRetry}
-                researchState={isLastAssistant ? researchState : undefined}
+                researchState={isLastAssistant ? researchState || undefined : undefined}
               />
             );
           })}
-
-          {/* Streaming placeholder for new message */}
-          {isLoading && streamingContent && messages.length > 0 && (
-            <ChatMessageComponent
-              message={{
-                id: "streaming",
-                conversation_id: "",
-                user_id: "",
-                role: "assistant",
-                content: "",
-                model_used: null,
-                credits_used: 0,
-                is_favorite: false,
-                created_at: new Date().toISOString(),
-              }}
-              onToggleFavorite={() => {}}
-              onDelete={() => {}}
-              isStreaming={true}
-              streamingContent={streamingContent}
-              researchState={researchState}
-            />
-          )}
 
           {/* Research Progress Indicator */}
           {researchState?.isResearching && researchState.phase && (
@@ -170,23 +146,20 @@ export function ChatView({
           )}
 
           {/* Loading indicator (for quick mode) - only show if no placeholder message exists */}
-          {(() => {
-            // FIX: Use hasPlaceholder computed from FULL messages array
-            return isLoading && !streamingContent && !researchState?.isResearching && !hasPlaceholder ? (
-              <div className="px-4 py-6 bg-white/5">
-                <div className="max-w-3xl mx-auto flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                    <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 text-sm text-white/60">
-                      <span>McLeuker AI is thinking...</span>
-                    </div>
+          {isLoading && !streamingContent && !researchState?.isResearching && !hasPlaceholder && (
+            <div className="px-4 py-6 bg-white/5">
+              <div className="max-w-3xl mx-auto flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                  <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 text-sm text-white/60">
+                    <span>McLeuker AI is thinking...</span>
                   </div>
                 </div>
               </div>
-            ) : null;
-          })()}
+            </div>
+          )}
 
           {/* Show message if filtering and no results */}
           {showFavoritesOnly && filteredMessages.length === 0 && (
