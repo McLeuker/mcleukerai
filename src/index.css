@@ -463,37 +463,40 @@
 
   /* ========================================
      PREMIUM CHAT UI SYSTEM
-     WhatsApp-style with graphite accents
+     Cohesive grayscale with graphite bubbles
      ======================================== */
 
-  /* Premium ombre background - radial vignette */
+  /* Premium ombre background - subtle vignette on #070707 base */
   .premium-ombre-bg {
-    background: radial-gradient(
-      1200px circle at 20% 0%,
-      hsl(0 0% 8%) 0%,
-      hsl(0 0% 3%) 45%,
-      hsl(0 0% 2%) 100%
-    );
+    background: 
+      radial-gradient(
+        ellipse 80% 60% at 50% 40%,
+        #0C0C0C 0%,
+        #070707 50%,
+        #050505 100%
+      ),
+      #070707;
   }
 
-  /* Graphite glass panel effect */
+  /* Graphite glass panel effect - for sidebar/nav */
   .graphite-glass {
-    background: linear-gradient(180deg, hsl(0 0% 7%) 0%, hsl(0 0% 4%) 100%);
-    border: 1px solid hsl(var(--premium-stroke));
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    background: linear-gradient(180deg, #0F0F0F 0%, #0A0A0A 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.50);
   }
 
-  /* Premium bubble styles */
-  .premium-bubble-ai {
-    background: hsl(var(--premium-bubble-offwhite));
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+  /* Graphite bubble - AI (darker) */
+  .graphite-bubble-ai {
+    background: linear-gradient(180deg, #232323 0%, #191919 100%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
   }
 
-  .premium-bubble-user {
-    background: hsl(var(--premium-bubble-white));
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.30);
+  /* Graphite bubble - User (brighter) */
+  .graphite-bubble-user {
+    background: linear-gradient(180deg, #2C2C2C 0%, #202020 100%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
   }
 
   /* Premium micro-interactions */
@@ -509,7 +512,7 @@
 
   /* Premium input styling */
   .premium-input {
-    background: linear-gradient(180deg, hsl(0 0% 10%) 0%, hsl(0 0% 7%) 100%);
+    background: linear-gradient(180deg, #1B1B1B 0%, #111111 100%);
     border: 1px solid rgba(255, 255, 255, 0.10);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     transition: border-color 160ms ease, box-shadow 160ms ease;
@@ -520,24 +523,24 @@
     box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
   }
 
-  /* Chat sidebar item card */
+  /* Chat sidebar item card - graphite style */
   .chat-sidebar-item {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid hsl(var(--premium-stroke));
+    background: #141414;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     transition: all 160ms ease;
   }
 
   .chat-sidebar-item:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: #1A1A1A;
     border-color: rgba(255, 255, 255, 0.12);
   }
 
   .chat-sidebar-item-active {
-    border-color: rgba(255, 255, 255, 0.20);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
   }
 
-  /* WhatsApp-style chat message content */
+  /* WhatsApp-style chat message content - white text */
   .chat-message-content {
     font-size: 15px;
     line-height: 1.6;
@@ -545,6 +548,7 @@
     word-break: break-word;
     white-space: normal;
     text-align: left;
+    color: rgba(255, 255, 255, 0.88);
   }
 
   .chat-message-content p {
@@ -572,6 +576,7 @@
     font-weight: 600;
     margin-top: 1rem;
     margin-bottom: 0.5rem;
+    color: rgba(255, 255, 255, 0.92);
   }
 
   .chat-message-content h1:first-child,
@@ -586,7 +591,12 @@
     max-width: 100%;
     padding: 0.75rem;
     border-radius: 0.5rem;
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .chat-message-content code {
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.90);
   }
 
   /* Tables scroll horizontally inside bubble */
@@ -594,5 +604,22 @@
     display: block;
     overflow-x: auto;
     max-width: 100%;
+  }
+
+  .chat-message-content th,
+  .chat-message-content td {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .chat-message-content th {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .chat-message-content a {
+    color: #60A5FA;
+  }
+
+  .chat-message-content a:hover {
+    color: #93C5FD;
   }
 }

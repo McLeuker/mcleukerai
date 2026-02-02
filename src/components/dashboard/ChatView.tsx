@@ -165,12 +165,12 @@ export function ChatView({
           {/* Loading indicator (for quick mode) - only show if no placeholder message exists */}
           {isLoading && !streamingContent && !researchState?.isResearching && !hasPlaceholder && (
             <div className="px-6 md:px-8 py-6">
-              <div className="max-w-[72%] premium-bubble-ai rounded-[20px] px-5 py-4">
+              <div className="max-w-[72%] graphite-bubble-ai rounded-[20px] px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-black flex items-center justify-center">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
                     <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   </div>
-                  <span className="text-[14px] text-black/55">McLeuker AI is thinking...</span>
+                  <span className="text-[14px] text-white/55">McLeuker AI is thinking...</span>
                 </div>
               </div>
             </div>

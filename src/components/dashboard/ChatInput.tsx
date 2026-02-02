@@ -99,7 +99,7 @@ export function ChatInput({
             "min-h-[60px] max-h-[200px] pr-14 resize-none",
             // Premium graphite styling
             "rounded-[20px]",
-            "bg-gradient-to-b from-[hsl(0_0%_10%)] to-[hsl(0_0%_7%)]",
+            "bg-gradient-to-b from-[#1B1B1B] to-[#111111]",
             "border border-white/[0.10]",
             "text-white/[0.88]",
             "placeholder:text-white/40",
