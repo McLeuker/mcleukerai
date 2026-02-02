@@ -1,6 +1,13 @@
 import { useState, useCallback } from "react";
 import { mcLeukerAPI } from "@/lib/mcLeukerAPI";
-import type { Message, GeneratedFile } from "@/types/mcLeuker";
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+  files?: Array<{ name: string; url: string; type: string }>;
+}
 
 interface UseMcLeukerChatReturn {
   messages: Message[];
@@ -16,11 +23,10 @@ export function useMcLeukerChat(): UseMcLeukerChatReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = useCallback(async (content: string, conversationId?: string): Promise<Message | null> => {
+  const sendMessage = useCallback(async (content: string, _conversationId?: string): Promise<Message | null> => {
     setIsLoading(true);
     setError(null);
 
-    // Add user message immediately
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: "user",
@@ -30,20 +36,14 @@ export function useMcLeukerChat(): UseMcLeukerChatReturn {
     setMessages((prev) => [...prev, userMessage]);
 
     try {
-      const response = await mcLeukerAPI.chat(content, conversationId);
-
-      // Map generated files with download URLs
-      const files: GeneratedFile[] | undefined = response.files?.map((file) => ({
-        ...file,
-        download_url: mcLeukerAPI.getFileDownloadUrl(file.filename),
-      }));
+      const response = await mcLeukerAPI.chat(content, "quick", []);
 
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: response.message,
+        content: response.message || response.response || "No response",
         timestamp: new Date().toISOString(),
-        files,
+        files: response.files,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);

@@ -1,7 +1,7 @@
 import { useRef, useEffect } from "react";
 import { ChatMessage as ChatMessageType, ResearchState } from "@/hooks/useConversations";
 import { ChatMessageComponent } from "./ChatMessage";
-import { ResearchProgress } from "./ResearchProgress";
+import { ResearchProgress, ResearchPhase } from "./ResearchProgress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Star, Filter } from "lucide-react";
@@ -153,7 +153,7 @@ export function ChatView({
             <div className="px-4 py-4">
               <div className="max-w-3xl mx-auto">
                 <ResearchProgress
-                  phase={researchState.phase}
+                  phase={researchState.phase as ResearchPhase}
                   currentStep={researchState.currentStep}
                   totalSteps={researchState.totalSteps}
                   message={researchState.message}

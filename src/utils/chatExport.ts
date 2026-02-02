@@ -1,5 +1,12 @@
 import { ChatMessage, Conversation } from "@/hooks/useConversations";
-import type { Source } from "@/components/dashboard/SourceCitations";
+
+interface Source {
+  title: string;
+  url: string;
+  snippet?: string;
+  type?: string;
+  relevance_score?: number;
+}
 
 // Generate filename with chat title and date
 function generateFilename(conversation: Conversation | null, extension: string): string {
@@ -17,7 +24,10 @@ function extractSources(messages: ChatMessage[]): Source[] {
   const allSources: Source[] = [];
   messages.forEach(msg => {
     if (msg.sources && Array.isArray(msg.sources)) {
-      allSources.push(...msg.sources);
+      allSources.push(...msg.sources.map(s => ({
+        ...s,
+        type: "web",
+      })));
     }
   });
   return allSources;
@@ -161,7 +171,7 @@ export function exportToExcel(
     msg.model_used || "",
     msg.credits_used.toString(),
     msg.is_favorite ? "Yes" : "No",
-    msg.isResearched ? "Deep Research" : "Quick Answer",
+    "Quick Answer",
   ]);
 
   let csvContent = [

@@ -39,26 +39,12 @@ export interface Task {
   updated_at: string;
 }
 
-/**
- * Map Railway file format to UI-expected type
- */
 function mapFileFormat(format: string): "excel" | "csv" | "docx" | "pptx" | "pdf" {
   const formatLower = format.toLowerCase();
-  if (formatLower === "xlsx" || formatLower === "excel" || formatLower === "xls") {
-    return "excel";
-  }
-  if (formatLower === "csv") {
-    return "csv";
-  }
-  if (formatLower === "docx" || formatLower === "doc") {
-    return "docx";
-  }
-  if (formatLower === "pptx" || formatLower === "ppt") {
-    return "pptx";
-  }
-  if (formatLower === "pdf") {
-    return "pdf";
-  }
+  if (formatLower === "xlsx" || formatLower === "excel" || formatLower === "xls") return "excel";
+  if (formatLower === "csv") return "csv";
+  if (formatLower === "docx" || formatLower === "doc") return "docx";
+  if (formatLower === "pptx" || formatLower === "ppt") return "pptx";
   return "pdf";
 }
 
@@ -83,7 +69,6 @@ export function useTasks() {
       return;
     }
 
-    // Transform the data to match our Task interface
     const transformedTasks: Task[] = (data || []).map((task) => ({
       id: task.id,
       prompt: task.prompt,
@@ -105,7 +90,6 @@ export function useTasks() {
     fetchTasks();
   }, [fetchTasks]);
 
-  // Subscribe to task updates
   useEffect(() => {
     if (!currentTask) return;
 
@@ -135,8 +119,6 @@ export function useTasks() {
             updated_at: updated.updated_at,
           };
           setCurrentTask(transformedTask);
-          
-          // Also update in tasks list
           setTasks((prev) =>
             prev.map((t) => (t.id === transformedTask.id ? transformedTask : t))
           );
@@ -155,7 +137,6 @@ export function useTasks() {
     setLoading(true);
     setStreamingContent("");
 
-    // Create task in database with pending status
     const { data, error } = await supabase
       .from("tasks")
       .insert({
@@ -195,58 +176,49 @@ export function useTasks() {
     setCurrentTask(newTask);
     setTasks((prev) => [newTask, ...prev]);
 
-    // Call Railway backend for AI processing
     try {
-      // Update status to processing
       await supabase
         .from("tasks")
         .update({ status: "understanding" })
         .eq("id", data.id);
 
-      // Call Railway API for synchronous task processing
-      const taskResult = await mcLeukerAPI.createTask(prompt, user.id);
+      // Use chat API for task processing
+      const chatResponse = await mcLeukerAPI.chat(prompt, "deep", []);
 
-      // Map Railway's GeneratedFile format to existing format with proper download URLs
-      const generatedFiles: GeneratedFile[] = (taskResult.files || []).map((file) => ({
-        name: file.filename,
-        type: mapFileFormat(file.format),
-        url: mcLeukerAPI.getFileDownloadUrl(file.filename),
-        size: file.size_bytes || 0,
-        path: file.filepath,
+      const generatedFiles: GeneratedFile[] = (chatResponse.files || []).map((file) => ({
+        name: file.name,
+        type: mapFileFormat(file.type || "pdf"),
+        url: file.url,
+        size: 0,
         created_at: new Date().toISOString(),
       }));
 
-      // Update the content for streaming display
-      if (taskResult.message) {
-        setStreamingContent(taskResult.message);
+      if (chatResponse.message || chatResponse.response) {
+        setStreamingContent(chatResponse.message || chatResponse.response || "");
       }
 
-      // Prepare update payload - cast to Json-compatible format
-      const taskStatus = taskResult.status === "completed" ? "completed" : "failed";
-      const taskResultContent = taskResult.message ? { content: taskResult.message } : null;
-      const modelUsed = taskResult.interpretation 
-        ? `Railway AI (${taskResult.interpretation.complexity})` 
-        : "Railway AI";
+      const taskStatus = chatResponse.error ? "failed" : "completed";
+      const taskResultContent = chatResponse.message || chatResponse.response 
+        ? { content: chatResponse.message || chatResponse.response || "" } 
+        : null;
 
-      // Update task in database with result
       await supabase
         .from("tasks")
         .update({
           status: taskStatus,
           result: taskResultContent,
-          generated_files: generatedFiles as unknown as null, // Cast for Supabase Json type
+          generated_files: generatedFiles as unknown as null,
           updated_at: new Date().toISOString(),
-          model_used: modelUsed,
+          model_used: "McLeuker AI",
         })
         .eq("id", data.id);
 
-      // Update local state
       const updatedTask: Task = {
         ...newTask,
         status: taskStatus,
         result: taskResultContent,
         generated_files: generatedFiles,
-        model_used: modelUsed,
+        model_used: "McLeuker AI",
       };
 
       setCurrentTask(updatedTask);
@@ -254,10 +226,9 @@ export function useTasks() {
         prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
       );
 
-      // Refresh to get final state
       await fetchTasks();
     } catch (error) {
-      console.error("Railway API processing error:", error);
+      console.error("Task processing error:", error);
       
       const errorMessage = error instanceof Error ? error.message : "AI processing failed";
       
@@ -267,13 +238,11 @@ export function useTasks() {
         variant: "destructive",
       });
 
-      // Update task as failed
       await supabase
         .from("tasks")
         .update({ status: "failed" })
         .eq("id", data.id);
 
-      // Update local state
       const failedTask: Task = {
         ...newTask,
         status: "failed",

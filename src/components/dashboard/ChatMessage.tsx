@@ -51,7 +51,7 @@ export function ChatMessageComponent({
   onRetry,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
-  const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>(message.generatedFiles || []);
+  const [generatedFiles] = useState<GeneratedFile[]>([]);
 
   const displayContent = isStreaming ? streamingContent : message.content;
 
@@ -159,8 +159,8 @@ export function ChatMessageComponent({
           ) : (
             <div className="prose prose-sm max-w-none">
               {/* V2.0.0 Collapsible Reasoning Display */}
-              {message.reasoning && (
-                <ReasoningDisplay reasoning={message.reasoning} />
+              {message.reasoning && message.reasoning.length > 0 && (
+                <ReasoningDisplay reasoning={message.reasoning.join('\n')} />
               )}
               
               <ReactMarkdown
@@ -356,34 +356,6 @@ export function ChatMessageComponent({
                 </div>
               )}
               
-              {/* Reasoning Steps Section (Deep mode) */}
-              {message.reasoningSteps && message.reasoningSteps.length > 0 && (
-                <div className="mt-6 pt-4 border-t border-border">
-                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <span className="w-1 h-4 bg-foreground rounded-full" />
-                    Reasoning Steps ({message.reasoningSteps.length})
-                  </h4>
-                  <div className="space-y-3">
-                    {message.reasoningSteps.map((step, index) => (
-                      <div key={index} className="bg-muted/50 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="bg-foreground text-background text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                            {step.step || index + 1}
-                          </span>
-                          <span className="text-sm font-medium text-foreground">{step.title}</span>
-                          {step.duration_ms && (
-                            <span className="text-xs text-muted-foreground ml-auto">
-                              {(step.duration_ms / 1000).toFixed(1)}s
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground pl-7">{step.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
               {/* Generated Files */}
               {generatedFiles.length > 0 && (
                 <FileDownloadList files={generatedFiles} />
@@ -417,7 +389,7 @@ export function ChatMessageComponent({
               {!isUser && !isStreaming && displayContent.length > 100 && (
                 <ExportActions
                   content={displayContent}
-                  onFileGenerated={(file) => setGeneratedFiles(prev => [...prev, file])}
+                  onFileGenerated={() => {}}
                   onCodeRun={onCodeRun}
                 />
               )}

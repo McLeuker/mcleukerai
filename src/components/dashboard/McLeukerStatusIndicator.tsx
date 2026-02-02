@@ -20,17 +20,9 @@ export function McLeukerStatusIndicator({
 }: McLeukerStatusIndicatorProps) {
   const { 
     connectionStatus, 
-    configStatus, 
+    health,
     checkHealth, 
-    checkConfigStatus 
   } = useMcLeukerStatus(true);
-
-  // Check config status after initial health check
-  useEffect(() => {
-    if (connectionStatus === "connected") {
-      checkConfigStatus();
-    }
-  }, [connectionStatus, checkConfigStatus]);
 
   const getStatusIcon = () => {
     switch (connectionStatus) {
@@ -72,26 +64,17 @@ export function McLeukerStatusIndicator({
   };
 
   const tooltipContent = () => {
-    if (connectionStatus === "connected" && configStatus) {
+    if (connectionStatus === "connected" && health) {
       return (
         <div className="space-y-1 text-sm">
           <p className="font-medium">McLeuker AI Backend</p>
           <p className="text-muted-foreground">
-            Status: {configStatus.status}
+            Status: {health.status}
           </p>
-          {configStatus.default_llm && (
+          {health.version && (
             <p className="text-muted-foreground">
-              Model: {configStatus.default_llm}
+              Version: {health.version}
             </p>
-          )}
-          {configStatus.services && configStatus.services.length > 0 && (
-            <div className="pt-1 border-t border-border mt-1">
-              {configStatus.services.map((service) => (
-                <p key={service.name} className="text-xs text-muted-foreground">
-                  {service.name}: {service.status}
-                </p>
-              ))}
-            </div>
           )}
         </div>
       );
@@ -102,7 +85,7 @@ export function McLeukerStatusIndicator({
         <div className="space-y-1 text-sm">
           <p className="font-medium text-destructive">Backend Disconnected</p>
           <p className="text-muted-foreground">
-            Check that VITE_RAILWAY_API_URL is configured correctly
+            Check that the backend is running
           </p>
         </div>
       );
