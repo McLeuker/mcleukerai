@@ -682,4 +682,38 @@
     background: linear-gradient(180deg, #202020 0%, #181818 100%);
     border-color: rgba(255, 255, 255, 0.18);
   }
+
+  /* ========================================
+     HOMEPAGE PREMIUM UTILITIES
+     ======================================== */
+
+  /* Subtle noise overlay for panels - 2-3% opacity */
+  .panel-noise {
+    position: relative;
+  }
+
+  .panel-noise::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.025;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Homepage graphite panel with noise */
+  .homepage-panel {
+    position: relative;
+    background: linear-gradient(180deg, #1A1A1A 0%, #141414 100%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 20px;
+  }
+
+  /* Homepage section with left→right gradient */
+  .homepage-section-gradient {
+    background: linear-gradient(90deg, #060606 0%, #080808 35%, #0A0A0A 100%);
+  }
 }
