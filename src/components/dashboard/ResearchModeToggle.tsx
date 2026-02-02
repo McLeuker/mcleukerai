@@ -22,7 +22,7 @@ export function ResearchModeToggle({
 }: ResearchModeToggleProps) {
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="inline-flex items-center rounded-full bg-muted p-1">
+      <div className="inline-flex items-center rounded-full bg-white/10 p-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -32,14 +32,17 @@ export function ResearchModeToggle({
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors",
                 mode === "quick"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "bg-white text-black shadow-sm"
+                  : "text-white/60 hover:text-white",
                 disabled && "opacity-50 cursor-not-allowed"
               )}
             >
               <Zap className="h-3.5 w-3.5" />
               Quick
-              <span className="flex items-center gap-0.5 text-muted-foreground/60">
+              <span className={cn(
+                "flex items-center gap-0.5",
+                mode === "quick" ? "text-black/50" : "text-white/40"
+              )}>
                 <Coins className="h-3 w-3" />5
               </span>
             </button>
@@ -63,14 +66,17 @@ export function ResearchModeToggle({
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors",
                 mode === "deep"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "bg-white text-black shadow-sm"
+                  : "text-white/60 hover:text-white",
                 disabled && "opacity-50 cursor-not-allowed"
               )}
             >
               <Brain className="h-3.5 w-3.5" />
               Deep
-              <span className="flex items-center gap-0.5 text-muted-foreground/60">
+              <span className={cn(
+                "flex items-center gap-0.5",
+                mode === "deep" ? "text-black/50" : "text-white/40"
+              )}>
                 <Coins className="h-3 w-3" />50
               </span>
             </button>

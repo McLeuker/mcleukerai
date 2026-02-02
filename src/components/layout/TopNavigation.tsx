@@ -115,9 +115,9 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true, showN
           {showNewChat && onNewChat && (
             <Button
               onClick={onNewChat}
-              className="hidden lg:flex px-3 py-1.5 h-auto rounded-full gap-1.5 bg-foreground text-background hover:bg-foreground/90 text-xs font-medium"
+              className="hidden lg:flex px-3.5 py-2 h-auto rounded-full gap-1.5 bg-foreground text-background hover:bg-foreground/90 text-[13px] font-medium"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-4 w-4" />
               New Chat
             </Button>
           )}

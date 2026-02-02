@@ -97,9 +97,9 @@ export function ChatInput({
           disabled={isLoading}
           className={cn(
             "min-h-[60px] max-h-[200px] pr-14 resize-none",
-            "bg-background border-border",
-            "focus:ring-1 focus:ring-foreground/20",
-            "placeholder:text-muted-foreground/60"
+            "bg-black border border-white/15 text-white",
+            "focus:ring-1 focus:ring-white/20 focus:border-white/30",
+            "placeholder:text-white/40"
           )}
           rows={2}
         />
@@ -111,8 +111,8 @@ export function ChatInput({
             "absolute right-2 bottom-2 h-9 w-9",
             "transition-all duration-200",
             message.trim() && !isLoading
-              ? "bg-foreground text-background hover:bg-foreground/90"
-              : "bg-muted text-muted-foreground"
+              ? "bg-white text-black hover:bg-white/90"
+              : "bg-white/10 text-white/40"
           )}
         >
           {isLoading ? (
@@ -124,7 +124,7 @@ export function ChatInput({
       </div>
 
       {/* Credit hint */}
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
+      <div className="flex items-center justify-between text-[11px] text-white/50 px-1">
         <span>
           {getCreditHint()} • Press Enter to send
         </span>

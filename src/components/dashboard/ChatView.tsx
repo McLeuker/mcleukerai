@@ -61,7 +61,7 @@ export function ChatView({
   // Show domain starter panel when no messages
   if (messages.length === 0 && !isLoading) {
     return (
-      <div className="flex-1 flex flex-col bg-black">
+      <div className="flex-1 flex flex-col bg-black min-h-0">
         <DomainStarterPanel
           onSelectPrompt={onSelectPrompt || (() => {})}
           snapshot={domainSnapshot}
@@ -72,32 +72,37 @@ export function ChatView({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 bg-black">
       {/* Filter Bar */}
       {messages.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background/50">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black">
           <div className="flex items-center gap-2">
             <Button
               variant={showFavoritesOnly ? "secondary" : "ghost"}
               size="sm"
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className="h-8 gap-1.5"
+              className={cn(
+                "h-8 gap-1.5",
+                showFavoritesOnly 
+                  ? "bg-white text-black hover:bg-white/90" 
+                  : "text-white/70 hover:text-white hover:bg-white/10"
+              )}
             >
               <Star
                 className={cn(
                   "h-3.5 w-3.5",
-                  showFavoritesOnly && "fill-foreground text-foreground"
+                  showFavoritesOnly && "fill-black text-black"
                 )}
               />
               Favorites
               {favoriteCount > 0 && (
-                <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
+                <span className="ml-1 text-xs bg-white/10 px-1.5 py-0.5 rounded">
                   {favoriteCount}
                 </span>
               )}
             </Button>
           </div>
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-white/50">
             {filteredMessages.length}{" "}
             {filteredMessages.length === 1 ? "message" : "messages"}
           </div>
@@ -166,13 +171,13 @@ export function ChatView({
           {(() => {
             // FIX: Use hasPlaceholder computed from FULL messages array
             return isLoading && !streamingContent && !researchState?.isResearching && !hasPlaceholder ? (
-              <div className="px-4 py-6 bg-muted/30">
+              <div className="px-4 py-6 bg-white/5">
                 <div className="max-w-3xl mx-auto flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-                    <div className="h-4 w-4 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                    <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 text-sm text-white/60">
                       <span>McLeuker AI is thinking...</span>
                     </div>
                   </div>
@@ -184,16 +189,16 @@ export function ChatView({
           {/* Show message if filtering and no results */}
           {showFavoritesOnly && filteredMessages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Star className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">No favorite messages yet</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <Star className="h-12 w-12 text-white/30 mb-4" />
+              <p className="text-white/60">No favorite messages yet</p>
+              <p className="text-sm text-white/40 mt-1">
                 Star messages to find them quickly
               </p>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowFavoritesOnly(false)}
-                className="mt-4"
+                className="mt-4 text-white/70 hover:text-white hover:bg-white/10"
               >
                 <Filter className="h-4 w-4 mr-2" />
                 Show all messages

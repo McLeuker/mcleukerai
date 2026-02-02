@@ -413,4 +413,26 @@
     pointer-events: none;
     z-index: 11;
   }
+
+  /* Dashboard dark theme utilities */
+  .dashboard-dark-input {
+    @apply bg-black border border-white/15 text-white;
+    @apply placeholder:text-white/40;
+    @apply focus:border-white/30 focus:ring-white/10;
+  }
+
+  .dashboard-dark-button {
+    @apply bg-white/10 text-white/80;
+    @apply hover:bg-white/15 hover:text-white;
+    @apply border border-white/10;
+  }
+
+  .dashboard-dark-button-active {
+    @apply bg-white text-black;
+    @apply hover:bg-white/90;
+  }
+
+  .dashboard-dark-panel {
+    @apply bg-black border border-white/10;
+  }
 }
