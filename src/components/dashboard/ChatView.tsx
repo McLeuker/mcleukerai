@@ -54,6 +54,10 @@ export function ChatView({
 
   const favoriteCount = messages.filter((m) => m.is_favorite).length;
 
+  // FIX: Check for placeholder in FULL messages array, not filteredMessages
+  // This prevents double loading indicator when favorites filter is on
+  const hasPlaceholder = messages.some((m) => m.isPlaceholder);
+
   // Show domain starter panel when no messages
   if (messages.length === 0 && !isLoading) {
     return (
@@ -160,7 +164,7 @@ export function ChatView({
 
           {/* Loading indicator (for quick mode) - only show if no placeholder message exists */}
           {(() => {
-            const hasPlaceholder = filteredMessages.some(m => m.isPlaceholder);
+            // FIX: Use hasPlaceholder computed from FULL messages array
             return isLoading && !streamingContent && !researchState?.isResearching && !hasPlaceholder ? (
               <div className="px-4 py-6 bg-muted/30">
                 <div className="max-w-3xl mx-auto flex gap-4">
