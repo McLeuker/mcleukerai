@@ -124,7 +124,7 @@ export function MobileChatSidebar({
                           {conv.title}
                         </p>
                         <p className="text-[10px] text-muted-foreground mt-1.5">
-                          {formatDistanceToNow(conv.updatedAt || new Date(conv.updated_at || Date.now()), {
+                          {formatDistanceToNow(new Date(conv.updated_at), {
                             addSuffix: true,
                           })}
                         </p>

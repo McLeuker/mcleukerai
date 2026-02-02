@@ -13,7 +13,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { mcLeukerAPI } from "@/lib/mcLeukerAPI";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,29 +41,11 @@ export interface Message {
   images?: string[];
   followUpQuestions?: string[];
   isFavorite?: boolean;
-  is_favorite?: boolean; // DB alias
   isPlaceholder?: boolean;
   isError?: boolean;
   canRetry?: boolean;
   creditsUsed?: number;
-  credits_used?: number; // DB alias
   errorMessage?: string;
-  model_used?: string | null;
-  created_at?: string;
-  conversation_id?: string;
-  user_id?: string;
-}
-
-// Alias for backwards compatibility
-export type ChatMessage = Message;
-
-export interface ResearchState {
-  isResearching: boolean;
-  currentStep?: string;
-  progress?: number;
-  phase?: string;
-  totalSteps?: number;
-  message?: string;
 }
 
 export interface Conversation {
@@ -72,7 +54,6 @@ export interface Conversation {
   messages: Message[];
   createdAt: Date;
   updatedAt: Date;
-  updated_at?: string; // DB alias
 }
 
 // ============================================================================
@@ -151,60 +132,22 @@ export function useConversations() {
     log('LOAD', 'Loading conversations for user', user.id);
 
     try {
-      // Load conversations
-      const { data: convData, error: convError } = await supabase
+      const { data, error } = await supabase
         .from("conversations")
         .select("*")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
 
-      if (convError) throw convError;
+      if (error) throw error;
 
-      // Load all messages for user's conversations
-      const conversationIds = (convData || []).map(c => c.id);
-      
-      let messagesData: any[] = [];
-      if (conversationIds.length > 0) {
-        const { data: msgData, error: msgError } = await supabase
-          .from("chat_messages")
-          .select("*")
-          .in("conversation_id", conversationIds)
-          .order("created_at", { ascending: true });
-        
-        if (!msgError) {
-          messagesData = msgData || [];
-        }
-      }
-
-      // Group messages by conversation_id
-      const messagesByConv: Record<string, Message[]> = {};
-      messagesData.forEach((msg: any) => {
-        if (!messagesByConv[msg.conversation_id]) {
-          messagesByConv[msg.conversation_id] = [];
-        }
-        messagesByConv[msg.conversation_id].push({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          timestamp: new Date(msg.created_at),
-          created_at: msg.created_at,
-          isFavorite: msg.is_favorite,
-          is_favorite: msg.is_favorite,
-          creditsUsed: msg.credits_used,
-          credits_used: msg.credits_used,
-          model_used: msg.model_used,
-          conversation_id: msg.conversation_id,
-          user_id: msg.user_id,
-        });
-      });
-
-      const formattedConversations: Conversation[] = (convData || []).map((conv) => ({
+      const formattedConversations: Conversation[] = (data || []).map((conv) => ({
         id: conv.id,
         title: conv.title || "New Chat",
-        messages: messagesByConv[conv.id] || [],
+        messages: Array.isArray(conv.messages) 
+          ? conv.messages.map(cleanMessageForDisplay)
+          : [],
         createdAt: new Date(conv.created_at),
         updatedAt: new Date(conv.updated_at),
-        updated_at: conv.updated_at,
       }));
 
       log('LOAD', `Loaded ${formattedConversations.length} conversations`);
@@ -240,6 +183,7 @@ export function useConversations() {
         id: newConversation.id,
         user_id: user.id,
         title: newConversation.title,
+        messages: [],
       });
 
       if (error) throw error;
@@ -277,7 +221,7 @@ export function useConversations() {
   // ============================================================================
 
   const sendMessage = useCallback(
-    async (content: string, mode: "quick" | "deep" = "quick", _model?: string, _sector?: string) => {
+    async (content: string, mode: "quick" | "deep" = "quick") => {
       if (!user || !content.trim()) {
         log('SEND', 'Aborted: no user or empty content');
         return;
@@ -590,16 +534,10 @@ export function useConversations() {
         prev.map((c) => (c.id === currentConversation.id ? updatedConversation : c))
       );
 
-      // Update favorite in chat_messages table - find the message and update it
-      // For now just update local state since messages are stored in chat_messages table
-      // The actual DB update should find the message by id
-      const toggledMessage = updatedMessages.find(m => m.isFavorite !== currentConversation.messages.find(om => om.id === m.id)?.isFavorite);
-      if (toggledMessage) {
-        await supabase
-          .from("chat_messages")
-          .update({ is_favorite: toggledMessage.isFavorite })
-          .eq("id", toggledMessage.id);
-      }
+      await supabase
+        .from("conversations")
+        .update({ messages: updatedMessages })
+        .eq("id", currentConversation.id);
     },
     [currentConversation]
   );
@@ -631,41 +569,16 @@ export function useConversations() {
   // RETURN
   // ============================================================================
 
-  // Computed messages from current conversation
-  const messages = currentConversation?.messages || [];
-
-  // Select a conversation
-  const selectConversation = useCallback((conv: Conversation) => {
-    setCurrentConversation(conv);
-  }, []);
-
-  // Delete a message from current conversation
-  const deleteMessage = useCallback(async (messageId: string) => {
-    if (!currentConversation) return;
-    
-    const updatedMessages = currentConversation.messages.filter(m => m.id !== messageId);
-    const updatedConversation = { ...currentConversation, messages: updatedMessages };
-    
-    setCurrentConversation(updatedConversation);
-    setConversations(prev => prev.map(c => c.id === currentConversation.id ? updatedConversation : c));
-    
-    // Note: messages stored in conversation, update handled there
-  }, [currentConversation]);
-
   return {
     conversations,
     currentConversation,
     setCurrentConversation,
-    messages,
-    loading: isLoading,
+    isLoading,
     streamingContent,
     researchState,
     sendMessage,
     createConversation,
-    createNewConversation: createConversation,
-    selectConversation,
     deleteConversation,
-    deleteMessage,
     toggleFavorite,
     cancelRequest,
     retryMessage,

@@ -1,4 +1,4 @@
-import { Message as ChatMessage, Conversation } from "@/hooks/useConversations";
+import { ChatMessage, Conversation } from "@/hooks/useConversations";
 
 interface Source {
   title: string;
