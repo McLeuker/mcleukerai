@@ -1,122 +1,64 @@
 
-## Fix Input Field Visibility and Landing Page Task Execution
+## Fix Chat Input Response - Callback Type Mismatch
 
-### Summary of Issues
+### Root Cause
+The `onSelectPrompt` callback chain has mismatched function signatures:
 
-1. **ResearchModeToggle text invisible**: Uses `text-white/60` and `bg-white/15` which is invisible on light backgrounds like ChatInput
-2. **Landing page "Run Task" doesn't execute**: Uses `navigate(state)` but Dashboard reads `sessionStorage` - mismatch causes prompt to be ignored
-3. **Domain pages already have search**: No changes needed - DomainLanding pages already have their own search in DomainHero
-
----
-
-### Changes Required
-
-#### 1. Fix ResearchModeToggle Visibility
-
-**File:** `src/components/dashboard/ResearchModeToggle.tsx`
-
-The current styling uses white text which assumes a dark background:
 ```text
-// Current (lines 25, 32-36, 42-43, 63-67, 73-74)
-bg-white/15
-text-white, text-white/60
+DomainStarterPanel → calls with (prompt, mode, model)
+                  ↓
+ChatView interface → expects only (prompt: string)
+                  ↓  
+Dashboard handler → ignores mode/model, hardcodes "quick"
 ```
 
-**Solution:** Use theme-aware colors that work on both light and dark backgrounds:
+**Result:** User selections for Quick/Deep mode and model are lost.
+
+---
+
+### Technical Fix
+
+#### 1. Update ChatView Interface
+**File:** `src/components/dashboard/ChatView.tsx`
+
+Update the `onSelectPrompt` type to accept all parameters:
 
 ```typescript
-// Container - use muted background
-<div className="inline-flex items-center rounded-full bg-muted p-1">
+// Line 20 - Change from:
+onSelectPrompt?: (prompt: string) => void;
 
-// Active button
-"bg-background text-foreground shadow-sm"
-
-// Inactive button  
-"text-muted-foreground hover:text-foreground"
-
-// Credit indicator
-"text-muted-foreground/60"
+// To:
+onSelectPrompt?: (prompt: string, mode?: "quick" | "deep", model?: string) => void;
 ```
 
 ---
 
-#### 2. Fix Landing Page Task Execution
+#### 2. Update Dashboard Handler
+**File:** `src/pages/Dashboard.tsx`
 
-**File:** `src/pages/Landing.tsx`
-
-**Current behavior (lines 26-35):**
-```typescript
-if (user) {
-  navigate("/dashboard", { state: { initialPrompt: prompt } });
-}
-```
-
-**Problem:** Dashboard reads from `sessionStorage`, not navigation state.
-
-**Solution:** Store prompt in sessionStorage before navigating (matching DomainLanding pattern):
+Update the `onSelectPrompt` prop to pass mode and model:
 
 ```typescript
-const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  if (prompt.trim()) {
-    if (user) {
-      // Store prompt for immediate execution
-      sessionStorage.setItem("domainPrompt", prompt);
-      sessionStorage.setItem("domainContext", "all");
-      navigate("/dashboard");
-    } else {
-      navigate("/login", { state: { redirectPrompt: prompt } });
-    }
-  }
-};
-```
+// Line 129 - Change from:
+onSelectPrompt={(prompt) => handleSendMessage(prompt, "quick")}
 
-Also update the suggestion button click handler (around line 209):
-```typescript
-onClick={() => {
-  if (user) {
-    sessionStorage.setItem("domainPrompt", suggestion.prompt);
-    sessionStorage.setItem("domainContext", "all");
-    navigate("/dashboard");
-  } else {
-    setPrompt(suggestion.prompt);
-  }
-}}
+// To:
+onSelectPrompt={(prompt, mode, model) => handleSendMessage(prompt, mode || "quick", model)}
 ```
 
 ---
 
-#### 3. Confirm Domain Pages Already Have Search
+### Summary Table
 
-**No changes needed** - Domain landing pages (`/domain/fashion`, etc.) already have:
-- `DomainHero` component with integrated search bar
-- `DomainAskBar` at the bottom with starter suggestions
-- Task submission routes to Dashboard via sessionStorage
+| File | Line | Change |
+|------|------|--------|
+| `src/components/dashboard/ChatView.tsx` | 20 | Update `onSelectPrompt` type signature |
+| `src/pages/Dashboard.tsx` | 129 | Pass `mode` and `model` to `handleSendMessage` |
 
-The Dashboard's ChatInput at the bottom is only shown on the Dashboard page itself, which is correct.
+### Expected Result After Fix
 
----
-
-### Technical Summary
-
-| File | Change |
-|------|--------|
-| `src/components/dashboard/ResearchModeToggle.tsx` | Update colors from white-based to theme-aware (bg-muted, text-foreground) |
-| `src/pages/Landing.tsx` | Use sessionStorage instead of navigation state for logged-in user task execution |
-
-### Expected Behavior After Fix
-
-| Scenario | Result |
-|----------|--------|
-| User types in Landing page search + clicks "Run Task" (logged in) | Directly runs the task in Dashboard |
-| User clicks suggestion card (logged in) | Directly runs the task in Dashboard |
-| Quick/Deep toggle in ChatInput | Text visible on light background |
-| Domain landing page | Uses existing DomainHero search bar |
-
-### Visual Changes
-
-**Before (ResearchModeToggle on light background):**
-- White text on transparent background = invisible
-
-**After:**
-- Muted background pill with foreground text = visible on all backgrounds
+| User Action | Before Fix | After Fix |
+|-------------|------------|-----------|
+| Type in All Domains + select Deep + press Enter | Sent as "quick" | Sent as "deep" |
+| Type in All Domains + select model + press Enter | Model ignored | Model passed to backend |
+| Click starter suggestion with Deep mode | Sent as "quick" | Sent as "deep" |
