@@ -13,6 +13,7 @@ import {
   ArrowRight,
   CheckCircle2
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import atelierImage from "@/assets/fashion-atelier.jpg";
 
 const Services = () => {
@@ -104,23 +105,26 @@ const Services = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <TopNavigation showSectorTabs={false} showCredits={false} />
+    <div className="min-h-screen bg-[#070707] flex flex-col">
+      <TopNavigation variant="marketing" showSectorTabs={false} showCredits={false} />
+      
+      {/* Spacer for fixed nav */}
+      <div className="h-16 lg:h-[72px]" />
 
-      <main className="pt-20">
+      <main>
         {/* Hero Section */}
         <section className="py-24 lg:py-32">
           <div className="container mx-auto px-6 lg:px-12">
             <div className="max-w-4xl mx-auto text-center">
-              <p className="text-sm text-muted-foreground uppercase tracking-[0.2em] mb-6">
+              <p className="text-sm text-white/50 uppercase tracking-[0.2em] mb-6">
                 Our Solutions
               </p>
               
-              <h1 className="font-luxury text-5xl md:text-6xl lg:text-7xl text-foreground mb-8 leading-[1.05]">
+              <h1 className="font-luxury text-5xl md:text-6xl lg:text-7xl text-white/[0.92] mb-8 leading-[1.05]">
                 AI-Powered Fashion Intelligence
               </h1>
               
-              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              <p className="text-lg md:text-xl text-white/65 max-w-2xl mx-auto leading-relaxed">
                 From trend forecasting to sustainability consulting, we provide comprehensive 
                 AI-driven solutions for modern fashion businesses.
               </p>
@@ -129,28 +133,33 @@ const Services = () => {
         </section>
 
         {/* Services Grid */}
-        <section className="py-24 lg:py-32 bg-secondary/30">
+        <section className="py-24 lg:py-32 bg-[#0B0B0B]">
           <div className="container mx-auto px-6 lg:px-12">
             <div className="max-w-7xl mx-auto">
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 stagger-children">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {services.map((service, i) => (
                   <div 
                     key={i} 
-                    className="group p-8 lg:p-10 rounded-lg bg-card border border-border hover-lift"
+                    className={cn(
+                      "group p-8 lg:p-10 rounded-[20px]",
+                      "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+                      "border border-white/[0.10]",
+                      "hover:border-white/[0.18] transition-all"
+                    )}
                   >
-                    <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center mb-6 group-hover:bg-accent transition-colors">
-                      <service.icon className="w-6 h-6 text-foreground" />
+                    <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center mb-6 group-hover:bg-white/15 transition-colors">
+                      <service.icon className="w-6 h-6 text-white/70" />
                     </div>
-                    <h3 className="text-xl lg:text-2xl font-medium text-foreground mb-4">
+                    <h3 className="text-xl lg:text-2xl font-medium text-white/[0.92] mb-4">
                       {service.title}
                     </h3>
-                    <p className="text-muted-foreground leading-relaxed mb-6">
+                    <p className="text-white/60 leading-relaxed mb-6">
                       {service.description}
                     </p>
                     <ul className="space-y-3">
                       {service.benefits.map((benefit, j) => (
-                        <li key={j} className="flex items-start gap-3 text-sm text-muted-foreground">
-                          <CheckCircle2 className="w-4 h-4 text-foreground shrink-0 mt-0.5" />
+                        <li key={j} className="flex items-start gap-3 text-sm text-white/50">
+                          <CheckCircle2 className="w-4 h-4 text-white/40 shrink-0 mt-0.5" />
                           <span>{benefit}</span>
                         </li>
                       ))}
@@ -163,28 +172,31 @@ const Services = () => {
         </section>
 
         {/* Deliverables Section */}
-        <section className="py-24 lg:py-32">
+        <section className="py-24 lg:py-32 bg-[#070707]">
           <div className="container mx-auto px-6 lg:px-12">
             <div className="max-w-6xl mx-auto">
               <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
                 {/* Image */}
-                <div className="relative image-zoom rounded-lg overflow-hidden shadow-elevated">
+                <div className="relative rounded-[20px] overflow-hidden shadow-[0_14px_40px_rgba(0,0,0,0.55)]">
                   <img 
                     src={atelierImage} 
                     alt="Fashion atelier workspace" 
                     className="w-full aspect-square object-cover"
+                    style={{
+                      filter: 'grayscale(100%) contrast(1.05) brightness(0.9)'
+                    }}
                   />
                 </div>
 
                 {/* Content */}
                 <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-[0.2em] mb-4">
+                  <p className="text-sm text-white/50 uppercase tracking-[0.2em] mb-4">
                     Professional Deliverables
                   </p>
-                  <h2 className="font-luxury text-4xl md:text-5xl text-foreground mb-8 leading-[1.1]">
+                  <h2 className="font-luxury text-4xl md:text-5xl text-white/[0.92] mb-8 leading-[1.1]">
                     Real outputs, not just insights
                   </h2>
-                  <p className="text-muted-foreground text-lg leading-relaxed mb-10">
+                  <p className="text-white/65 text-lg leading-relaxed mb-10">
                     Every project concludes with polished, professional outputs ready for immediate use. 
                     No more copying and pasting from chat interfaces.
                   </p>
@@ -192,14 +204,14 @@ const Services = () => {
                   <div className="space-y-8">
                     {deliverables.map((item, i) => (
                       <div key={i} className="flex items-start gap-5">
-                        <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                          <item.icon className="w-5 h-5 text-foreground" />
+                        <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                          <item.icon className="w-5 h-5 text-white/70" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-medium text-foreground mb-1">
+                          <h3 className="text-lg font-medium text-white/[0.92] mb-1">
                             {item.title}
                           </h3>
-                          <p className="text-muted-foreground text-sm leading-relaxed">
+                          <p className="text-white/50 text-sm leading-relaxed">
                             {item.description}
                           </p>
                         </div>
@@ -213,14 +225,14 @@ const Services = () => {
         </section>
 
         {/* How It Works */}
-        <section className="py-24 lg:py-32 bg-foreground text-background">
+        <section className="py-24 lg:py-32 bg-[#0A0A0A]">
           <div className="container mx-auto px-6 lg:px-12">
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-20">
-                <p className="text-sm text-background/60 uppercase tracking-[0.2em] mb-4">
+                <p className="text-sm text-white/50 uppercase tracking-[0.2em] mb-4">
                   Simple Process
                 </p>
-                <h2 className="font-luxury text-4xl md:text-5xl text-background">
+                <h2 className="font-luxury text-4xl md:text-5xl text-white/[0.92]">
                   How It Works
                 </h2>
               </div>
@@ -244,13 +256,13 @@ const Services = () => {
                   }
                 ].map((item, i) => (
                   <div key={i} className="text-center">
-                    <div className="text-6xl lg:text-7xl font-luxury text-background/20 mb-6">
+                    <div className="text-6xl lg:text-7xl font-luxury text-white/15 mb-6">
                       {item.step}
                     </div>
-                    <h3 className="text-xl lg:text-2xl font-medium text-background mb-4">
+                    <h3 className="text-xl lg:text-2xl font-medium text-white/[0.92] mb-4">
                       {item.title}
                     </h3>
-                    <p className="text-background/70 leading-relaxed">
+                    <p className="text-white/50 leading-relaxed">
                       {item.description}
                     </p>
                   </div>
@@ -261,23 +273,32 @@ const Services = () => {
         </section>
 
         {/* CTA Section */}
-        <section className="py-32 lg:py-40">
+        <section className="py-32 lg:py-40 bg-[#070707]">
           <div className="container mx-auto px-6 lg:px-12">
             <div className="max-w-3xl mx-auto text-center">
-              <h2 className="font-luxury text-4xl md:text-5xl text-foreground mb-8 leading-[1.1]">
+              <h2 className="font-luxury text-4xl md:text-5xl text-white/[0.92] mb-8 leading-[1.1]">
                 Ready to get started?
               </h2>
-              <p className="text-muted-foreground text-lg mb-12">
+              <p className="text-white/60 text-lg mb-12">
                 Try McLeuker AI free and see how AI can transform your fashion research.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Button size="lg" className="px-10 py-6 text-base" asChild>
+                <Button 
+                  size="lg" 
+                  className="px-10 py-6 text-base bg-white text-black hover:bg-white/90" 
+                  asChild
+                >
                   <Link to="/signup">
                     Start Free Trial
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Link>
                 </Button>
-                <Button size="lg" variant="outline" className="px-10 py-6 text-base" asChild>
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="px-10 py-6 text-base bg-[#141414] border-white/[0.10] text-white hover:bg-[#1A1A1A]" 
+                  asChild
+                >
                   <Link to="/pricing">View Pricing</Link>
                 </Button>
               </div>

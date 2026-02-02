@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Footer } from "@/components/layout/Footer";
+import { TopNavigation } from "@/components/layout/TopNavigation";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { SUBSCRIPTION_PLANS, CREDIT_REFILLS, CREDIT_USAGE } from "@/config/pricing";
-import { Check, Zap, Crown, Building2, ArrowLeft, Loader2, Gift, AlertCircle, Rocket } from "lucide-react";
-import mcleukerLogo from "@/assets/mcleuker-logo.png";
+import { Check, Zap, Building2, Loader2, Gift, Rocket } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const planIcons = {
   free: Gift,
@@ -23,10 +24,10 @@ const Pricing = () => {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [loadingRefill, setLoadingRefill] = useState(false);
   const { user } = useAuth();
-  const { plan: currentPlan, subscribed, purchaseCredits, createCheckout } = useSubscription();
+  const { plan: currentPlan, purchaseCredits, createCheckout } = useSubscription();
 
   const handleSubscribe = async (planId: string) => {
-    if (planId === "free") return; // Only block free plan
+    if (planId === "free") return;
     
     setLoadingPlan(planId);
     try {
@@ -45,57 +46,48 @@ const Pricing = () => {
     }
   };
 
-  // All plans are visible now
   const visiblePlans = Object.entries(SUBSCRIPTION_PLANS);
 
-  // All users can purchase credits now
-  const canRefill = true;
-
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={mcleukerLogo} alt="McLeuker AI" className="h-8 w-auto" />
-          </Link>
-          <Link to="/dashboard">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to workspace
-            </Button>
-          </Link>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#070707]">
+      {/* Unified Top Navigation */}
+      <TopNavigation variant="marketing" showSectorTabs={false} showCredits={false} />
+      
+      {/* Spacer for fixed nav */}
+      <div className="h-16 lg:h-[72px]" />
 
-      <main className="pt-24 pb-16">
+      <main className="pb-16">
         <div className="container mx-auto px-4">
           {/* Hero */}
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-serif font-light mb-4">
+          <div className="text-center py-16 lg:py-20">
+            <p className="text-sm text-white/50 uppercase tracking-[0.2em] mb-4">
+              Pricing
+            </p>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-luxury text-white/[0.92] mb-4">
               Simple Credit-Based Pricing
             </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-4">
+            <p className="text-lg text-white/60 max-w-2xl mx-auto mb-4">
               All features available to everyone. Credits are the only gate.
             </p>
-            <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-8">
-              Free, Pro, or Studio — every user gets full access to AI research, market analysis, trend reports, and exports. Plans only differ in credit allocation.
+            <p className="text-sm text-white/50 max-w-xl mx-auto mb-8">
+              Free, Pro, or Studio — every user gets full access to AI research, market analysis, trend reports, and exports.
             </p>
 
             {/* Billing Toggle */}
             <div className="flex items-center justify-center gap-4">
-              <span className={`text-sm font-medium ${!isYearly ? 'text-foreground' : 'text-muted-foreground'}`}>
+              <span className={`text-sm font-medium ${!isYearly ? 'text-white' : 'text-white/50'}`}>
                 Monthly
               </span>
               <Switch
                 checked={isYearly}
                 onCheckedChange={setIsYearly}
+                className="data-[state=checked]:bg-white data-[state=unchecked]:bg-white/20"
               />
-              <span className={`text-sm font-medium ${isYearly ? 'text-foreground' : 'text-muted-foreground'}`}>
+              <span className={`text-sm font-medium ${isYearly ? 'text-white' : 'text-white/50'}`}>
                 Yearly
               </span>
               {isYearly && (
-                <Badge variant="secondary" className="bg-primary/10 text-primary">
+                <Badge className="bg-white/10 text-white border-white/20">
                   Save 18%
                 </Badge>
               )}
@@ -114,39 +106,49 @@ const Pricing = () => {
               return (
                 <Card
                   key={id}
-                  className={`relative flex flex-col ${
-                    isPopular ? 'border-primary shadow-lg ring-1 ring-primary/20 scale-105' : ''
-                  } ${isCurrentPlan ? 'bg-primary/5' : ''}`}
+                  className={cn(
+                    "relative flex flex-col rounded-[20px]",
+                    "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+                    "border border-white/[0.10]",
+                    isPopular && "border-white/[0.25] shadow-[0_14px_40px_rgba(0,0,0,0.55)] scale-105",
+                    isCurrentPlan && "ring-1 ring-white/20"
+                  )}
                 >
                   {isPopular && (
-                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
+                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-black">
                       Most Popular
                     </Badge>
                   )}
                   {isCurrentPlan && (
-                    <Badge className="absolute -top-3 right-4 bg-secondary text-secondary-foreground">
+                    <Badge className="absolute -top-3 right-4 bg-white/10 text-white border-white/20">
                       Your Plan
                     </Badge>
                   )}
                   
                   <CardHeader className="pb-4">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className={`p-2 rounded-lg ${isPopular ? 'bg-primary/10' : 'bg-secondary'}`}>
-                        <Icon className={`h-5 w-5 ${isPopular ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <div className={cn(
+                        "p-2 rounded-lg",
+                        isPopular ? "bg-white/20" : "bg-white/10"
+                      )}>
+                        <Icon className={cn(
+                          "h-5 w-5",
+                          isPopular ? "text-white" : "text-white/70"
+                        )} />
                       </div>
-                      <CardTitle className="text-xl">{plan.name}</CardTitle>
+                      <CardTitle className="text-xl text-white">{plan.name}</CardTitle>
                     </div>
-                    <CardDescription>{plan.description}</CardDescription>
+                    <CardDescription className="text-white/50">{plan.description}</CardDescription>
                   </CardHeader>
 
                   <CardContent className="flex-1 flex flex-col">
                     {/* Price */}
                     <div className="mb-6">
                       <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-bold">${price}</span>
-                        <span className="text-muted-foreground">/{isYearly ? 'year' : 'month'}</span>
+                        <span className="text-3xl font-bold text-white">${price}</span>
+                        <span className="text-white/50">/{isYearly ? 'year' : 'month'}</span>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-white/50 mt-1">
                         {('dailyCredits' in plan ? plan.dailyCredits : 0)?.toLocaleString()} credits/day
                       </p>
                     </div>
@@ -155,41 +157,59 @@ const Pricing = () => {
                     <ul className="space-y-3 mb-6 flex-1">
                       {plan.features.map((feature, index) => (
                         <li key={index} className="flex items-start gap-2 text-sm">
-                          <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                          <span>{feature}</span>
+                          <Check className="h-4 w-4 text-white/60 shrink-0 mt-0.5" />
+                          <span className="text-white/70">{feature}</span>
                         </li>
                       ))}
                     </ul>
 
                     {/* CTA Button */}
                     {isCurrentPlan ? (
-                      <Button variant="outline" className="w-full" disabled>
+                      <Button 
+                        variant="outline" 
+                        className="w-full bg-white/5 border-white/20 text-white/60" 
+                        disabled
+                      >
                         Current Plan
                       </Button>
                     ) : isFree ? (
                       user ? (
-                        <Button variant="outline" className="w-full" disabled>
+                        <Button 
+                          variant="outline" 
+                          className="w-full bg-white/5 border-white/20 text-white/60" 
+                          disabled
+                        >
                           Included Free
                         </Button>
                       ) : (
-                        <Button variant="outline" className="w-full" asChild>
+                        <Button 
+                          variant="outline" 
+                          className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20" 
+                          asChild
+                        >
                           <Link to="/signup">Get Started Free</Link>
                         </Button>
                       )
                     ) : !user ? (
-                      // Not logged in: Show signup link
                       <Button
-                        className={`w-full ${isPopular ? '' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
-                        variant={isPopular ? "default" : "secondary"}
+                        className={cn(
+                          "w-full",
+                          isPopular 
+                            ? "bg-white text-black hover:bg-white/90" 
+                            : "bg-white/10 text-white hover:bg-white/20"
+                        )}
                         asChild
                       >
                         <Link to="/signup">Sign up to subscribe</Link>
                       </Button>
                     ) : (
-                      // Logged in: Show checkout button for Starter and Pro
                       <Button
-                        className={`w-full ${isPopular ? '' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
-                        variant={isPopular ? "default" : "secondary"}
+                        className={cn(
+                          "w-full",
+                          isPopular 
+                            ? "bg-white text-black hover:bg-white/90" 
+                            : "bg-white/10 text-white hover:bg-white/20"
+                        )}
                         onClick={() => handleSubscribe(id)}
                         disabled={loadingPlan === id}
                       >
@@ -211,20 +231,28 @@ const Pricing = () => {
 
           {/* Need Custom Solution CTA */}
           <div className="max-w-3xl mx-auto mb-16">
-            <Card className="bg-secondary/50">
+            <Card className={cn(
+              "rounded-[20px]",
+              "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+              "border border-white/[0.10]"
+            )}>
               <CardContent className="flex flex-col md:flex-row items-center justify-between gap-4 py-6">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-lg bg-background">
-                    <Building2 className="h-6 w-6 text-muted-foreground" />
+                  <div className="p-3 rounded-lg bg-white/10">
+                    <Building2 className="h-6 w-6 text-white/70" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold">Need a Custom Solution?</h3>
-                    <p className="text-sm text-muted-foreground">
+                    <h3 className="text-lg font-semibold text-white">Need a Custom Solution?</h3>
+                    <p className="text-sm text-white/50">
                       Contact us for custom credit allocations, white-label options, or dedicated support
                     </p>
                   </div>
                 </div>
-                <Button variant="outline" asChild>
+                <Button 
+                  variant="outline" 
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  asChild
+                >
                   <Link to="/contact">Contact Sales</Link>
                 </Button>
               </CardContent>
@@ -234,29 +262,35 @@ const Pricing = () => {
           {/* Credit Refill Section */}
           <div className="max-w-5xl mx-auto mb-16">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-serif font-light mb-2">Need More Credits?</h2>
-              <p className="text-muted-foreground">
+              <h2 className="text-2xl font-luxury text-white/[0.92] mb-2">Need More Credits?</h2>
+              <p className="text-white/50">
                 Purchase additional credit packs anytime based on your plan.
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Free Refill */}
-              <Card className={currentPlan !== "free" ? 'opacity-60' : 'ring-1 ring-primary/20'}>
+              <Card className={cn(
+                "rounded-[16px]",
+                "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+                "border border-white/[0.10]",
+                currentPlan !== "free" && "opacity-60"
+              )}>
                 <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
                   <div className="text-center">
-                    <Badge variant="outline" className="mb-2">Free Plan</Badge>
-                    <div className="text-2xl font-bold">{CREDIT_REFILLS.free.credits.toLocaleString()} Credits</div>
-                    <p className="text-sm text-muted-foreground">
+                    <Badge variant="outline" className="mb-2 border-white/20 text-white/70">Free Plan</Badge>
+                    <div className="text-2xl font-bold text-white">{CREDIT_REFILLS.free.credits.toLocaleString()} Credits</div>
+                    <p className="text-sm text-white/50">
                       ${CREDIT_REFILLS.free.perCredit.toFixed(3)} per credit
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-2xl font-bold">${CREDIT_REFILLS.free.price}</div>
+                    <div className="text-2xl font-bold text-white">${CREDIT_REFILLS.free.price}</div>
                     <Button
                       onClick={handleRefill}
                       disabled={loadingRefill || currentPlan !== "free"}
                       size="sm"
+                      className="bg-white text-black hover:bg-white/90"
                     >
                       {loadingRefill && currentPlan === "free" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
                     </Button>
@@ -265,21 +299,27 @@ const Pricing = () => {
               </Card>
 
               {/* Starter Refill */}
-              <Card className={currentPlan !== "starter" ? 'opacity-60' : 'ring-1 ring-primary/20'}>
+              <Card className={cn(
+                "rounded-[16px]",
+                "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+                "border border-white/[0.10]",
+                currentPlan !== "starter" && "opacity-60"
+              )}>
                 <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
                   <div className="text-center">
-                    <Badge variant="outline" className="mb-2">Starter Plan</Badge>
-                    <div className="text-2xl font-bold">{CREDIT_REFILLS.starter.credits.toLocaleString()} Credits</div>
-                    <p className="text-sm text-muted-foreground">
+                    <Badge variant="outline" className="mb-2 border-white/20 text-white/70">Starter Plan</Badge>
+                    <div className="text-2xl font-bold text-white">{CREDIT_REFILLS.starter.credits.toLocaleString()} Credits</div>
+                    <p className="text-sm text-white/50">
                       ${CREDIT_REFILLS.starter.perCredit.toFixed(3)} per credit
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-2xl font-bold">${CREDIT_REFILLS.starter.price}</div>
+                    <div className="text-2xl font-bold text-white">${CREDIT_REFILLS.starter.price}</div>
                     <Button
                       onClick={handleRefill}
                       disabled={loadingRefill || currentPlan !== "starter"}
                       size="sm"
+                      className="bg-white text-black hover:bg-white/90"
                     >
                       {loadingRefill && currentPlan === "starter" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
                     </Button>
@@ -288,21 +328,27 @@ const Pricing = () => {
               </Card>
 
               {/* Pro Refill */}
-              <Card className={currentPlan !== "pro" ? 'opacity-60' : 'ring-1 ring-primary/20'}>
+              <Card className={cn(
+                "rounded-[16px]",
+                "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+                "border border-white/[0.10]",
+                currentPlan !== "pro" && "opacity-60"
+              )}>
                 <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
                   <div className="text-center">
-                    <Badge variant="outline" className="mb-2">Pro Plan</Badge>
-                    <div className="text-2xl font-bold">{CREDIT_REFILLS.pro.credits.toLocaleString()} Credits</div>
-                    <p className="text-sm text-muted-foreground">
+                    <Badge variant="outline" className="mb-2 border-white/20 text-white/70">Pro Plan</Badge>
+                    <div className="text-2xl font-bold text-white">{CREDIT_REFILLS.pro.credits.toLocaleString()} Credits</div>
+                    <p className="text-sm text-white/50">
                       ${CREDIT_REFILLS.pro.perCredit.toFixed(3)} per credit
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-2xl font-bold">${CREDIT_REFILLS.pro.price}</div>
+                    <div className="text-2xl font-bold text-white">${CREDIT_REFILLS.pro.price}</div>
                     <Button
                       onClick={handleRefill}
                       disabled={loadingRefill || currentPlan !== "pro"}
                       size="sm"
+                      className="bg-white text-black hover:bg-white/90"
                     >
                       {loadingRefill && currentPlan === "pro" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
                     </Button>
@@ -311,21 +357,27 @@ const Pricing = () => {
               </Card>
 
               {/* Enterprise Refill */}
-              <Card className={currentPlan !== "enterprise" ? 'opacity-60' : 'ring-1 ring-primary/20'}>
+              <Card className={cn(
+                "rounded-[16px]",
+                "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+                "border border-white/[0.10]",
+                currentPlan !== "enterprise" && "opacity-60"
+              )}>
                 <CardContent className="flex flex-col items-center justify-between gap-4 py-6">
                   <div className="text-center">
-                    <Badge variant="outline" className="mb-2">Enterprise Plan</Badge>
-                    <div className="text-2xl font-bold">{CREDIT_REFILLS.enterprise.credits.toLocaleString()} Credits</div>
-                    <p className="text-sm text-muted-foreground">
+                    <Badge variant="outline" className="mb-2 border-white/20 text-white/70">Enterprise Plan</Badge>
+                    <div className="text-2xl font-bold text-white">{CREDIT_REFILLS.enterprise.credits.toLocaleString()} Credits</div>
+                    <p className="text-sm text-white/50">
                       ${CREDIT_REFILLS.enterprise.perCredit.toFixed(3)} per credit
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-2xl font-bold">${CREDIT_REFILLS.enterprise.price}</div>
+                    <div className="text-2xl font-bold text-white">${CREDIT_REFILLS.enterprise.price}</div>
                     <Button
                       onClick={handleRefill}
                       disabled={loadingRefill || currentPlan !== "enterprise"}
                       size="sm"
+                      className="bg-white text-black hover:bg-white/90"
                     >
                       {loadingRefill && currentPlan === "enterprise" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
                     </Button>
@@ -338,19 +390,23 @@ const Pricing = () => {
           {/* Credit Usage Table */}
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-serif font-light mb-2">How Credits Work</h2>
-              <p className="text-muted-foreground">
+              <h2 className="text-2xl font-luxury text-white/[0.92] mb-2">How Credits Work</h2>
+              <p className="text-white/50">
                 All actions available to all users. Credits are deducted per action.
               </p>
             </div>
 
-            <Card>
+            <Card className={cn(
+              "rounded-[20px]",
+              "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+              "border border-white/[0.10]"
+            )}>
               <CardContent className="pt-6">
-                <div className="divide-y divide-border">
+                <div className="divide-y divide-white/10">
                   {CREDIT_USAGE.map((item, index) => (
                     <div key={index} className="flex justify-between py-3">
-                      <span className="text-muted-foreground">{item.action}</span>
-                      <span className="font-medium">{item.credits} credits</span>
+                      <span className="text-white/60">{item.action}</span>
+                      <span className="font-medium text-white">{item.credits} credits</span>
                     </div>
                   ))}
                 </div>
