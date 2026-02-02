@@ -17,7 +17,7 @@ interface ChatViewProps {
   onToggleFavorite: (messageId: string) => void;
   onDeleteMessage: (messageId: string) => void;
   onNewChat: () => void;
-  onSelectPrompt?: (prompt: string) => void;
+  onSelectPrompt?: (prompt: string, mode?: "quick" | "deep", model?: string) => void;
   onFollowUpClick?: (question: string) => void;
   domainSnapshot?: string | null;
   domainSnapshotLoading?: boolean;
