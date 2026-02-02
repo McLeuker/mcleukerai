@@ -73,7 +73,7 @@ const Dashboard = () => {
   const showBottomInput = !(currentSector === "all" && messages.length === 0);
 
   return (
-    <div className="min-h-screen bg-black flex w-full">
+    <div className="min-h-screen bg-black flex w-full overflow-x-hidden">
       {/* Desktop Sidebar */}
       <ChatSidebar
         conversations={conversations}

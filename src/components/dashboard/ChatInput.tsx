@@ -96,10 +96,11 @@ export function ChatInput({
           }
           disabled={isLoading}
           className={cn(
-            "min-h-[60px] max-h-[200px] pr-14 resize-none",
-            "bg-black border border-white/15 text-white",
-            "focus:ring-1 focus:ring-white/20 focus:border-white/30",
-            "placeholder:text-white/40"
+            "min-h-[60px] max-h-[200px] pr-14 resize-none rounded-2xl",
+            "bg-zinc-800 border border-white/10 text-white",
+            "focus:ring-1 focus:ring-white/20 focus:border-white/20",
+            "placeholder:text-white/50",
+            "shadow-lg"
           )}
           rows={2}
         />

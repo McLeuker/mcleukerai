@@ -118,20 +118,31 @@ export function ChatMessageComponent({
 
   return (
     <div className={cn(
-      "px-4 md:px-8 py-2",
+      "px-6 md:px-10 py-2",
       isUser ? "flex justify-end" : "flex justify-start"
     )}>
       {/* Message Bubble */}
       <div
         className={cn(
-          "relative group rounded-2xl px-5 py-4 max-w-[80%]",
+          "relative group rounded-2xl px-5 py-4 max-w-[75%]",
           "bg-white text-black shadow-sm",
+          "break-words",
           message.is_favorite && "ring-2 ring-yellow-400/50"
         )}
+        style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
       >
         {/* User Message */}
         {isUser ? (
           <div className="space-y-2">
+            {/* User Header */}
+            <div className="flex items-center gap-2 text-xs text-black/60 mb-2">
+              <div className="w-5 h-5 rounded-full bg-black/10 flex items-center justify-center">
+                <User className="h-3 w-3 text-black/50" />
+              </div>
+              <span className="font-medium text-black/70">You</span>
+              <span>·</span>
+              <span>{formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}</span>
+            </div>
             <p className="text-[15px] leading-relaxed whitespace-pre-wrap text-black">
               {sanitizedContent}
             </p>
@@ -223,8 +234,8 @@ export function ChatMessageComponent({
                 )}
               </div>
             ) : (
-              /* Normal Content */
-              <div className="prose prose-sm max-w-none prose-headings:text-black prose-p:text-black prose-strong:text-black prose-li:text-black">
+            /* Normal Content */
+              <div className="chat-message-content">
                 {/* Reasoning Display */}
                 {message.reasoning && message.reasoning.length > 0 && (
                   <ReasoningDisplay reasoning={message.reasoning.join('\n')} />
@@ -234,120 +245,58 @@ export function ChatMessageComponent({
                   remarkPlugins={[remarkGfm]}
                   components={{
                     h1: ({ children }) => (
-                      <h1 className="font-editorial text-2xl text-black mt-6 mb-4 first:mt-0 pb-2 border-b border-black/10">
-                        {children}
-                      </h1>
+                      <p className="font-semibold text-black mt-4 mb-2 first:mt-0">{children}</p>
                     ),
                     h2: ({ children }) => (
-                      <h2 className="font-editorial text-xl text-black mt-6 mb-3 flex items-center gap-2">
-                        <span className="w-1 h-5 bg-black rounded-full" />
-                        {children}
-                      </h2>
+                      <p className="font-semibold text-black mt-4 mb-2">{children}</p>
                     ),
                     h3: ({ children }) => (
-                      <h3 className="text-base font-semibold text-black mt-4 mb-2">{children}</h3>
+                      <p className="font-medium text-black mt-3 mb-2">{children}</p>
                     ),
-                    p: ({ children }) => {
-                      const childText = extractTextFromChildren(children);
-                      const hasTrendUp = childText.includes("↑");
-                      const hasTrendDown = childText.includes("↓");
-                      const hasCitations = /\[\d+\]/.test(childText);
-
-                      if ((hasTrendUp || hasTrendDown) && typeof children === "string") {
-                        return (
-                          <p className="text-black leading-relaxed mb-4 text-[15px] flex items-center gap-1 flex-wrap">
-                            {childText.split(/(↑|↓)/).map((part, i) => {
-                              if (part === "↑") return <TrendIndicator key={i} direction="up" showIcon={false} />;
-                              if (part === "↓") return <TrendIndicator key={i} direction="down" showIcon={false} />;
-                              return <span key={i}>{part}</span>;
-                            })}
-                          </p>
-                        );
-                      }
-
-                      if (hasCitations && typeof children === "string") {
-                        return (
-                          <p className="text-black leading-relaxed mb-4 text-[15px]">
-                            {childText.split(/(\[\d+\])/).map((part, i) => {
-                              if (/^\[\d+\]$/.test(part)) {
-                                const num = part.slice(1, -1);
-                                return (
-                                  <sup key={i} className="text-xs font-medium text-black/50 hover:text-black cursor-pointer ml-0.5" title={`Citation ${num}`}>
-                                    {part}
-                                  </sup>
-                                );
-                              }
-                              return <span key={i}>{part}</span>;
-                            })}
-                          </p>
-                        );
-                      }
-
-                      return <p className="text-black leading-relaxed mb-4 text-[15px]">{children}</p>;
-                    },
-                    ul: ({ children }) => <ul className="list-none pl-0 mb-4 space-y-2">{children}</ul>,
-                    ol: ({ children }) => <ol className="list-decimal pl-5 mb-4 space-y-2">{children}</ol>,
+                    p: ({ children }) => (
+                      <p className="text-black leading-relaxed mb-3 last:mb-0">{children}</p>
+                    ),
+                    ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
                     li: ({ children }) => (
-                      <li className="text-black text-[15px] flex items-start gap-2">
-                        <span className="text-black/40 mt-1.5 text-xs">●</span>
-                        <span className="flex-1">{children}</span>
-                      </li>
+                      <li className="text-black">{children}</li>
                     ),
                     strong: ({ children }) => <strong className="font-semibold text-black">{children}</strong>,
                     table: ({ children }) => (
-                      <div className="overflow-x-auto my-5 rounded-xl border border-black/10 shadow-sm">
+                      <div className="overflow-x-auto my-4 rounded-lg border border-black/10">
                         <table className="min-w-full divide-y divide-black/10">{children}</table>
                       </div>
                     ),
                     thead: ({ children }) => <thead className="bg-black/5">{children}</thead>,
                     tr: ({ children }) => <tr className="hover:bg-black/5 transition-colors">{children}</tr>,
                     th: ({ children }) => (
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-black uppercase tracking-wider whitespace-nowrap">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-black uppercase tracking-wider whitespace-nowrap">
                         {children}
                       </th>
                     ),
-                    td: ({ children }) => {
-                      const cellText = extractTextFromChildren(children);
-                      if (typeof children === "string" && (cellText.includes("↑") || cellText.includes("positive") || cellText.includes("Positive"))) {
-                        return (
-                          <td className="px-4 py-3 text-sm text-black border-t border-black/10">
-                            <span className="flex items-center gap-1.5">
-                              {children}
-                              <TrendIndicator direction="up" showIcon />
-                            </span>
-                          </td>
-                        );
-                      }
-                      if (typeof children === "string" && (cellText.includes("↓") || cellText.includes("negative") || cellText.includes("Negative"))) {
-                        return (
-                          <td className="px-4 py-3 text-sm text-black border-t border-black/10">
-                            <span className="flex items-center gap-1.5">
-                              {children}
-                              <TrendIndicator direction="down" showIcon />
-                            </span>
-                          </td>
-                        );
-                      }
-                      return <td className="px-4 py-3 text-sm text-black border-t border-black/10">{children}</td>;
-                    },
+                    td: ({ children }) => (
+                      <td className="px-3 py-2 text-sm text-black border-t border-black/10">{children}</td>
+                    ),
                     blockquote: ({ children }) => (
-                      <blockquote className="border-l-3 border-black/30 pl-4 py-2 my-4 bg-black/5 rounded-r-lg">
+                      <blockquote className="border-l-2 border-black/30 pl-4 py-1 my-3 bg-black/5 rounded-r">
                         <span className="text-black italic">{children}</span>
                       </blockquote>
                     ),
                     code: ({ children }) => (
                       <code className="bg-black/5 px-1.5 py-0.5 rounded text-sm font-mono text-black">{children}</code>
                     ),
-                    hr: () => <hr className="my-6 border-t border-black/10" />,
+                    pre: ({ children }) => (
+                      <pre className="overflow-x-auto max-w-full p-3 rounded-lg bg-black/5 my-3">{children}</pre>
+                    ),
+                    hr: () => <hr className="my-4 border-t border-black/10" />,
                     a: ({ href, children }) => (
                       <a
                         href={href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-black hover:text-black/70 underline underline-offset-2 inline-flex items-center gap-1"
+                        className="text-black underline underline-offset-2 hover:text-black/70"
                       >
                         {children}
-                        <ExternalLink className="h-3 w-3" />
                       </a>
                     ),
                   }}
