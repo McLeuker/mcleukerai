@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, ChevronRight, Leaf, Sparkles, TrendingUp, Search, BarChart3, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Footer } from "@/components/layout/Footer";
+import { cn } from "@/lib/utils";
 import mcleukerLogo from "@/assets/mcleuker-logo.png";
-import heroImage from "@/assets/hero-luxury.jpg";
+import heroRunwayImage from "@/assets/hero-runway.jpg";
 import atelierImage from "@/assets/fashion-atelier.jpg";
 import sustainableImage from "@/assets/sustainable-materials.jpg";
 
@@ -27,7 +28,6 @@ const Landing = () => {
     e.preventDefault();
     if (prompt.trim()) {
       if (user) {
-        // Store prompt for immediate execution in Dashboard
         sessionStorage.setItem("domainPrompt", prompt);
         sessionStorage.setItem("domainContext", "all");
         navigate("/dashboard");
@@ -42,25 +42,21 @@ const Landing = () => {
       icon: TrendingUp,
       title: "Trend Forecasting",
       prompt: "Analyze SS26 womenswear trends from Milan and Paris Fashion Week",
-      gradient: "from-rose-500/10 to-orange-500/10"
     },
     {
       icon: Search,
       title: "Supplier Research",
       prompt: "Find sustainable denim suppliers in Europe with MOQ under 500 units",
-      gradient: "from-blue-500/10 to-cyan-500/10"
     },
     {
       icon: BarChart3,
       title: "Market Intelligence",
       prompt: "Compare luxury handbag pricing across US, EU, and Asian markets",
-      gradient: "from-violet-500/10 to-purple-500/10"
     },
     {
       icon: ShieldCheck,
       title: "Sustainability Audit",
       prompt: "Map sustainability certifications for European fashion brands",
-      gradient: "from-emerald-500/10 to-teal-500/10"
     }
   ];
 
@@ -102,14 +98,15 @@ const Landing = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Sticky Navigation */}
+    <div className="min-h-screen bg-[#070707] overflow-x-hidden">
+      {/* Sticky Navigation - Dark Theme */}
       <header 
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        className={cn(
+          "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
           isScrolled 
-            ? "bg-background/95 backdrop-blur-md border-b border-border" 
+            ? "bg-gradient-to-b from-[#0D0D0D]/95 to-[#0A0A0A]/95 backdrop-blur-md border-b border-white/[0.08]" 
             : "bg-transparent"
-        }`}
+        )}
       >
         <div className="container mx-auto px-6 lg:px-12 h-16 lg:h-20 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
@@ -121,23 +118,23 @@ const Landing = () => {
           </Link>
           
           <nav className="hidden lg:flex items-center gap-10">
-            <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors link-underline">
+            <Link to="/about" className="text-sm text-white/60 hover:text-white/90 transition-colors">
               About
             </Link>
-            <Link to="/services" className="text-sm text-muted-foreground hover:text-foreground transition-colors link-underline">
+            <Link to="/services" className="text-sm text-white/60 hover:text-white/90 transition-colors">
               Solutions
             </Link>
-            <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors link-underline">
+            <Link to="/pricing" className="text-sm text-white/60 hover:text-white/90 transition-colors">
               Pricing
             </Link>
-            <Link to="/contact" className="text-sm text-muted-foreground hover:text-foreground transition-colors link-underline">
+            <Link to="/contact" className="text-sm text-white/60 hover:text-white/90 transition-colors">
               Contact
             </Link>
           </nav>
 
           <nav className="flex items-center gap-4">
             {user ? (
-              <Button size="sm" className="px-6" asChild>
+              <Button size="sm" className="px-6 bg-white text-black hover:bg-white/90" asChild>
                 <Link to="/dashboard">
                   Enter Workspace
                   <ChevronRight className="h-4 w-4 ml-1" />
@@ -145,10 +142,10 @@ const Landing = () => {
               </Button>
             ) : (
               <>
-                <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
+                <Button variant="ghost" size="sm" className="hidden sm:inline-flex text-white/70 hover:text-white hover:bg-white/10" asChild>
                   <Link to="/login">Sign In</Link>
                 </Button>
-                <Button size="sm" className="px-6" asChild>
+                <Button size="sm" className="px-6 bg-white text-black hover:bg-white/90" asChild>
                   <Link to="/signup">Get Started</Link>
                 </Button>
               </>
@@ -157,28 +154,38 @@ const Landing = () => {
         </div>
       </header>
 
-      {/* Experience the Platform - TOP SECTION */}
-      <section className="pt-24 lg:pt-28 pb-16 lg:pb-24 bg-foreground text-background">
+      {/* Experience the Platform - Premium Dark Section */}
+      <section className="pt-24 lg:pt-28 pb-16 lg:pb-24 bg-[#0A0A0A]">
         <div className="container mx-auto px-4 sm:px-6 lg:px-12">
           <div className="max-w-4xl mx-auto text-center">
-            <p className="text-xs sm:text-sm text-background/60 uppercase tracking-[0.2em] mb-3 sm:mb-4">
+            <p className="text-xs sm:text-sm text-white/50 uppercase tracking-[0.2em] mb-3 sm:mb-4">
               Experience the Platform
             </p>
-            <h1 className="font-luxury text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-background mb-4 sm:mb-6 leading-[1.1]">
+            <h1 className="font-luxury text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-white/[0.92] mb-4 sm:mb-6 leading-[1.1]">
               Try McLeuker AI
             </h1>
-            <p className="text-background/70 text-base sm:text-lg mb-8 sm:mb-10 max-w-2xl mx-auto px-2">
+            <p className="text-white/65 text-base sm:text-lg mb-8 sm:mb-10 max-w-2xl mx-auto px-2">
               Describe your research task and let our AI deliver professional-grade intelligence.
             </p>
 
-            {/* Interactive Input */}
+            {/* Interactive Input - Dashboard Style */}
             <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-10 sm:mb-12 px-2">
               <div className="relative">
                 <textarea 
                   value={prompt} 
                   onChange={e => setPrompt(e.target.value)} 
                   placeholder="e.g., Analyze SS26 womenswear color trends from Milan and Paris..." 
-                  className="w-full h-28 sm:h-32 px-4 sm:px-6 py-4 sm:py-5 rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm sm:text-base shadow-elevated"
+                  className={cn(
+                    "w-full h-28 sm:h-32 px-4 sm:px-6 py-4 sm:py-5",
+                    "rounded-[20px]",
+                    "bg-gradient-to-b from-[#1B1B1B] to-[#111111]",
+                    "border border-white/[0.10]",
+                    "text-white/[0.88] placeholder:text-white/40",
+                    "focus:outline-none focus:border-white/[0.18]",
+                    "focus:ring-[3px] focus:ring-white/[0.06]",
+                    "resize-none text-sm sm:text-base",
+                    "shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
+                  )}
                   onKeyDown={e => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -189,7 +196,7 @@ const Landing = () => {
                 <Button 
                   type="submit" 
                   disabled={!prompt.trim()} 
-                  className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 px-4 sm:px-6"
+                  className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 px-4 sm:px-6 bg-white text-black hover:bg-white/90 disabled:bg-white/20 disabled:text-white/40"
                   size="sm"
                 >
                   <span className="hidden sm:inline">Run Task</span>
@@ -198,9 +205,9 @@ const Landing = () => {
               </div>
             </form>
 
-            {/* Suggestion Prompts - Enhanced Cards */}
+            {/* Suggestion Prompts - Graphite Cards */}
             <div className="max-w-4xl mx-auto px-2">
-              <p className="text-xs sm:text-sm text-background/50 uppercase tracking-[0.15em] mb-4 sm:mb-6">
+              <p className="text-xs sm:text-sm text-white/40 uppercase tracking-[0.15em] mb-4 sm:mb-6">
                 Try one of these examples
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -218,24 +225,27 @@ const Landing = () => {
                           setPrompt(suggestion.prompt);
                         }
                       }}
-                      className="group relative p-4 sm:p-5 rounded-xl bg-background/5 border border-background/10 hover:bg-background/15 hover:border-background/25 transition-all duration-300 text-left overflow-hidden"
+                      className={cn(
+                        "group relative p-4 sm:p-5 rounded-[18px]",
+                        "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+                        "border border-white/[0.10]",
+                        "hover:border-white/[0.18]",
+                        "transition-all duration-200 text-left"
+                      )}
                     >
-                      {/* Subtle gradient background */}
-                      <div className={`absolute inset-0 bg-gradient-to-br ${suggestion.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
-                      
                       <div className="relative flex items-start gap-3 sm:gap-4">
-                        <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-background/10 flex items-center justify-center group-hover:bg-background/20 transition-colors">
-                          <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-background/80" />
+                        <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-white/[0.08] flex items-center justify-center group-hover:bg-white/[0.12] transition-colors">
+                          <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-white/70" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm sm:text-base font-medium text-background mb-1 sm:mb-1.5">
+                          <p className="text-sm sm:text-base font-medium text-white/[0.92] mb-1 sm:mb-1.5">
                             {suggestion.title}
                           </p>
-                          <p className="text-xs sm:text-sm text-background/60 leading-relaxed line-clamp-2">
+                          <p className="text-xs sm:text-sm text-white/55 leading-relaxed line-clamp-2">
                             {suggestion.prompt}
                           </p>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-background/40 group-hover:text-background/70 group-hover:translate-x-1 transition-all flex-shrink-0 mt-1" />
+                        <ArrowRight className="w-4 h-4 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all flex-shrink-0 mt-1" />
                       </div>
                     </button>
                   );
@@ -246,112 +256,159 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Hero Section */}
+      {/* Hero Section - Grayscale Runway Image */}
       <section className="relative min-h-[70vh] lg:min-h-[80vh] flex items-center justify-center overflow-hidden">
-        {/* Background Image */}
+        {/* Background Image with Grayscale + Dark Overlay */}
         <div className="absolute inset-0">
           <img 
-            src={heroImage} 
-            alt="Luxury fashion materials" 
+            src={heroRunwayImage} 
+            alt="Fashion runway" 
             className="w-full h-full object-cover"
+            style={{
+              filter: 'grayscale(100%) contrast(1.08) brightness(0.85)'
+            }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background"></div>
+          {/* Dark gradient overlay for readability */}
+          <div 
+            className="absolute inset-0" 
+            style={{
+              background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.82) 60%, rgba(0,0,0,0.90) 100%)'
+            }}
+          />
         </div>
 
         {/* Hero Content */}
         <div className="relative z-10 container mx-auto px-6 lg:px-12 py-20 lg:py-32">
           <div className="max-w-4xl mx-auto text-center">
-            {/* Tagline */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 mb-8 lg:mb-10 animate-fade-in">
-              <Sparkles className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground tracking-wide">
+            {/* Tagline - Graphite Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#141414]/80 backdrop-blur-sm border border-white/[0.12] mb-8 lg:mb-10">
+              <Sparkles className="w-4 h-4 text-white/60" />
+              <span className="text-sm text-white/70 tracking-wide">
                 AI & Sustainability for Fashion
               </span>
             </div>
 
             {/* Main Headline */}
-            <h2 className="font-luxury text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-foreground mb-6 lg:mb-8 leading-[1.05] animate-fade-in-slow">
+            <h2 className="font-luxury text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-white/[0.92] mb-6 lg:mb-8 leading-[1.05]">
               The Future of<br />Fashion Intelligence
             </h2>
 
             {/* Subheadline */}
-            <p className="text-base md:text-lg lg:text-xl text-muted-foreground mb-10 lg:mb-12 max-w-2xl mx-auto leading-relaxed animate-fade-in">
+            <p className="text-base md:text-lg lg:text-xl text-white/65 mb-10 lg:mb-12 max-w-2xl mx-auto leading-relaxed">
               From a single prompt to finished reports, sourcing sheets, and presentation decks. 
               AI-powered research for fashion professionals who demand excellence.
             </p>
 
             {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up">
-              <Button size="lg" className="px-8 py-6 text-base" asChild>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Button size="lg" className="px-8 py-6 text-base bg-white text-black hover:bg-white/90" asChild>
                 <Link to="/signup">
-                  Discover McLeuker AI
+                  Open Dashboard
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" className="px-8 py-6 text-base bg-background/50 backdrop-blur-sm" asChild>
-                <Link to="/contact">
-                  Request a Demo
+              <Button size="lg" variant="outline" className="px-8 py-6 text-base bg-transparent border-white/20 text-white hover:bg-white/10" asChild>
+                <Link to="/domain/fashion">
+                  Explore Domains
                 </Link>
               </Button>
+            </div>
+
+            {/* Try a prompt input */}
+            <div className="mt-12 max-w-xl mx-auto">
+              <p className="text-xs text-white/40 uppercase tracking-widest mb-3">Or try a prompt</p>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleSubmit(e);
+                    }
+                  }}
+                  placeholder="e.g., Analyze SS26 color trends..."
+                  className={cn(
+                    "w-full px-5 py-4 rounded-[20px]",
+                    "bg-gradient-to-b from-[#1B1B1B] to-[#111111]",
+                    "border border-white/[0.10]",
+                    "text-white/[0.88] placeholder:text-white/40",
+                    "focus:outline-none focus:border-white/[0.18]",
+                    "focus:ring-[3px] focus:ring-white/[0.06]",
+                    "text-[15px]"
+                  )}
+                />
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Brand Statement */}
-      <section className="py-32 lg:py-40 bg-background">
+      {/* Brand Statement - Dark */}
+      <section className="py-32 lg:py-40 bg-[#070707]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className="font-luxury text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.2] mb-8">
+            <h2 className="font-luxury text-3xl md:text-4xl lg:text-5xl text-white/[0.92] leading-[1.2] mb-8">
               "We believe fashion intelligence should be as refined as the industry it serves."
             </h2>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-white/50 text-lg">
               — McLeuker AI
             </p>
           </div>
         </div>
       </section>
 
-      {/* Services Section */}
-      <section className="py-24 lg:py-32 bg-secondary/30">
+      {/* Services Section - Graphite Cards */}
+      <section className="py-24 lg:py-32 bg-[#0B0B0B]">
         <div className="container mx-auto px-6 lg:px-12">
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-[1120px] mx-auto">
             {/* Section Header */}
             <div className="text-center mb-20">
-              <p className="text-sm text-muted-foreground uppercase tracking-[0.2em] mb-4">
+              <p className="text-sm text-white/50 uppercase tracking-[0.2em] mb-4">
                 Our Expertise
               </p>
-              <h2 className="font-luxury text-4xl md:text-5xl text-foreground">
+              <h2 className="font-luxury text-4xl md:text-5xl text-white/[0.92]">
                 Comprehensive Solutions
               </h2>
             </div>
 
-            {/* Services Grid */}
-            <div className="grid md:grid-cols-2 gap-8 lg:gap-12 stagger-children">
+            {/* Services Grid - Graphite Cards */}
+            <div className="grid md:grid-cols-2 gap-8 lg:gap-10">
               {services.map((service, i) => (
                 <div 
                   key={i} 
-                  className="group p-8 lg:p-10 rounded-lg bg-card border border-border hover-lift cursor-pointer"
+                  className={cn(
+                    "group p-8 lg:p-10 rounded-[20px]",
+                    "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+                    "border border-white/[0.10]",
+                    "hover:border-white/[0.18]",
+                    "transition-all duration-200 cursor-pointer"
+                  )}
                 >
                   <div className="flex items-start justify-between mb-6">
-                    <span className="text-5xl font-luxury text-muted-foreground/20">
+                    <span className="text-5xl font-luxury text-white/15">
                       0{i + 1}
                     </span>
-                    <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all" />
+                    <ArrowRight className="w-5 h-5 text-white/40 group-hover:text-white/70 group-hover:translate-x-1 transition-all" />
                   </div>
-                  <h3 className="text-xl lg:text-2xl font-medium text-foreground mb-3">
+                  <h3 className="text-xl lg:text-2xl font-medium text-white/[0.92] mb-3">
                     {service.title}
                   </h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-white/60 leading-relaxed">
                     {service.description}
                   </p>
                 </div>
               ))}
             </div>
 
-            {/* CTA */}
+            {/* CTA - Graphite Button */}
             <div className="text-center mt-16">
-              <Button size="lg" variant="outline" className="px-8" asChild>
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="px-8 bg-[#141414] border-white/[0.10] text-white/80 hover:bg-[#1A1A1A] hover:border-white/[0.18]"
+                asChild
+              >
                 <Link to="/services">
                   Explore All Solutions
                   <ArrowRight className="h-4 w-4 ml-2" />
@@ -362,29 +419,32 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Visual Showcase - Atelier */}
-      <section className="py-24 lg:py-32">
+      {/* Visual Showcase - Atelier (with Grayscale Image) */}
+      <section className="py-24 lg:py-32 bg-[#070707]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-7xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-              {/* Image */}
-              <div className="relative image-zoom rounded-lg overflow-hidden shadow-elevated">
+              {/* Image with Grayscale Filter */}
+              <div className="relative rounded-[20px] overflow-hidden shadow-[0_14px_40px_rgba(0,0,0,0.55)]">
                 <img 
                   src={atelierImage} 
                   alt="Fashion atelier workspace" 
                   className="w-full aspect-[4/5] object-cover"
+                  style={{
+                    filter: 'grayscale(100%) contrast(1.05) brightness(0.9)'
+                  }}
                 />
               </div>
 
-              {/* Content */}
+              {/* Content - White Text */}
               <div className="lg:py-12">
-                <p className="text-sm text-muted-foreground uppercase tracking-[0.2em] mb-4">
+                <p className="text-sm text-white/50 uppercase tracking-[0.2em] mb-4">
                   Crafted for Excellence
                 </p>
-                <h2 className="font-luxury text-4xl md:text-5xl text-foreground mb-8 leading-[1.1]">
+                <h2 className="font-luxury text-4xl md:text-5xl text-white/[0.92] mb-8 leading-[1.1]">
                   Intelligence meets craftsmanship
                 </h2>
-                <p className="text-muted-foreground text-lg leading-relaxed mb-8">
+                <p className="text-white/65 text-lg leading-relaxed mb-8">
                   Just as the finest ateliers combine tradition with innovation, 
                   McLeuker AI blends deep fashion expertise with cutting-edge artificial intelligence. 
                   Every insight is curated, every report is refined.
@@ -395,13 +455,13 @@ const Landing = () => {
                     "Structured data exports ready for your workflow",
                     "Real deliverables, not just conversations"
                   ].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 text-foreground">
-                      <div className="w-1.5 h-1.5 rounded-full bg-foreground"></div>
+                    <li key={i} className="flex items-center gap-3 text-white/[0.85]">
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/60"></div>
                       {item}
                     </li>
                   ))}
                 </ul>
-                <Button size="lg" asChild>
+                <Button size="lg" className="bg-white text-black hover:bg-white/90" asChild>
                   <Link to="/signup">
                     Start Your Journey
                     <ArrowRight className="h-4 w-4 ml-2" />
@@ -413,38 +473,38 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Sustainability Focus */}
-      <section className="py-24 lg:py-32 bg-secondary/30">
+      {/* Sustainability Focus - Dark with Grayscale Image */}
+      <section className="py-24 lg:py-32 bg-[#0B0B0B]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-7xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
               {/* Content - Left on desktop */}
               <div className="lg:py-12 order-2 lg:order-1">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border mb-6">
-                  <Leaf className="w-4 h-4 text-olive" />
-                  <span className="text-sm text-muted-foreground">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#141414] border border-white/[0.10] mb-6">
+                  <Leaf className="w-4 h-4 text-white/60" />
+                  <span className="text-sm text-white/60">
                     Sustainability First
                   </span>
                 </div>
-                <h2 className="font-luxury text-4xl md:text-5xl text-foreground mb-8 leading-[1.1]">
+                <h2 className="font-luxury text-4xl md:text-5xl text-white/[0.92] mb-8 leading-[1.1]">
                   Fashion with purpose
                 </h2>
-                <p className="text-muted-foreground text-lg leading-relaxed mb-8">
+                <p className="text-white/65 text-lg leading-relaxed mb-8">
                   Sustainability isn't an afterthought—it's woven into everything we do. 
                   From supplier certifications to impact assessments, we help brands 
                   make informed decisions that benefit both business and planet.
                 </p>
                 <div className="grid grid-cols-2 gap-8 mb-10">
                   <div>
-                    <p className="text-4xl font-luxury text-foreground mb-2">85%</p>
-                    <p className="text-sm text-muted-foreground">Time saved on sustainability research</p>
+                    <p className="text-4xl font-luxury text-white/[0.92] mb-2">85%</p>
+                    <p className="text-sm text-white/50">Time saved on sustainability research</p>
                   </div>
                   <div>
-                    <p className="text-4xl font-luxury text-foreground mb-2">100+</p>
-                    <p className="text-sm text-muted-foreground">Certification databases tracked</p>
+                    <p className="text-4xl font-luxury text-white/[0.92] mb-2">100+</p>
+                    <p className="text-sm text-white/50">Certification databases tracked</p>
                   </div>
                 </div>
-                <Button size="lg" variant="outline" asChild>
+                <Button size="lg" variant="outline" className="bg-[#141414] border-white/[0.10] text-white hover:bg-[#1A1A1A] hover:border-white/[0.18]" asChild>
                   <Link to="/about">
                     Learn About Our Mission
                     <ArrowRight className="h-4 w-4 ml-2" />
@@ -452,12 +512,15 @@ const Landing = () => {
                 </Button>
               </div>
 
-              {/* Image - Right on desktop */}
-              <div className="relative image-zoom rounded-lg overflow-hidden shadow-elevated order-1 lg:order-2">
+              {/* Image - Right on desktop (with Grayscale) */}
+              <div className="relative rounded-[20px] overflow-hidden shadow-[0_14px_40px_rgba(0,0,0,0.55)] order-1 lg:order-2">
                 <img 
                   src={sustainableImage} 
                   alt="Sustainable fashion materials" 
                   className="w-full aspect-[4/5] object-cover"
+                  style={{
+                    filter: 'grayscale(100%) contrast(1.05) brightness(0.9)'
+                  }}
                 />
               </div>
             </div>
@@ -465,35 +528,40 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-24 lg:py-32 bg-background">
+      {/* Testimonials - Dark with Graphite Cards */}
+      <section className="py-24 lg:py-32 bg-[#0A0A0A]">
         <div className="container mx-auto px-6 lg:px-12">
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-[1120px] mx-auto">
             {/* Section Header */}
             <div className="text-center mb-20">
-              <p className="text-sm text-muted-foreground uppercase tracking-[0.2em] mb-4">
+              <p className="text-sm text-white/50 uppercase tracking-[0.2em] mb-4">
                 Trusted by Industry Leaders
               </p>
-              <h2 className="font-luxury text-4xl md:text-5xl text-foreground">
+              <h2 className="font-luxury text-4xl md:text-5xl text-white/[0.92]">
                 What Our Clients Say
               </h2>
             </div>
 
-            {/* Testimonials Grid */}
-            <div className="grid md:grid-cols-3 gap-8 stagger-children">
+            {/* Testimonials Grid - Graphite Cards */}
+            <div className="grid md:grid-cols-3 gap-6">
               {testimonials.map((testimonial, i) => (
                 <div 
                   key={i} 
-                  className="p-8 rounded-lg bg-card border border-border hover-lift"
+                  className={cn(
+                    "p-8 rounded-[20px]",
+                    "bg-gradient-to-b from-[#232323] to-[#191919]",
+                    "border border-white/[0.12]",
+                    "shadow-[0_14px_40px_rgba(0,0,0,0.55)]"
+                  )}
                 >
-                  <blockquote className="text-foreground text-lg leading-relaxed mb-8">
+                  <blockquote className="text-white/[0.85] text-lg leading-relaxed mb-8">
                     "{testimonial.quote}"
                   </blockquote>
                   <div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-white/[0.92]">
                       {testimonial.author}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-white/50">
                       {testimonial.company}
                     </p>
                   </div>
@@ -504,17 +572,17 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Secondary CTA Section */}
-      <section className="py-20 lg:py-28 bg-secondary/50">
+      {/* Secondary CTA Section - Dark */}
+      <section className="py-20 lg:py-28 bg-[#0B0B0B]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="font-luxury text-3xl md:text-4xl text-foreground mb-6">
+            <h2 className="font-luxury text-3xl md:text-4xl text-white/[0.92] mb-6">
               Ready to transform your research?
             </h2>
-            <p className="text-muted-foreground text-lg mb-8">
+            <p className="text-white/60 text-lg mb-8">
               Join leading fashion brands leveraging AI-powered insights.
             </p>
-            <Button size="lg" className="px-8" asChild>
+            <Button size="lg" className="px-8 bg-white text-black hover:bg-white/90" asChild>
               <Link to="/signup">
                 Start Free Trial
                 <ArrowRight className="h-4 w-4 ml-2" />
@@ -524,24 +592,29 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="py-32 lg:py-40 bg-background">
+      {/* Final CTA - Dark */}
+      <section className="py-32 lg:py-40 bg-[#070707]">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="font-luxury text-4xl md:text-5xl lg:text-6xl text-foreground mb-8 leading-[1.1]">
+            <h2 className="font-luxury text-4xl md:text-5xl lg:text-6xl text-white/[0.92] mb-8 leading-[1.1]">
               Elevate your fashion intelligence
             </h2>
-            <p className="text-muted-foreground text-lg mb-12 max-w-xl mx-auto">
+            <p className="text-white/60 text-lg mb-12 max-w-xl mx-auto">
               Join leading fashion brands transforming their research with AI-powered insights.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button size="lg" className="px-10 py-6 text-base" asChild>
+              <Button size="lg" className="px-10 py-6 text-base bg-white text-black hover:bg-white/90" asChild>
                 <Link to="/signup">
                   Start Free Trial
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" className="px-10 py-6 text-base" asChild>
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="px-10 py-6 text-base bg-[#141414] border-white/[0.10] text-white hover:bg-[#1A1A1A]"
+                asChild
+              >
                 <Link to="/pricing">
                   View Pricing
                 </Link>
