@@ -106,7 +106,7 @@ export function ModelSelector({
                   size="sm"
                   disabled={disabled}
                   className={cn(
-                    "h-7 gap-1.5 px-2 text-xs font-medium text-muted-foreground hover:text-foreground",
+                    "h-7 gap-1.5 px-2 text-xs font-medium text-white/60 hover:text-white hover:bg-white/10",
                     disabled && "opacity-50 cursor-not-allowed"
                   )}
                 >

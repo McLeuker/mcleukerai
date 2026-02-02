@@ -68,8 +68,12 @@ const Dashboard = () => {
     await sendMessage(message, mode, model, currentSector);
   };
 
+  // Determine if we should show the bottom input
+  // Hide it when on "All Domains" with no messages (DomainStarterPanel has its own input)
+  const showBottomInput = !(currentSector === "all" && messages.length === 0);
+
   return (
-    <div className="min-h-screen bg-background flex w-full">
+    <div className="min-h-screen bg-black flex w-full">
       {/* Desktop Sidebar */}
       <ChatSidebar
         conversations={conversations}
@@ -91,7 +95,7 @@ const Dashboard = () => {
         />
 
         {/* Header Spacer */}
-        <div className="h-14 lg:h-[72px] bg-sidebar" />
+        <div className="h-14 lg:h-[72px] bg-black" />
 
         {/* Mobile Header */}
         <div className="lg:hidden border-b border-border bg-background/95 backdrop-blur-sm sticky top-14 z-30">
@@ -134,17 +138,19 @@ const Dashboard = () => {
             domainSnapshotLoading={snapshotLoading}
           />
 
-          {/* Input Area - visible across all domains */}
-          <div className="border-t border-border bg-background/95 backdrop-blur-sm p-4 sticky bottom-0">
-            <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 animate-fade-in">
-              <ChatInput
-                onSubmit={handleSendMessage}
-                isLoading={loading}
-                placeholder={sectorConfig.placeholder}
-                onCancel={cancelRequest}
-              />
+          {/* Input Area - conditionally shown */}
+          {showBottomInput && (
+            <div className="border-t border-white/10 bg-black p-4 sticky bottom-0">
+              <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 animate-fade-in">
+                <ChatInput
+                  onSubmit={handleSendMessage}
+                  isLoading={loading}
+                  placeholder={sectorConfig.placeholder}
+                  onCancel={cancelRequest}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </main>
       </div>
     </div>
