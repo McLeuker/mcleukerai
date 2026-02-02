@@ -13,7 +13,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { mcLeukerAPI } from "@/lib/mcLeukerAPI";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,46 +21,60 @@ import { useToast } from "@/hooks/use-toast";
 // TYPES
 // ============================================================================
 
-export interface Message {
+export interface Source {
+  title: string;
+  url: string;
+  snippet?: string;
+  source?: string;
+}
+
+export interface FileAttachment {
+  name: string;
+  url: string;
+  type: string;
+}
+
+export interface ChatMessage {
   id: string;
+  conversation_id: string;
+  user_id: string;
   role: "user" | "assistant";
   content: string;
-  timestamp: Date;
-  sources?: Array<{
-    title: string;
-    url: string;
-    snippet?: string;
-    source?: string;
-  }>;
+  model_used: string | null;
+  credits_used: number;
+  is_favorite: boolean;
+  created_at: string;
+  sources?: Source[];
   reasoning?: string[];
-  files?: Array<{
-    name: string;
-    url: string;
-    type: string;
-  }>;
+  files?: FileAttachment[];
   images?: string[];
   followUpQuestions?: string[];
-  isFavorite?: boolean;
   isPlaceholder?: boolean;
   isError?: boolean;
   canRetry?: boolean;
-  creditsUsed?: number;
   errorMessage?: string;
 }
 
 export interface Conversation {
   id: string;
   title: string;
-  messages: Message[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface ResearchState {
+  isResearching: boolean;
+  phase?: string;
+  currentStep?: number;
+  totalSteps?: number;
+  message?: string;
 }
 
 // ============================================================================
 // LOGGING
 // ============================================================================
 
-const DEBUG = true; // Enable for debugging
+const DEBUG = true;
 
 function log(category: string, message: string, data?: any) {
   if (DEBUG) {
@@ -72,10 +86,6 @@ function log(category: string, message: string, data?: any) {
 // ARTIFACT CLEANUP (Display-time only)
 // ============================================================================
 
-/**
- * Clean [object Object] artifacts from text
- * This is called at DISPLAY TIME only, not when saving
- */
 function cleanDisplayArtifacts(text: string): string {
   if (!text || typeof text !== 'string') return text || '';
   
@@ -89,14 +99,26 @@ function cleanDisplayArtifacts(text: string): string {
     .trim();
 }
 
-/**
- * Clean message for display (not storage)
- */
-function cleanMessageForDisplay(msg: any): Message {
+function cleanMessageForDisplay(msg: any): ChatMessage {
   return {
-    ...msg,
+    id: msg.id,
+    conversation_id: msg.conversation_id || "",
+    user_id: msg.user_id || "",
+    role: msg.role,
     content: cleanDisplayArtifacts(msg.content),
-    timestamp: new Date(msg.timestamp),
+    model_used: msg.model_used || null,
+    credits_used: msg.credits_used || 0,
+    is_favorite: msg.is_favorite || false,
+    created_at: msg.created_at || new Date().toISOString(),
+    sources: msg.sources,
+    reasoning: msg.reasoning,
+    files: msg.files,
+    images: msg.images,
+    followUpQuestions: msg.followUpQuestions,
+    isPlaceholder: msg.isPlaceholder,
+    isError: msg.isError,
+    canRetry: msg.canRetry,
+    errorMessage: msg.errorMessage,
   };
 }
 
@@ -111,13 +133,10 @@ export function useConversations() {
   // State
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
-  const [researchState, setResearchState] = useState<{
-    isResearching: boolean;
-    currentStep: string;
-    progress: number;
-  } | null>(null);
+  const [researchState, setResearchState] = useState<ResearchState | null>(null);
   
   // Abort controller for cancelling requests
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -143,9 +162,6 @@ export function useConversations() {
       const formattedConversations: Conversation[] = (data || []).map((conv) => ({
         id: conv.id,
         title: conv.title || "New Chat",
-        messages: Array.isArray(conv.messages) 
-          ? conv.messages.map(cleanMessageForDisplay)
-          : [],
         createdAt: new Date(conv.created_at),
         updatedAt: new Date(conv.updated_at),
       }));
@@ -157,47 +173,128 @@ export function useConversations() {
     }
   }, [user]);
 
+  // Load messages for current conversation
+  const loadMessages = useCallback(async (conversationId: string) => {
+    if (!user) return;
+
+    log('LOAD', 'Loading messages for conversation', conversationId);
+
+    try {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      const formattedMessages = (data || []).map(cleanMessageForDisplay);
+      log('LOAD', `Loaded ${formattedMessages.length} messages`);
+      setMessages(formattedMessages);
+    } catch (error) {
+      log('LOAD', 'Error loading messages', error);
+      setMessages([]);
+    }
+  }, [user]);
+
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
+
+  useEffect(() => {
+    if (currentConversation) {
+      loadMessages(currentConversation.id);
+    } else {
+      setMessages([]);
+    }
+  }, [currentConversation, loadMessages]);
+
+  // ============================================================================
+  // SELECT CONVERSATION
+  // ============================================================================
+
+  const selectConversation = useCallback((conversation: Conversation) => {
+    log('SELECT', 'Selecting conversation', conversation.id);
+    setCurrentConversation(conversation);
+  }, []);
 
   // ============================================================================
   // CREATE CONVERSATION
   // ============================================================================
 
-  const createConversation = useCallback(async () => {
+  const createNewConversation = useCallback(async () => {
     if (!user) return null;
 
     log('CREATE', 'Creating new conversation');
 
-    const newConversation: Conversation = {
-      id: crypto.randomUUID(),
-      title: "New Chat",
-      messages: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const newId = crypto.randomUUID();
+    const now = new Date();
 
     try {
       const { error } = await supabase.from("conversations").insert({
-        id: newConversation.id,
+        id: newId,
         user_id: user.id,
-        title: newConversation.title,
-        messages: [],
+        title: "New Chat",
       });
 
       if (error) throw error;
 
+      const newConversation: Conversation = {
+        id: newId,
+        title: "New Chat",
+        createdAt: now,
+        updatedAt: now,
+      };
+
       setConversations((prev) => [newConversation, ...prev]);
       setCurrentConversation(newConversation);
+      setMessages([]);
       
-      log('CREATE', 'Created conversation', newConversation.id);
+      log('CREATE', 'Created conversation', newId);
       return newConversation;
     } catch (error) {
       log('CREATE', 'Error creating conversation', error);
       return null;
     }
   }, [user]);
+
+  // ============================================================================
+  // DELETE CONVERSATION
+  // ============================================================================
+
+  const deleteConversation = useCallback(async (conversationId: string) => {
+    if (!user) return;
+
+    log('DELETE', 'Deleting conversation', conversationId);
+
+    try {
+      // Delete messages first
+      await supabase
+        .from("chat_messages")
+        .delete()
+        .eq("conversation_id", conversationId);
+
+      // Delete conversation
+      const { error } = await supabase
+        .from("conversations")
+        .delete()
+        .eq("id", conversationId);
+
+      if (error) throw error;
+
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      
+      if (currentConversation?.id === conversationId) {
+        setCurrentConversation(null);
+        setMessages([]);
+      }
+
+      toast({ title: "Chat deleted" });
+    } catch (error) {
+      log('DELETE', 'Error deleting conversation', error);
+      toast({ title: "Failed to delete chat", variant: "destructive" });
+    }
+  }, [user, currentConversation, toast]);
 
   // ============================================================================
   // CANCEL REQUEST
@@ -211,17 +308,66 @@ export function useConversations() {
       abortControllerRef.current = null;
     }
     
-    setIsLoading(false);
+    setLoading(false);
     setStreamingContent(null);
     setResearchState(null);
   }, []);
 
   // ============================================================================
-  // SEND MESSAGE - CORE FUNCTION
+  // TOGGLE FAVORITE
+  // ============================================================================
+
+  const toggleFavorite = useCallback(async (messageId: string) => {
+    const message = messages.find((m) => m.id === messageId);
+    if (!message) return;
+
+    const newValue = !message.is_favorite;
+
+    try {
+      const { error } = await supabase
+        .from("chat_messages")
+        .update({ is_favorite: newValue })
+        .eq("id", messageId);
+
+      if (error) throw error;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, is_favorite: newValue } : m
+        )
+      );
+    } catch (error) {
+      log('FAVORITE', 'Error toggling favorite', error);
+    }
+  }, [messages]);
+
+  // ============================================================================
+  // DELETE MESSAGE
+  // ============================================================================
+
+  const deleteMessage = useCallback(async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from("chat_messages")
+        .delete()
+        .eq("id", messageId);
+
+      if (error) throw error;
+
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      toast({ title: "Message deleted" });
+    } catch (error) {
+      log('DELETE', 'Error deleting message', error);
+      toast({ title: "Failed to delete message", variant: "destructive" });
+    }
+  }, [toast]);
+
+  // ============================================================================
+  // SEND MESSAGE
   // ============================================================================
 
   const sendMessage = useCallback(
-    async (content: string, mode: "quick" | "deep" = "quick") => {
+    async (content: string, mode: "quick" | "deep" = "quick", model?: string, sector?: string) => {
       if (!user || !content.trim()) {
         log('SEND', 'Aborted: no user or empty content');
         return;
@@ -232,7 +378,7 @@ export function useConversations() {
       // Create conversation if needed
       let conversation = currentConversation;
       if (!conversation) {
-        conversation = await createConversation();
+        conversation = await createNewConversation();
         if (!conversation) {
           log('SEND', 'Failed to create conversation');
           return;
@@ -243,50 +389,59 @@ export function useConversations() {
       abortControllerRef.current = new AbortController();
 
       // Create user message
-      const userMessage: Message = {
+      const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
+        conversation_id: conversation.id,
+        user_id: user.id,
         role: "user",
         content: content.trim(),
-        timestamp: new Date(),
+        model_used: null,
+        credits_used: 0,
+        is_favorite: false,
+        created_at: new Date().toISOString(),
       };
 
       // Create placeholder for assistant response
       const placeholderId = crypto.randomUUID();
-      const placeholderMessage: Message = {
+      const placeholderMessage: ChatMessage = {
         id: placeholderId,
+        conversation_id: conversation.id,
+        user_id: user.id,
         role: "assistant",
-        content: "Thinking...",
-        timestamp: new Date(),
+        content: mode === "deep" ? "Researching..." : "Thinking...",
+        model_used: null,
+        credits_used: 0,
+        is_favorite: false,
+        created_at: new Date().toISOString(),
         isPlaceholder: true,
       };
 
-      // Update UI immediately with user message and placeholder
-      const updatedMessages = [...conversation.messages, userMessage, placeholderMessage];
-      const updatedConversation = {
-        ...conversation,
-        messages: updatedMessages,
-        updatedAt: new Date(),
-      };
+      // Update UI immediately
+      setMessages((prev) => [...prev, userMessage, placeholderMessage]);
+      setLoading(true);
 
-      setCurrentConversation(updatedConversation);
-      setConversations((prev) =>
-        prev.map((c) => (c.id === conversation!.id ? updatedConversation : c))
-      );
-
-      // Set loading state
-      setIsLoading(true);
       if (mode === "deep") {
         setResearchState({
           isResearching: true,
-          currentStep: "Initializing research...",
-          progress: 0,
+          phase: "planning",
+          currentStep: 0,
+          totalSteps: 5,
+          message: "Initializing research...",
         });
       }
 
-      // OUTER TRY-FINALLY: Guarantees loading state ALWAYS resets
       try {
+        // Save user message to database
+        await supabase.from("chat_messages").insert({
+          id: userMessage.id,
+          conversation_id: conversation.id,
+          user_id: user.id,
+          role: "user",
+          content: userMessage.content,
+        });
+
         // Prepare conversation history
-        const history = conversation.messages.slice(-10).map((msg) => ({
+        const history = messages.slice(-10).map((msg) => ({
           role: msg.role,
           content: msg.content,
         }));
@@ -304,61 +459,32 @@ export function useConversations() {
         log('SEND', 'API response received', {
           success: chatResult.success,
           hasResponse: !!chatResult.response,
-          responseLength: chatResult.response?.length,
-          hasError: !!chatResult.error,
         });
 
-        // Handle needs_user_input response
-        if (chatResult.needs_user_input && chatResult.user_input_prompt) {
-          log('SEND', 'Backend needs more input');
-          
-          const assistantMessage: Message = {
-            id: placeholderId,
-            role: "assistant",
-            content: chatResult.user_input_prompt,
-            timestamp: new Date(),
-            isPlaceholder: false,
-          };
-
-          const finalMessages = updatedMessages.map((msg) =>
-            msg.id === placeholderId ? assistantMessage : msg
-          );
-
-          await this.saveAndUpdateConversation(conversation, finalMessages, content);
-          return;
-        }
-
-        // Handle ERROR response - TRANSPARENT, show actual error
+        // Handle ERROR response
         if (!chatResult.success || chatResult.error) {
           log('SEND', 'API returned error', chatResult.error);
           
-          const errorMessage: Message = {
+          const errorMessage: ChatMessage = {
             id: placeholderId,
+            conversation_id: conversation.id,
+            user_id: user.id,
             role: "assistant",
             content: chatResult.error || "An error occurred. Please try again.",
-            timestamp: new Date(),
+            model_used: null,
+            credits_used: 0,
+            is_favorite: false,
+            created_at: new Date().toISOString(),
             isPlaceholder: false,
             isError: true,
-            canRetry: chatResult.canRetry !== false,
+            canRetry: true,
             errorMessage: chatResult.error,
           };
 
-          const errorMessages = updatedMessages.map((msg) =>
-            msg.id === placeholderId ? errorMessage : msg
+          setMessages((prev) =>
+            prev.map((m) => (m.id === placeholderId ? errorMessage : m))
           );
 
-          const errorConversation = {
-            ...conversation,
-            messages: errorMessages,
-            updatedAt: new Date(),
-          };
-
-          setCurrentConversation(errorConversation);
-          setConversations((prev) =>
-            prev.map((c) => (c.id === conversation!.id ? errorConversation : c))
-          );
-
-          // Show toast for errors
           toast({
             title: "Request Failed",
             description: chatResult.error || "An error occurred",
@@ -368,93 +494,88 @@ export function useConversations() {
           return;
         }
 
-        // Handle SUCCESS response - TRANSPARENT, show actual content
+        // Handle SUCCESS response
         const responseContent = chatResult.response || chatResult.message || "";
         
-        log('SEND', 'Processing successful response', {
-          contentLength: responseContent.length,
-          preview: responseContent.substring(0, 100),
-        });
-
-        // Create assistant message with ACTUAL backend response
-        const assistantMessage: Message = {
+        const assistantMessage: ChatMessage = {
           id: placeholderId,
+          conversation_id: conversation.id,
+          user_id: user.id,
           role: "assistant",
-          content: responseContent, // ACTUAL response, no modification
-          timestamp: new Date(),
+          content: responseContent,
+          model_used: model || null,
+          credits_used: chatResult.credits_used || 1,
+          is_favorite: false,
+          created_at: new Date().toISOString(),
           sources: chatResult.sources,
           reasoning: chatResult.reasoning,
           files: chatResult.files,
           images: chatResult.images,
           followUpQuestions: chatResult.follow_up_questions,
-          creditsUsed: chatResult.credits_used || 1,
           isPlaceholder: false,
           isError: false,
         };
 
-        // Update conversation
-        const finalMessages = updatedMessages.map((msg) =>
-          msg.id === placeholderId ? assistantMessage : msg
+        setMessages((prev) =>
+          prev.map((m) => (m.id === placeholderId ? assistantMessage : m))
         );
 
-        const finalConversation = {
-          ...conversation,
-          messages: finalMessages,
-          title: conversation.title === "New Chat" 
-            ? content.slice(0, 50) + (content.length > 50 ? "..." : "")
-            : conversation.title,
-          updatedAt: new Date(),
-        };
+        // Save assistant message to database
+        await supabase.from("chat_messages").insert({
+          id: assistantMessage.id,
+          conversation_id: conversation.id,
+          user_id: user.id,
+          role: "assistant",
+          content: assistantMessage.content,
+          model_used: assistantMessage.model_used,
+          credits_used: assistantMessage.credits_used,
+        });
 
-        setCurrentConversation(finalConversation);
-        setConversations((prev) =>
-          prev.map((c) => (c.id === conversation!.id ? finalConversation : c))
-        );
+        // Update conversation title if it's new
+        if (conversation.title === "New Chat") {
+          const newTitle = content.slice(0, 50) + (content.length > 50 ? "..." : "");
+          await supabase
+            .from("conversations")
+            .update({ title: newTitle })
+            .eq("id", conversation.id);
 
-        // Save to database
-        await supabase
-          .from("conversations")
-          .update({
-            messages: finalMessages,
-            title: finalConversation.title,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", conversation.id);
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === conversation!.id ? { ...c, title: newTitle } : c
+            )
+          );
+          setCurrentConversation((prev) =>
+            prev ? { ...prev, title: newTitle } : prev
+          );
+        }
 
         log('SEND', 'Message sent successfully');
 
       } catch (error: any) {
         log('SEND', 'Unexpected error', error);
 
-        // Handle unexpected errors - TRANSPARENT
         const errorContent = error.name === "AbortError"
           ? "Request was cancelled."
           : `Unexpected error: ${error.message || "Unknown error"}`;
 
-        const errorMessage: Message = {
+        const errorMessage: ChatMessage = {
           id: placeholderId,
+          conversation_id: conversation.id,
+          user_id: user.id,
           role: "assistant",
           content: errorContent,
-          timestamp: new Date(),
+          model_used: null,
+          credits_used: 0,
+          is_favorite: false,
+          created_at: new Date().toISOString(),
           isPlaceholder: false,
           isError: true,
           canRetry: error.name !== "AbortError",
           errorMessage: error.message,
         };
 
-        const errorMessages = updatedMessages.map((msg) =>
-          msg.id === placeholderId ? errorMessage : msg
-        );
-
-        const errorConversation = {
-          ...conversation,
-          messages: errorMessages,
-          updatedAt: new Date(),
-        };
-
-        setCurrentConversation(errorConversation);
-        setConversations((prev) =>
-          prev.map((c) => (c.id === conversation!.id ? errorConversation : c))
+        setMessages((prev) =>
+          prev.map((m) => (m.id === placeholderId ? errorMessage : m))
         );
 
         if (error.name !== "AbortError") {
@@ -466,15 +587,14 @@ export function useConversations() {
         }
 
       } finally {
-        // GUARANTEED: Always reset loading state
         log('SEND', 'Resetting loading state');
-        setIsLoading(false);
+        setLoading(false);
         setStreamingContent(null);
         setResearchState(null);
         abortControllerRef.current = null;
       }
     },
-    [user, currentConversation, createConversation, toast]
+    [user, currentConversation, createNewConversation, messages, toast]
   );
 
   // ============================================================================
@@ -488,98 +608,35 @@ export function useConversations() {
       log('RETRY', 'Retrying message', messageId);
 
       // Find the user message before the error
-      const messageIndex = currentConversation.messages.findIndex((m) => m.id === messageId);
+      const messageIndex = messages.findIndex((m) => m.id === messageId);
       if (messageIndex <= 0) return;
 
-      const userMessage = currentConversation.messages[messageIndex - 1];
+      const userMessage = messages[messageIndex - 1];
       if (userMessage.role !== "user") return;
 
       // Remove the error message
-      const messagesWithoutError = currentConversation.messages.filter((m) => m.id !== messageId);
-      const updatedConversation = {
-        ...currentConversation,
-        messages: messagesWithoutError,
-      };
-
-      setCurrentConversation(updatedConversation);
-      setConversations((prev) =>
-        prev.map((c) => (c.id === currentConversation.id ? updatedConversation : c))
-      );
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
 
       // Retry the message
-      await sendMessage(userMessage.content);
+      await sendMessage(userMessage.content, "quick");
     },
-    [currentConversation, sendMessage]
+    [currentConversation, messages, sendMessage]
   );
-
-  // ============================================================================
-  // TOGGLE FAVORITE
-  // ============================================================================
-
-  const toggleFavorite = useCallback(
-    async (messageId: string) => {
-      if (!currentConversation) return;
-
-      const updatedMessages = currentConversation.messages.map((msg) =>
-        msg.id === messageId ? { ...msg, isFavorite: !msg.isFavorite } : msg
-      );
-
-      const updatedConversation = {
-        ...currentConversation,
-        messages: updatedMessages,
-      };
-
-      setCurrentConversation(updatedConversation);
-      setConversations((prev) =>
-        prev.map((c) => (c.id === currentConversation.id ? updatedConversation : c))
-      );
-
-      await supabase
-        .from("conversations")
-        .update({ messages: updatedMessages })
-        .eq("id", currentConversation.id);
-    },
-    [currentConversation]
-  );
-
-  // ============================================================================
-  // DELETE CONVERSATION
-  // ============================================================================
-
-  const deleteConversation = useCallback(
-    async (conversationId: string) => {
-      log('DELETE', 'Deleting conversation', conversationId);
-
-      try {
-        await supabase.from("conversations").delete().eq("id", conversationId);
-
-        setConversations((prev) => prev.filter((c) => c.id !== conversationId));
-
-        if (currentConversation?.id === conversationId) {
-          setCurrentConversation(null);
-        }
-      } catch (error) {
-        log('DELETE', 'Error deleting conversation', error);
-      }
-    },
-    [currentConversation]
-  );
-
-  // ============================================================================
-  // RETURN
-  // ============================================================================
 
   return {
     conversations,
     currentConversation,
     setCurrentConversation,
-    isLoading,
+    messages,
+    loading,
     streamingContent,
     researchState,
     sendMessage,
-    createConversation,
-    deleteConversation,
+    createNewConversation,
+    selectConversation,
     toggleFavorite,
+    deleteMessage,
+    deleteConversation,
     cancelRequest,
     retryMessage,
     loadConversations,

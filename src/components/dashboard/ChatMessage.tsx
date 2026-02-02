@@ -1,13 +1,16 @@
 /**
  * McLeuker AI V4 - ChatMessage.tsx
  * 
- * SAFE MESSAGE RENDERING
+ * WhatsApp-style white bubble design on black background
  * 
- * Design Principles:
- * 1. SAFE rendering - never pass objects to String()
- * 2. CLEAN display - artifacts cleaned at render time
- * 3. ERROR visibility - show errors with retry button
- * 4. SOURCES display - properly formatted citations
+ * Design Specs:
+ * - White bubbles with black text
+ * - 16-22px rounded corners
+ * - User messages right-aligned, AI messages left-aligned
+ * - Both have profile headers (avatar, name, timestamp)
+ * - 15px typography throughout
+ * - Max-width 75% to prevent overflow
+ * - overflow-wrap: anywhere to prevent horizontal scroll
  */
 
 import React, { useState } from "react";
@@ -25,58 +28,18 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
-  Image as ImageIcon,
+  Sparkles,
+  User,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-interface Source {
-  title: string;
-  url: string;
-  snippet?: string;
-  source?: string;
-}
-
-interface FileAttachment {
-  name: string;
-  url: string;
-  type: string;
-}
-
-interface ChatMessageProps {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-  sources?: Source[];
-  reasoning?: string[];
-  files?: FileAttachment[];
-  images?: string[];
-  followUpQuestions?: string[];
-  isFavorite?: boolean;
-  isPlaceholder?: boolean;
-  isError?: boolean;
-  canRetry?: boolean;
-  errorMessage?: string;
-  creditsUsed?: number;
-  onToggleFavorite?: (id: string) => void;
-  onRetry?: (id: string) => void;
-  onFollowUp?: (question: string) => void;
-}
+import { ChatMessage as ChatMessageType, ResearchState } from "@/hooks/useConversations";
 
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
-/**
- * Safely convert any value to a displayable string
- * NEVER throws, NEVER returns [object Object]
- */
 function safeToString(value: any): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
@@ -92,9 +55,6 @@ function safeToString(value: any): string {
   return String(value);
 }
 
-/**
- * Clean [object Object] artifacts from text
- */
 function cleanArtifacts(text: string): string {
   if (!text || typeof text !== 'string') return '';
   
@@ -108,16 +68,13 @@ function cleanArtifacts(text: string): string {
     .trim();
 }
 
-/**
- * Format timestamp for display
- */
-function formatTime(date: Date): string {
+function formatTime(dateString: string): string {
   try {
     return new Intl.DateTimeFormat('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-    }).format(date);
+    }).format(new Date(dateString));
   } catch {
     return '';
   }
@@ -127,10 +84,11 @@ function formatTime(date: Date): string {
 // SUBCOMPONENTS
 // ============================================================================
 
-/**
- * Sources Section
- */
-function SourcesSection({ sources }: { sources: Source[] }) {
+interface SourcesSectionProps {
+  sources: Array<{ title: string; url: string; snippet?: string }>;
+}
+
+function SourcesSection({ sources }: SourcesSectionProps) {
   const [expanded, setExpanded] = useState(false);
   
   if (!sources || sources.length === 0) return null;
@@ -138,15 +96,15 @@ function SourcesSection({ sources }: { sources: Source[] }) {
   const displaySources = expanded ? sources : sources.slice(0, 3);
 
   return (
-    <div className="mt-4 pt-4 border-t border-gray-700">
+    <div className="mt-4 pt-4 border-t border-black/10">
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-medium text-gray-400">Sources</h4>
+        <h4 className="text-sm font-medium text-black/60">Sources</h4>
         {sources.length > 3 && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setExpanded(!expanded)}
-            className="text-xs text-gray-500 hover:text-gray-300"
+            className="text-xs text-black/50 hover:text-black/70"
           >
             {expanded ? (
               <>Show less <ChevronUp className="ml-1 h-3 w-3" /></>
@@ -163,19 +121,19 @@ function SourcesSection({ sources }: { sources: Source[] }) {
             href={source.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block p-2 rounded bg-gray-800 hover:bg-gray-750 transition-colors"
+            className="block p-2 rounded-lg bg-black/5 hover:bg-black/10 transition-colors"
           >
             <div className="flex items-start gap-2">
-              <span className="text-xs text-gray-500 font-mono">[{index + 1}]</span>
+              <span className="text-xs text-black/40 font-mono">[{index + 1}]</span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1">
-                  <span className="text-sm text-blue-400 truncate">
+                  <span className="text-sm text-blue-600 truncate">
                     {safeToString(source.title)}
                   </span>
-                  <ExternalLink className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                  <ExternalLink className="h-3 w-3 text-black/40 flex-shrink-0" />
                 </div>
                 {source.snippet && (
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                  <p className="text-xs text-black/50 mt-1 line-clamp-2">
                     {safeToString(source.snippet)}
                   </p>
                 )}
@@ -188,112 +146,17 @@ function SourcesSection({ sources }: { sources: Source[] }) {
   );
 }
 
-/**
- * Reasoning Section
- */
-function ReasoningSection({ reasoning }: { reasoning: string[] }) {
-  const [expanded, setExpanded] = useState(false);
-  
-  if (!reasoning || reasoning.length === 0) return null;
-
-  return (
-    <div className="mt-4 pt-4 border-t border-gray-700">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setExpanded(!expanded)}
-        className="text-xs text-gray-500 hover:text-gray-300 mb-2"
-      >
-        {expanded ? 'Hide' : 'Show'} reasoning ({reasoning.length} steps)
-        {expanded ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />}
-      </Button>
-      {expanded && (
-        <div className="space-y-2 pl-4 border-l-2 border-gray-700">
-          {reasoning.map((step, index) => (
-            <div key={index} className="text-sm text-gray-400">
-              <span className="text-gray-500 font-mono mr-2">{index + 1}.</span>
-              {safeToString(step)}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Files Section
- */
-function FilesSection({ files }: { files: FileAttachment[] }) {
-  if (!files || files.length === 0) return null;
-
-  return (
-    <div className="mt-4 pt-4 border-t border-gray-700">
-      <h4 className="text-sm font-medium text-gray-400 mb-2">Files</h4>
-      <div className="flex flex-wrap gap-2">
-        {files.map((file, index) => (
-          <a
-            key={index}
-            href={file.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 py-2 rounded bg-gray-800 hover:bg-gray-750 transition-colors"
-          >
-            <FileText className="h-4 w-4 text-blue-400" />
-            <span className="text-sm text-gray-300">{safeToString(file.name)}</span>
-          </a>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Images Section
- */
-function ImagesSection({ images }: { images: string[] }) {
-  if (!images || images.length === 0) return null;
-
-  return (
-    <div className="mt-4 pt-4 border-t border-gray-700">
-      <h4 className="text-sm font-medium text-gray-400 mb-2">Images</h4>
-      <div className="grid grid-cols-2 gap-2">
-        {images.map((url, index) => (
-          <a
-            key={index}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block rounded overflow-hidden hover:opacity-80 transition-opacity"
-          >
-            <img
-              src={url}
-              alt={`Generated image ${index + 1}`}
-              className="w-full h-auto"
-              loading="lazy"
-            />
-          </a>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Follow-up Questions Section
- */
-function FollowUpSection({ 
-  questions, 
-  onFollowUp 
-}: { 
-  questions: string[]; 
+interface FollowUpSectionProps {
+  questions: string[];
   onFollowUp?: (q: string) => void;
-}) {
+}
+
+function FollowUpSection({ questions, onFollowUp }: FollowUpSectionProps) {
   if (!questions || questions.length === 0 || !onFollowUp) return null;
 
   return (
-    <div className="mt-4 pt-4 border-t border-gray-700">
-      <h4 className="text-sm font-medium text-gray-400 mb-2">Follow-up questions</h4>
+    <div className="mt-4 pt-4 border-t border-black/10">
+      <h4 className="text-sm font-medium text-black/60 mb-2">Follow-up questions</h4>
       <div className="flex flex-wrap gap-2">
         {questions.map((question, index) => (
           <Button
@@ -301,8 +164,9 @@ function FollowUpSection({
             variant="outline"
             size="sm"
             onClick={() => onFollowUp(question)}
-            className="text-xs text-gray-300 border-gray-600 hover:bg-gray-800"
+            className="text-xs text-black/70 border-black/20 hover:bg-black/5 gap-1"
           >
+            <Sparkles className="h-3 w-3" />
             {safeToString(question)}
           </Button>
         ))}
@@ -315,33 +179,34 @@ function FollowUpSection({
 // MAIN COMPONENT
 // ============================================================================
 
-export function ChatMessage({
-  id,
-  role,
-  content,
-  timestamp,
-  sources,
-  reasoning,
-  files,
-  images,
-  followUpQuestions,
-  isFavorite = false,
-  isPlaceholder = false,
-  isError = false,
-  canRetry = false,
-  errorMessage,
-  creditsUsed,
+interface ChatMessageComponentProps {
+  message: ChatMessageType;
+  onToggleFavorite: (id: string) => void;
+  onDelete: (id: string) => void;
+  isStreaming?: boolean;
+  streamingContent?: string;
+  onFollowUpClick?: (question: string) => void;
+  onRetry?: (id: string) => void;
+  researchState?: ResearchState;
+}
+
+export function ChatMessageComponent({
+  message,
   onToggleFavorite,
+  onDelete,
+  isStreaming,
+  streamingContent,
+  onFollowUpClick,
   onRetry,
-  onFollowUp,
-}: ChatMessageProps) {
+  researchState,
+}: ChatMessageComponentProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
 
-  // Clean content for display
-  const displayContent = cleanArtifacts(safeToString(content));
+  const displayContent = isStreaming && streamingContent 
+    ? streamingContent 
+    : cleanArtifacts(safeToString(message.content));
 
-  // Copy to clipboard
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(displayContent);
@@ -353,36 +218,52 @@ export function ChatMessage({
     }
   };
 
-  // User message
-  if (role === "user") {
+  // User message - right aligned
+  if (message.role === "user") {
     return (
-      <div className="flex justify-end mb-4">
-        <div className="max-w-[80%] bg-blue-600 rounded-lg px-4 py-3">
-          <p className="text-white whitespace-pre-wrap">{displayContent}</p>
-          <div className="text-xs text-blue-200 mt-1 text-right">
-            {formatTime(timestamp)}
+      <div className="flex justify-end px-6 md:px-10">
+        <div className="max-w-[75%] bg-white rounded-[18px] px-4 py-3 shadow-sm">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-2">
+            <Avatar className="h-6 w-6">
+              <AvatarFallback className="bg-black text-white text-xs">
+                <User className="h-3 w-3" />
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-xs font-medium text-black">You</span>
+            <span className="text-xs text-black/50">·</span>
+            <span className="text-xs text-black/50">{formatTime(message.created_at)}</span>
+          </div>
+          {/* Content */}
+          <div className="chat-message-content text-black">
+            {displayContent}
           </div>
         </div>
       </div>
     );
   }
 
-  // Placeholder message (thinking...)
-  if (isPlaceholder) {
+  // Placeholder message (thinking/researching)
+  if (message.isPlaceholder) {
     return (
-      <div className="flex gap-3 mb-4">
-        <Avatar className="h-8 w-8 flex-shrink-0">
-          <AvatarImage src="/mcleuker-avatar.png" />
-          <AvatarFallback className="bg-purple-600 text-white text-xs">ML</AvatarFallback>
-        </Avatar>
-        <div className="flex-1 bg-gray-800 rounded-lg px-4 py-3">
+      <div className="flex justify-start px-6 md:px-10">
+        <div className="max-w-[75%] bg-white rounded-[18px] px-4 py-3 shadow-sm">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-2">
+            <Avatar className="h-6 w-6">
+              <AvatarImage src="/mcleuker-avatar.png" />
+              <AvatarFallback className="bg-black text-white text-xs">ML</AvatarFallback>
+            </Avatar>
+            <span className="text-xs font-medium text-black">McLeuker AI</span>
+          </div>
+          {/* Loading indicator */}
           <div className="flex items-center gap-2">
-            <div className="animate-pulse flex gap-1">
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="flex gap-1">
+              <div className="w-2 h-2 bg-black/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2 h-2 bg-black/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2 h-2 bg-black/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
-            <span className="text-gray-400 text-sm">Thinking...</span>
+            <span className="text-black/60 text-sm">{displayContent}</span>
           </div>
         </div>
       </div>
@@ -390,24 +271,28 @@ export function ChatMessage({
   }
 
   // Error message
-  if (isError) {
+  if (message.isError) {
     return (
-      <div className="flex gap-3 mb-4">
-        <Avatar className="h-8 w-8 flex-shrink-0">
-          <AvatarImage src="/mcleuker-avatar.png" />
-          <AvatarFallback className="bg-red-600 text-white text-xs">ML</AvatarFallback>
-        </Avatar>
-        <div className="flex-1 bg-red-900/30 border border-red-700 rounded-lg px-4 py-3">
+      <div className="flex justify-start px-6 md:px-10">
+        <div className="max-w-[75%] bg-red-50 border border-red-200 rounded-[18px] px-4 py-3">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-2">
+            <Avatar className="h-6 w-6">
+              <AvatarFallback className="bg-red-500 text-white text-xs">ML</AvatarFallback>
+            </Avatar>
+            <span className="text-xs font-medium text-red-700">McLeuker AI</span>
+          </div>
+          {/* Error content */}
           <div className="flex items-start gap-2">
             <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-red-300">{displayContent}</p>
-              {canRetry && onRetry && (
+              <p className="text-red-700 text-sm">{displayContent}</p>
+              {message.canRetry && onRetry && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onRetry(id)}
-                  className="mt-2 text-red-300 border-red-700 hover:bg-red-900/50"
+                  onClick={() => onRetry(message.id)}
+                  className="mt-2 text-red-600 border-red-300 hover:bg-red-100"
                 >
                   <RefreshCw className="h-3 w-3 mr-1" />
                   Retry
@@ -420,42 +305,85 @@ export function ChatMessage({
     );
   }
 
-  // Normal assistant message
+  // Normal assistant message - left aligned
   return (
-    <div className="flex gap-3 mb-4">
-      <Avatar className="h-8 w-8 flex-shrink-0">
-        <AvatarImage src="/mcleuker-avatar.png" />
-        <AvatarFallback className="bg-purple-600 text-white text-xs">ML</AvatarFallback>
-      </Avatar>
-      <div className="flex-1 bg-gray-800 rounded-lg px-4 py-3">
-        {/* Main content */}
-        <div className="prose prose-invert prose-sm max-w-none">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+    <div className="flex justify-start px-6 md:px-10">
+      <div className="max-w-[75%] bg-white rounded-[18px] px-4 py-3 shadow-sm">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-2">
+          <Avatar className="h-6 w-6">
+            <AvatarImage src="/mcleuker-avatar.png" />
+            <AvatarFallback className="bg-black text-white text-xs">ML</AvatarFallback>
+          </Avatar>
+          <span className="text-xs font-medium text-black">McLeuker AI</span>
+          <span className="text-xs text-black/50">·</span>
+          <span className="text-xs text-black/50">{formatTime(message.created_at)}</span>
+        </div>
+
+        {/* Main content with markdown */}
+        <div className="chat-message-content text-black">
+          <ReactMarkdown 
+            remarkPlugins={[remarkGfm]}
+            components={{
+              p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+              ul: ({ children }) => <ul className="list-disc pl-5 mb-3">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal pl-5 mb-3">{children}</ol>,
+              li: ({ children }) => <li className="mb-1">{children}</li>,
+              h1: ({ children }) => <h1 className="text-[15px] font-semibold mt-4 mb-2 first:mt-0">{children}</h1>,
+              h2: ({ children }) => <h2 className="text-[15px] font-semibold mt-4 mb-2 first:mt-0">{children}</h2>,
+              h3: ({ children }) => <h3 className="text-[15px] font-semibold mt-3 mb-2 first:mt-0">{children}</h3>,
+              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              code: ({ children, className }) => {
+                const isInline = !className;
+                if (isInline) {
+                  return <code className="bg-black/5 px-1 py-0.5 rounded text-sm">{children}</code>;
+                }
+                return (
+                  <code className="block bg-black/5 p-3 rounded-lg text-sm overflow-x-auto">
+                    {children}
+                  </code>
+                );
+              },
+              pre: ({ children }) => <pre className="overflow-x-auto max-w-full">{children}</pre>,
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                  {children}
+                </a>
+              ),
+              table: ({ children }) => (
+                <div className="overflow-x-auto my-3">
+                  <table className="min-w-full border-collapse border border-black/10">{children}</table>
+                </div>
+              ),
+              th: ({ children }) => (
+                <th className="border border-black/10 bg-black/5 px-3 py-2 text-left text-sm font-medium">{children}</th>
+              ),
+              td: ({ children }) => (
+                <td className="border border-black/10 px-3 py-2 text-sm">{children}</td>
+              ),
+            }}
+          >
             {displayContent}
           </ReactMarkdown>
         </div>
 
         {/* Sources */}
-        <SourcesSection sources={sources || []} />
-
-        {/* Reasoning */}
-        <ReasoningSection reasoning={reasoning || []} />
-
-        {/* Files */}
-        <FilesSection files={files || []} />
-
-        {/* Images */}
-        <ImagesSection images={images || []} />
+        {message.sources && message.sources.length > 0 && (
+          <SourcesSection sources={message.sources} />
+        )}
 
         {/* Follow-up questions */}
-        <FollowUpSection questions={followUpQuestions || []} onFollowUp={onFollowUp} />
+        {message.followUpQuestions && message.followUpQuestions.length > 0 && (
+          <FollowUpSection questions={message.followUpQuestions} onFollowUp={onFollowUpClick} />
+        )}
 
         {/* Footer with actions */}
-        <div className="flex items-center justify-between mt-4 pt-2 border-t border-gray-700">
+        <div className="flex items-center justify-between mt-4 pt-2 border-t border-black/10">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">{formatTime(timestamp)}</span>
-            {creditsUsed && (
-              <span className="text-xs text-gray-500">• {creditsUsed} credit{creditsUsed !== 1 ? 's' : ''}</span>
+            {message.credits_used > 0 && (
+              <span className="text-xs text-black/50">
+                {message.credits_used} credit{message.credits_used !== 1 ? 's' : ''}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-1">
@@ -463,24 +391,22 @@ export function ChatMessage({
               variant="ghost"
               size="sm"
               onClick={handleCopy}
-              className="h-7 w-7 p-0 text-gray-500 hover:text-gray-300"
+              className="h-7 w-7 p-0 text-black/40 hover:text-black/70 hover:bg-black/5"
             >
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             </Button>
-            {onToggleFavorite && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onToggleFavorite(id)}
-                className="h-7 w-7 p-0 text-gray-500 hover:text-gray-300"
-              >
-                {isFavorite ? (
-                  <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-                ) : (
-                  <StarOff className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onToggleFavorite(message.id)}
+              className="h-7 w-7 p-0 text-black/40 hover:text-black/70 hover:bg-black/5"
+            >
+              {message.is_favorite ? (
+                <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
+              ) : (
+                <StarOff className="h-3.5 w-3.5" />
+              )}
+            </Button>
           </div>
         </div>
       </div>
@@ -488,4 +414,4 @@ export function ChatMessage({
   );
 }
 
-export default ChatMessage;
+export default ChatMessageComponent;
