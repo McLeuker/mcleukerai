@@ -1,20 +1,26 @@
 
-# Domain Pages Premium Grayscale Redesign
+# Homepage Premium Grayscale Redesign
 
 ## Overview
 
-Redesign all domain pages (`/domain/fashion`, `/domain/beauty`, etc.) to match the premium grayscale dashboard/chat system. The main issue is the jarring white "What's Happening Now" section that breaks visual consistency.
+Transform the homepage to match the premium grayscale dashboard/chat system we built. Remove all warm/beige visual language and replace with graphite panels, subtle ombré gradients, and consistent spacing.
 
 ---
 
 ## Current Issues
 
-| Component | Problem |
-|-----------|---------|
-| `DomainLanding.tsx` | Uses `bg-background` (light theme) instead of dark base |
-| `DomainHero.tsx` | Input doesn't match dashboard composer styling |
-| `DomainInsights.tsx` | Uses `bg-card` (white) and light card styling - **main culprit** |
-| `DomainModules.tsx` | Close but could better align with premium token system |
+| Section | Current State | Problem |
+|---------|--------------|---------|
+| Page base | `bg-background` (light) | Not matching `#070707` dashboard base |
+| Header | Light background classes | Doesn't match TopNavigation styling |
+| Hero image | `hero-luxury.jpg` (beige materials) | Warm tones break grayscale system |
+| Experience section | `bg-foreground` | OK but needs polish |
+| Brand Statement | `bg-background` (white) | Jarring white section |
+| Services | `bg-secondary/30` (light gray) | Light cards on light bg |
+| Atelier/Sustainability | Mixed backgrounds | Inconsistent theming |
+| Testimonials | `bg-background` (white) | White cards on white bg |
+| CTAs | `bg-secondary/50` (light) | Light sections |
+| Input | Light styling | Doesn't match dashboard composer |
 
 ---
 
@@ -24,31 +30,35 @@ Redesign all domain pages (`/domain/fashion`, `/domain/beauty`, etc.) to match t
 | Element | Value |
 |---------|-------|
 | Page background | `#070707` |
-| Section background | `#0B0B0B` or gradient `#0A0A0A → #070707` |
-| Panel/card gradient | `linear-gradient(180deg, #232323 0%, #191919 100%)` |
+| Vignette overlay | radial gradient to add depth |
+| Section backgrounds | `#0B0B0B`, `#0A0A0A` |
 
-### Feed Cards (Graphite Style)
+### Panels & Cards
 | Element | Value |
 |---------|-------|
-| Card bg | `linear-gradient(180deg, #232323 0%, #191919 100%)` |
-| Card border | `rgba(255,255,255,0.12)` |
-| Card shadow | `0 14px 40px rgba(0,0,0,0.55)` |
-| Card radius | `20px` |
+| Panel gradient | `linear-gradient(180deg, #0F0F0F 0%, #0A0A0A 100%)` |
+| Card gradient | `linear-gradient(180deg, #232323 0%, #191919 100%)` |
+| Border | `rgba(255,255,255,0.08)` to `rgba(255,255,255,0.12)` |
+| Shadow | `0 14px 40px rgba(0,0,0,0.55)` |
+| Radius | `18-20px` |
 
 ### Text Colors
 | Element | Value |
 |---------|-------|
-| Title | `rgba(255,255,255,0.92)` |
-| Description | `rgba(255,255,255,0.72)` |
-| Meta (source/date) | `rgba(255,255,255,0.50)` |
+| Headline | `rgba(255,255,255,0.92)` |
+| Body | `rgba(255,255,255,0.72)` |
+| Muted | `rgba(255,255,255,0.50)` |
+| Subtle | `rgba(255,255,255,0.40)` |
 
-### Input & Chips
+### Input Styling
 | Element | Value |
 |---------|-------|
-| Input bg | `linear-gradient(180deg, #1B1B1B 0%, #111111 100%)` |
-| Input border | `rgba(255,255,255,0.10)` |
-| Chip default | `#141414` + border `rgba(255,255,255,0.10)` |
-| Chip hover | `#1A1A1A` |
+| Background | `linear-gradient(180deg, #1B1B1B 0%, #111111 100%)` |
+| Border | `rgba(255,255,255,0.10)` |
+| Placeholder | `rgba(255,255,255,0.40)` |
+| Text | `rgba(255,255,255,0.88)` |
+| Focus ring | `0 0 0 3px rgba(255,255,255,0.06)` |
+| Radius | `20px` |
 
 ---
 
@@ -56,298 +66,435 @@ Redesign all domain pages (`/domain/fashion`, `/domain/beauty`, etc.) to match t
 
 | File | Changes |
 |------|---------|
-| `src/pages/DomainLanding.tsx` | Dark background (`#070707`), consistent layout |
-| `src/components/domain/DomainHero.tsx` | Premium input styling, reduced height, graphite chips |
-| `src/components/domain/DomainInsights.tsx` | Dark section + graphite cards (main fix) |
-| `src/components/domain/DomainModules.tsx` | Align with premium token system |
-| `src/index.css` | Add domain-specific utility classes |
+| `src/pages/Landing.tsx` | Full page redesign with grayscale system |
+| `src/index.css` | Add homepage-specific utility classes if needed |
 
 ---
 
-## 1. DomainLanding.tsx Updates
+## Detailed Implementation
 
-### Change page background to dark
+### 1. Page Container Update
 
 ```tsx
-// Current (line 94):
-<div className="min-h-screen bg-background flex flex-col">
+// Current (line 105):
+<div className="min-h-screen bg-background">
 
-// Updated:
-<div className="min-h-screen bg-[#070707] flex flex-col overflow-x-hidden">
+// Updated - dark base with vignette:
+<div className="min-h-screen bg-[#070707] overflow-x-hidden">
 ```
 
-### Consistent structure
+### 2. Header/Navigation Update
 
-The page structure is already good - Hero → Insights → Modules. Just need to ensure consistent dark theming flows through.
-
----
-
-## 2. DomainHero.tsx Updates
-
-### Reduce vertical height
+Replace custom header (lines 107-158) with consistent dark styling:
 
 ```tsx
-// Current (line 86):
-<div className="... pt-16 md:pt-24 pb-20 md:pb-28">
-
-// Updated - reduce bottom padding:
-<div className="... pt-12 md:pt-16 pb-12 md:pb-16">
+<header 
+  className={cn(
+    "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
+    isScrolled 
+      ? "bg-gradient-to-b from-[#0D0D0D]/95 to-[#0A0A0A]/95 backdrop-blur-md border-b border-white/[0.08]" 
+      : "bg-transparent"
+  )}
+>
+  <div className="container mx-auto px-6 lg:px-12 h-16 lg:h-20 flex items-center justify-between">
+    {/* Nav items with white text on dark */}
+    <nav className="hidden lg:flex items-center gap-10">
+      <Link className="text-sm text-white/60 hover:text-white/90 transition-colors">
 ```
 
-### Match input to dashboard composer
+### 3. "Experience the Platform" Section Polish
+
+Keep dark theme but align with premium system:
 
 ```tsx
-// Current input styling (lines 106-111):
-"bg-white/10 border-white/20 text-white placeholder:text-white/50"
+// Update section (line 161):
+<section className="pt-24 lg:pt-28 pb-16 lg:pb-24 bg-[#0A0A0A]">
 
-// Updated - match premium-input from dashboard:
-className={cn(
-  "min-h-[56px] max-h-[120px] resize-none pr-14",
-  "bg-gradient-to-b from-[#1B1B1B] to-[#111111]",
-  "border border-white/[0.10]",
-  "text-white/[0.88] placeholder:text-white/40",
-  "focus:border-white/[0.18] focus-visible:ring-0",
-  "text-[15px] rounded-[20px]",
-  "shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
-)}
-```
+// Input styling - match dashboard composer (lines 177-181):
+<textarea 
+  className={cn(
+    "w-full h-28 sm:h-32 px-4 sm:px-6 py-4 sm:py-5",
+    "rounded-[20px]",
+    "bg-gradient-to-b from-[#1B1B1B] to-[#111111]",
+    "border border-white/[0.10]",
+    "text-white/[0.88] placeholder:text-white/40",
+    "focus:outline-none focus:border-white/[0.18]",
+    "focus:ring-[3px] focus:ring-white/[0.06]",
+    "resize-none text-sm sm:text-base",
+    "shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
+  )}
+/>
 
-### Match suggestion chips to graphite pill style
-
-```tsx
-// Current chip styling (lines 135-139):
-"border border-white/30 text-white/80"
-"hover:bg-white hover:text-black"
-
-// Updated - graphite pill style:
-className={cn(
-  "text-[13px] px-4 py-2 rounded-full",
-  "bg-[#141414] border border-white/[0.10]",
-  "text-white/78",
-  "hover:bg-[#1A1A1A] hover:border-white/[0.15]",
-  "active:bg-[#1C1C1C] active:border-white/[0.18]",
-  "transition-all duration-150"
-)}
-```
-
----
-
-## 3. DomainInsights.tsx Updates (Main Fix)
-
-### Change section background to dark
-
-```tsx
-// Current (line 127):
-<section className="w-full max-w-6xl mx-auto px-6 md:px-8 py-12 md:py-14">
-
-// Updated - dark background section:
-<section className="w-full bg-[#0B0B0B]">
-  <div className="max-w-[1120px] mx-auto px-7 py-12 md:py-14">
-```
-
-### Update section header styling
-
-```tsx
-// Current (lines 130-131):
-<h2 className="font-editorial text-2xl md:text-3xl text-foreground">
-
-// Updated - white text on dark:
-<h2 className="font-editorial text-2xl md:text-3xl text-white/[0.92]">
-```
-
-### Convert cards from white to graphite
-
-```tsx
-// Current card styling (lines 198-201):
-className={cn(
-  "group p-6 md:p-8 border border-border rounded-2xl",
-  "bg-card transition-colors duration-200"
-)}
-
-// Updated - graphite card styling:
-className={cn(
-  "group p-6 rounded-[20px]",
-  "bg-gradient-to-b from-[#232323] to-[#191919]",
-  "border border-white/[0.12]",
-  "shadow-[0_14px_40px_rgba(0,0,0,0.55)]",
-  "transition-all duration-200",
-  "hover:border-white/[0.18]"
-)}
-```
-
-### Update card text colors
-
-```tsx
-// Title (line 222-223):
-// Current: text-foreground
-// Updated: text-white/[0.92]
-
-// Description (line 233):
-// Current: text-foreground/70
-// Updated: text-white/[0.72]
-
-// Meta/date (line 238):
-// Current: text-muted-foreground
-// Updated: text-white/50
-```
-
-### Update confidence badge styling
-
-```tsx
-// Current getConfidenceBadge (lines 85-92):
-const styles = {
-  high: 'bg-foreground/10 text-foreground border-foreground/20',
-  medium: 'bg-muted text-muted-foreground border-muted-foreground/20',
-  low: 'bg-muted/50 text-muted-foreground/70 border-muted-foreground/10',
-};
-
-// Updated - graphite badge style:
-const styles = {
-  high: 'bg-[#141414] text-white/78 border-white/[0.12]',
-  medium: 'bg-[#141414] text-white/65 border-white/[0.10]',
-  low: 'bg-[#141414] text-white/50 border-white/[0.08]',
-};
-```
-
-### Update Live/Predictive badges
-
-```tsx
-// Current (lines 135-145):
-<Badge variant="outline" className="... border-foreground/20">
-
-// Updated - graphite style:
-<Badge variant="outline" className="text-[11px] px-2 py-0.5 h-5 bg-[#141414] text-white/78 border-white/[0.12]">
-```
-
-### Update refresh button
-
-```tsx
-// Current (lines 155-163):
-<Button variant="ghost" className="... text-muted-foreground hover:text-foreground">
-
-// Updated - graphite button:
-<Button
-  variant="ghost"
-  size="sm"
-  onClick={onRefresh}
-  className="h-9 px-3 bg-[#141414] border border-white/[0.10] text-white/70 hover:bg-[#1A1A1A] hover:text-white/90 rounded-lg"
+// Suggestion cards - graphite style (lines 221-241):
+<button
+  className={cn(
+    "group relative p-4 sm:p-5 rounded-[18px]",
+    "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+    "border border-white/[0.10]",
+    "hover:border-white/[0.18]",
+    "transition-all duration-200 text-left"
+  )}
 >
 ```
 
-### Update loading skeleton
+### 4. Hero Section - Replace Beige Image with Runway
+
+**Remove current image:**
+- Delete import: `import heroImage from "@/assets/hero-luxury.jpg";`
+
+**Add new royalty-free runway image:**
+- Source: Unsplash or Pexels
+- Search: "black and white runway silhouette" or "fashion show runway lights monochrome"
+- Recommended image URL: `https://images.unsplash.com/photo-1558618666-fcd25c85cd64` (fashion runway lights) or similar
+
+**Apply grayscale filter + dark overlay:**
 
 ```tsx
-// Current (lines 168-179):
-<div className="p-6 md:p-8 border border-border rounded-2xl bg-card">
+<section className="relative min-h-[70vh] lg:min-h-[80vh] flex items-center justify-center overflow-hidden">
+  {/* Background Image with grayscale + dark overlay */}
+  <div className="absolute inset-0">
+    <img 
+      src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1920&q=80" 
+      alt="Fashion runway" 
+      className="w-full h-full object-cover"
+      style={{
+        filter: 'grayscale(100%) contrast(1.08) brightness(0.85)'
+      }}
+    />
+    {/* Dark gradient overlay for readability */}
+    <div 
+      className="absolute inset-0" 
+      style={{
+        background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.82) 60%, rgba(0,0,0,0.90) 100%)'
+      }}
+    />
+  </div>
 
-// Updated - graphite skeleton container:
-<div className="p-6 rounded-[20px] bg-gradient-to-b from-[#232323] to-[#191919] border border-white/[0.12]">
-  <Skeleton className="h-5 w-3/4 mb-3 bg-white/10" />
-  <Skeleton className="h-4 w-full mb-4 bg-white/10" />
-  ...
-</div>
+  {/* Hero Content */}
+  <div className="relative z-10 container mx-auto px-6 lg:px-12 py-20 lg:py-32">
+    <div className="max-w-4xl mx-auto text-center">
+      {/* Tagline badge - graphite style */}
+      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#141414]/80 backdrop-blur-sm border border-white/[0.12] mb-8 lg:mb-10">
+        <Sparkles className="w-4 h-4 text-white/60" />
+        <span className="text-sm text-white/70 tracking-wide">
+          AI & Sustainability for Fashion
+        </span>
+      </div>
+
+      {/* Headlines with white text */}
+      <h2 className="font-luxury text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-white/[0.92] mb-6 lg:mb-8 leading-[1.05]">
+        The Future of<br />Fashion Intelligence
+      </h2>
+
+      <p className="text-base md:text-lg lg:text-xl text-white/65 mb-10 lg:mb-12 max-w-2xl mx-auto leading-relaxed">
+        From a single prompt to finished reports, sourcing sheets, and presentation decks.
+      </p>
+
+      {/* CTAs - graphite buttons */}
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <Button 
+          size="lg" 
+          className="px-8 py-6 text-base bg-white text-black hover:bg-white/90"
+        >
+          Open Dashboard
+          <ArrowRight className="h-4 w-4 ml-2" />
+        </Button>
+        <Button 
+          size="lg" 
+          variant="outline" 
+          className="px-8 py-6 text-base bg-transparent border-white/20 text-white hover:bg-white/10"
+        >
+          Explore Domains
+        </Button>
+      </div>
+
+      {/* "Try a prompt" input - styled like dashboard composer */}
+      <div className="mt-12 max-w-xl mx-auto">
+        <p className="text-xs text-white/40 uppercase tracking-widest mb-3">Or try a prompt</p>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="e.g., Analyze SS26 color trends..."
+            className={cn(
+              "w-full px-5 py-4 rounded-[20px]",
+              "bg-gradient-to-b from-[#1B1B1B] to-[#111111]",
+              "border border-white/[0.10]",
+              "text-white/[0.88] placeholder:text-white/40",
+              "focus:outline-none focus:border-white/[0.18]",
+              "focus:ring-[3px] focus:ring-white/[0.06]",
+              "text-[15px]"
+            )}
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 ```
 
----
-
-## 4. DomainModules.tsx Updates
-
-### Align with premium system
-
-The modules section is already dark (`bg-foreground`). Update to use exact hex values:
+### 5. Brand Statement - Convert to Dark
 
 ```tsx
-// Current (line 331):
-<div className="bg-foreground">
+// Current (line 302):
+<section className="py-32 lg:py-40 bg-background">
 
-// Updated - explicit hex:
-<div className="bg-[#0A0A0A]">
+// Updated - dark section:
+<section className="py-32 lg:py-40 bg-[#070707]">
+  <div className="container mx-auto px-6 lg:px-12">
+    <div className="max-w-4xl mx-auto text-center">
+      <h2 className="font-luxury text-3xl md:text-4xl lg:text-5xl text-white/[0.92] leading-[1.2] mb-8">
+        "We believe fashion intelligence should be as refined as the industry it serves."
+      </h2>
+      <p className="text-white/50 text-lg">
+        — McLeuker AI
+      </p>
+    </div>
+  </div>
+</section>
 ```
 
-### Update module card styling
+### 6. Services Section - Graphite Cards
 
 ```tsx
-// Current (lines 346-349):
-className={cn(
-  "group text-left p-5 rounded-xl border border-background/20",
-  "bg-background/10 transition-all duration-200",
-  "hover:bg-background/20 hover:border-background/40"
-)}
+// Current (line 316):
+<section className="py-24 lg:py-32 bg-secondary/30">
 
-// Updated - match graphite card language:
-className={cn(
-  "group text-left p-5 rounded-[18px]",
-  "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
-  "border border-white/[0.10]",
-  "transition-all duration-200",
-  "hover:bg-gradient-to-b hover:from-[#202020] hover:to-[#181818]",
-  "hover:border-white/[0.18]"
-)}
+// Updated - dark section with graphite cards:
+<section className="py-24 lg:py-32 bg-[#0B0B0B]">
+  <div className="container mx-auto px-6 lg:px-12">
+    <div className="max-w-[1120px] mx-auto">
+      {/* Section Header */}
+      <div className="text-center mb-20">
+        <p className="text-sm text-white/50 uppercase tracking-[0.2em] mb-4">
+          Our Expertise
+        </p>
+        <h2 className="font-luxury text-4xl md:text-5xl text-white/[0.92]">
+          Comprehensive Solutions
+        </h2>
+      </div>
+
+      {/* Services Grid - graphite cards */}
+      <div className="grid md:grid-cols-2 gap-8 lg:gap-10">
+        {services.map((service, i) => (
+          <div 
+            key={i} 
+            className={cn(
+              "group p-8 lg:p-10 rounded-[20px]",
+              "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
+              "border border-white/[0.10]",
+              "hover:border-white/[0.18]",
+              "transition-all duration-200 cursor-pointer"
+            )}
+          >
+            <div className="flex items-start justify-between mb-6">
+              <span className="text-5xl font-luxury text-white/15">
+                0{i + 1}
+              </span>
+              <ArrowRight className="w-5 h-5 text-white/40 group-hover:text-white/70 group-hover:translate-x-1 transition-all" />
+            </div>
+            <h3 className="text-xl lg:text-2xl font-medium text-white/[0.92] mb-3">
+              {service.title}
+            </h3>
+            <p className="text-white/60 leading-relaxed">
+              {service.description}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* CTA - graphite button */}
+      <div className="text-center mt-16">
+        <Button 
+          size="lg" 
+          variant="outline" 
+          className="px-8 bg-[#141414] border-white/[0.10] text-white/80 hover:bg-[#1A1A1A] hover:border-white/[0.18]"
+        >
+          Explore All Solutions
+          <ArrowRight className="h-4 w-4 ml-2" />
+        </Button>
+      </div>
+    </div>
+  </div>
+</section>
 ```
 
-### Update text colors
+### 7. Visual Showcase Sections - Apply Grayscale Filter to Images
+
+For both Atelier and Sustainability sections:
 
 ```tsx
-// Icon (line 353):
-// Current: text-background/50 group-hover:text-background
-// Updated: text-white/50 group-hover:text-white
+<section className="py-24 lg:py-32 bg-[#070707]">
+  <div className="container mx-auto px-6 lg:px-12">
+    <div className="max-w-7xl mx-auto">
+      <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+        {/* Image with grayscale filter */}
+        <div className="relative rounded-[20px] overflow-hidden shadow-[0_14px_40px_rgba(0,0,0,0.55)]">
+          <img 
+            src={atelierImage} 
+            alt="Fashion atelier workspace" 
+            className="w-full aspect-[4/5] object-cover"
+            style={{
+              filter: 'grayscale(100%) contrast(1.05) brightness(0.9)'
+            }}
+          />
+        </div>
 
-// Title (line 360):
-// Current: text-background
-// Updated: text-white/[0.92]
-
-// Description (line 363):
-// Current: text-background/60
-// Updated: text-white/60
+        {/* Content - white text */}
+        <div className="lg:py-12">
+          <p className="text-sm text-white/50 uppercase tracking-[0.2em] mb-4">
+            Crafted for Excellence
+          </p>
+          <h2 className="font-luxury text-4xl md:text-5xl text-white/[0.92] mb-8 leading-[1.1]">
+            Intelligence meets craftsmanship
+          </h2>
+          <p className="text-white/65 text-lg leading-relaxed mb-8">
+            Just as the finest ateliers combine tradition with innovation...
+          </p>
+          <ul className="space-y-4 mb-10">
+            {items.map((item, i) => (
+              <li key={i} className="flex items-center gap-3 text-white/[0.85]">
+                <div className="w-1.5 h-1.5 rounded-full bg-white/60"></div>
+                {item}
+              </li>
+            ))}
+          </ul>
+          <Button size="lg" className="bg-white text-black hover:bg-white/90">
+            Start Your Journey
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 ```
 
----
+### 8. Testimonials - Graphite Cards
 
-## 5. index.css Updates
+```tsx
+<section className="py-24 lg:py-32 bg-[#0A0A0A]">
+  <div className="container mx-auto px-6 lg:px-12">
+    <div className="max-w-[1120px] mx-auto">
+      {/* Section Header */}
+      <div className="text-center mb-20">
+        <p className="text-sm text-white/50 uppercase tracking-[0.2em] mb-4">
+          Trusted by Industry Leaders
+        </p>
+        <h2 className="font-luxury text-4xl md:text-5xl text-white/[0.92]">
+          What Our Clients Say
+        </h2>
+      </div>
 
-### Add domain-specific utility classes
+      {/* Testimonials Grid - graphite cards */}
+      <div className="grid md:grid-cols-3 gap-6">
+        {testimonials.map((testimonial, i) => (
+          <div 
+            key={i} 
+            className={cn(
+              "p-8 rounded-[20px]",
+              "bg-gradient-to-b from-[#232323] to-[#191919]",
+              "border border-white/[0.12]",
+              "shadow-[0_14px_40px_rgba(0,0,0,0.55)]"
+            )}
+          >
+            <blockquote className="text-white/[0.85] text-lg leading-relaxed mb-8">
+              "{testimonial.quote}"
+            </blockquote>
+            <div>
+              <p className="text-sm font-medium text-white/[0.92]">
+                {testimonial.author}
+              </p>
+              <p className="text-sm text-white/50">
+                {testimonial.company}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+### 9. CTA Sections - Dark with Graphite Panels
+
+```tsx
+// Secondary CTA (line 508):
+<section className="py-20 lg:py-28 bg-[#0B0B0B]">
+  <div className="container mx-auto px-6 lg:px-12">
+    <div className="max-w-3xl mx-auto text-center">
+      <h2 className="font-luxury text-3xl md:text-4xl text-white/[0.92] mb-6">
+        Ready to transform your research?
+      </h2>
+      <p className="text-white/60 text-lg mb-8">
+        Join leading fashion brands leveraging AI-powered insights.
+      </p>
+      <Button size="lg" className="px-8 bg-white text-black hover:bg-white/90">
+        Start Free Trial
+        <ArrowRight className="h-4 w-4 ml-2" />
+      </Button>
+    </div>
+  </div>
+</section>
+
+// Final CTA (line 528):
+<section className="py-32 lg:py-40 bg-[#070707]">
+  <div className="container mx-auto px-6 lg:px-12">
+    <div className="max-w-3xl mx-auto text-center">
+      <h2 className="font-luxury text-4xl md:text-5xl lg:text-6xl text-white/[0.92] mb-8 leading-[1.1]">
+        Elevate your fashion intelligence
+      </h2>
+      <p className="text-white/60 text-lg mb-12 max-w-xl mx-auto">
+        Join leading fashion brands transforming their research with AI-powered insights.
+      </p>
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <Button size="lg" className="px-10 py-6 text-base bg-white text-black hover:bg-white/90">
+          Start Free Trial
+          <ArrowRight className="h-4 w-4 ml-2" />
+        </Button>
+        <Button 
+          size="lg" 
+          variant="outline" 
+          className="px-10 py-6 text-base bg-[#141414] border-white/[0.10] text-white hover:bg-[#1A1A1A]"
+        >
+          View Pricing
+        </Button>
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+### 10. Add Subtle Noise to Panels (CSS Update)
+
+Add to `src/index.css`:
 
 ```css
-/* Domain page feed section background */
-.domain-feed-section {
-  background: linear-gradient(180deg, #0B0B0B 0%, #090909 50%, #070707 100%);
+/* Subtle noise overlay for panels - 2-3% opacity */
+.panel-noise::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 1;
 }
 
-/* Domain page graphite card - matches chat bubbles */
-.domain-card {
-  background: linear-gradient(180deg, #232323 0%, #191919 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
-  border-radius: 20px;
-  transition: all 160ms ease;
-}
-
-.domain-card:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-}
-
-/* Graphite pill/chip for suggestion chips and badges */
-.graphite-pill {
-  background: #141414;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  transition: all 160ms ease;
-}
-
-.graphite-pill:hover {
-  background: #1A1A1A;
-  border-color: rgba(255, 255, 255, 0.15);
-}
-
-/* Module card - slightly different gradient for hierarchy */
-.domain-module-card {
+/* Homepage graphite panel with noise */
+.homepage-panel {
+  position: relative;
   background: linear-gradient(180deg, #1A1A1A 0%, #141414 100%);
   border: 1px solid rgba(255, 255, 255, 0.10);
-  transition: all 160ms ease;
+  border-radius: 20px;
 }
 
-.domain-module-card:hover {
-  background: linear-gradient(180deg, #202020 0%, #181818 100%);
-  border-color: rgba(255, 255, 255, 0.18);
+/* Homepage section with left→right gradient */
+.homepage-section-gradient {
+  background: 
+    linear-gradient(90deg, #060606 0%, #080808 35%, #0A0A0A 100%);
 }
 ```
 
@@ -355,78 +502,82 @@ className={cn(
 
 ## Visual Comparison
 
-### Before (Current State)
+### Before (Current)
 ```text
 ┌─────────────────────────────────────────────────────────────────────┐
-│  [DARK HERO - "Fashion" title + input]                              │
-│  bg-black                                                            │
+│ [Experience Section - Dark] ✓                                       │
 ├─────────────────────────────────────────────────────────────────────┤
-│  [WHITE SECTION - "What's Happening Now"]                           │
-│  bg-card (white), white cards ← JARRING CONTRAST                    │
-│  ┌───────────┐ ┌───────────┐ ┌───────────┐                         │
-│  │ White     │ │ White     │ │ White     │                         │
-│  │ Card      │ │ Card      │ │ Card      │                         │
-│  └───────────┘ └───────────┘ └───────────┘                         │
+│ [Hero - BEIGE IMAGE] ← Problem: warm tones                          │
+│ light text, light badges                                            │
 ├─────────────────────────────────────────────────────────────────────┤
-│  [DARK SECTION - Intelligence Modules]                              │
-│  bg-foreground (dark) - OK                                          │
+│ [Brand Statement - WHITE BG] ← Problem: jarring                     │
+├─────────────────────────────────────────────────────────────────────┤
+│ [Services - LIGHT GRAY BG, WHITE CARDS] ← Problem: light theme      │
+├─────────────────────────────────────────────────────────────────────┤
+│ [Atelier - WHITE BG] ← Problem: white section                       │
+├─────────────────────────────────────────────────────────────────────┤
+│ [Testimonials - WHITE BG, WHITE CARDS] ← Problem                    │
+├─────────────────────────────────────────────────────────────────────┤
+│ [CTAs - LIGHT BG] ← Problem                                         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### After (Redesigned)
 ```text
 ┌─────────────────────────────────────────────────────────────────────┐
-│  [DARK HERO - Reduced height, premium input]                        │
-│  bg-black → gradient                                                 │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │ Graphite input bar (from-#1B1B1B to-#111111)                │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│  [Graphite chips] [Graphite chips]                                  │
+│ [Experience Section - Premium Dark #0A0A0A]                         │
+│ Graphite input, graphite suggestion cards                           │
 ├─────────────────────────────────────────────────────────────────────┤
-│  [DARK SECTION - "What's Happening Now"]                            │
-│  bg-[#0B0B0B] - seamless transition                                 │
-│  ┌───────────┐ ┌───────────┐ ┌───────────┐                         │
-│  │ Graphite  │ │ Graphite  │ │ Graphite  │                         │
-│  │ Card      │ │ Card      │ │ Card      │                         │
-│  │ #232323   │ │ #232323   │ │ #232323   │                         │
-│  └───────────┘ └───────────┘ └───────────┘                         │
+│ [Hero - GRAYSCALE RUNWAY IMAGE]                                     │
+│ Dark overlay, white text, "Try a prompt" input                      │
+│ bg: grayscale(100%) + dark gradient overlay                         │
 ├─────────────────────────────────────────────────────────────────────┤
-│  [DARK SECTION - Intelligence Modules]                              │
-│  bg-[#0A0A0A] - consistent                                          │
-│  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐          │
-│  │ Module    │ │ Module    │ │ Module    │ │ Module    │          │
-│  │ #1A1A1A   │ │ #1A1A1A   │ │ #1A1A1A   │ │ #1A1A1A   │          │
-│  └───────────┘ └───────────┘ └───────────┘ └───────────┘          │
+│ [Brand Statement - Dark #070707]                                    │
+│ White text on dark                                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│ [Services - Dark #0B0B0B, GRAPHITE CARDS]                          │
+│ Cards: from-#1A1A1A to-#141414                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│ [Atelier - Dark #070707, GRAYSCALE IMAGE]                          │
+│ Image filter: grayscale(100%)                                       │
+├─────────────────────────────────────────────────────────────────────┤
+│ [Testimonials - Dark #0A0A0A, GRAPHITE CARDS]                      │
+│ Cards: from-#232323 to-#191919                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│ [CTAs - Dark backgrounds, white/graphite buttons]                   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Reusable Template Architecture
+## Runway Image Recommendations
 
-The current architecture is already template-based via `DomainLanding.tsx` which uses:
-- `useSector()` for domain config (title, tagline, placeholder)
-- `DOMAIN_STARTERS` for suggestion chips
-- `domainModules` in DomainModules.tsx for domain-specific modules
+### Option 1: Fashion Show Spotlights
+- URL: `https://images.unsplash.com/photo-1558618666-fcd25c85cd64`
+- Shows: Dramatic runway lighting, silhouettes
+- License: Unsplash (free commercial use)
 
-This remains the same - only the visual styling changes to be consistently dark.
+### Option 2: Backstage Silhouettes
+- Search Pexels for "fashion show backstage black and white"
+- Shows: Blurred motion, high-fashion atmosphere
 
-### Domain Configuration (Already Exists)
+### Option 3: Runway Crowd
+- Search Unsplash for "catwalk silhouette monochrome"
+- Shows: Editorial runway perspective
 
-```tsx
-// SectorContext.tsx provides:
-- config.label → Hero title
-- config.placeholder → Input placeholder
-- config.tagline → Subtitle
-
-// DOMAIN_STARTERS provides:
-- Suggestion chips per domain
-
-// domainModules in DomainModules.tsx provides:
-- Module cards per domain
+### Image Processing (Applied via CSS)
+```css
+filter: grayscale(100%) contrast(1.08) brightness(0.85);
 ```
 
-No architectural changes needed - just visual styling updates.
+### Dark Overlay (Non-negotiable for readability)
+```css
+background: linear-gradient(180deg, 
+  rgba(0,0,0,0.55) 0%, 
+  rgba(0,0,0,0.82) 60%, 
+  rgba(0,0,0,0.90) 100%
+);
+```
 
 ---
 
@@ -434,30 +585,36 @@ No architectural changes needed - just visual styling updates.
 
 | Requirement | Implementation |
 |-------------|----------------|
-| No white sections | All sections use dark backgrounds (#070707, #0B0B0B, #0A0A0A) |
-| Graphite cards in feed | `linear-gradient(180deg, #232323 0%, #191919 100%)` |
-| Premium input styling | Matches dashboard composer exactly |
-| Graphite chips | `#141414` default, `#1A1A1A` hover |
-| Consistent spacing | Centered containers with max-width and padding |
-| Single template | All domains use same DomainLanding with config differences |
-| Typography consistent | Serif only in hero title, UI font elsewhere |
-| No horizontal scrolling | `overflow-x-hidden` on root container |
+| Beige image removed | Replace with grayscale runway image |
+| Page background | `#070707` with subtle vignette |
+| No white sections | All sections use `#070707`, `#0A0A0A`, `#0B0B0B` |
+| Text readable over hero | Dark gradient overlay applied |
+| Inputs match dashboard | Gradient `#1B1B1B → #111111`, 20px radius |
+| Buttons match system | White primary, graphite outline |
+| Cards match system | Gradient `#232323 → #191919` or `#1A1A1A → #141414` |
+| Subtle noise on panels | 2-3% opacity noise overlay |
+| Consistent with domains | Same token system as `/domain/*` pages |
 
 ---
 
 ## Technical Summary
 
 ### Files Modified
-| File | Change Type |
-|------|-------------|
-| `src/pages/DomainLanding.tsx` | Background color update |
-| `src/components/domain/DomainHero.tsx` | Input styling, chip styling, reduced height |
-| `src/components/domain/DomainInsights.tsx` | Dark section, graphite cards, text colors |
-| `src/components/domain/DomainModules.tsx` | Align card styling with premium system |
-| `src/index.css` | Add domain utility classes |
+| File | Changes |
+|------|---------|
+| `src/pages/Landing.tsx` | Full redesign - dark theme, graphite cards, grayscale images |
+| `src/index.css` | Add `panel-noise`, `homepage-panel`, `homepage-section-gradient` utilities |
 
-### CSS Utility Classes Added
-- `.domain-feed-section` - Feed section background
-- `.domain-card` - Graphite card styling
-- `.graphite-pill` - Chip/badge styling
-- `.domain-module-card` - Module card styling
+### Images
+| Current | Replacement |
+|---------|-------------|
+| `hero-luxury.jpg` (beige) | Unsplash runway image with grayscale filter |
+| `fashion-atelier.jpg` | Keep but apply `grayscale(100%)` filter |
+| `sustainable-materials.jpg` | Keep but apply `grayscale(100%)` filter |
+
+### Color Token Usage
+- Backgrounds: `#070707`, `#0A0A0A`, `#0B0B0B`
+- Panel cards: `from-[#1A1A1A] to-[#141414]`
+- Testimonial cards: `from-[#232323] to-[#191919]`
+- Borders: `border-white/[0.10]`, `border-white/[0.12]`
+- Text: `text-white/[0.92]`, `text-white/65`, `text-white/50`
