@@ -255,9 +255,9 @@ export function ChatMessageComponent({
   // User message - right aligned with brighter graphite bubble
   if (message.role === "user") {
     return (
-      <div className="flex justify-end px-6 md:px-8">
+      <div className="flex justify-end">
         <div className={cn(
-          "max-w-[72%] rounded-[20px] px-5 py-4",
+          "max-w-[55%] md:max-w-[60%] rounded-[20px] px-5 py-4",
           "graphite-bubble-user"
         )}>
           <BubbleHeader isUser={true} timestamp={formattedTime} />
@@ -272,9 +272,9 @@ export function ChatMessageComponent({
   // Placeholder message (thinking/researching)
   if (message.isPlaceholder) {
     return (
-      <div className="flex justify-start px-6 md:px-8">
+      <div className="flex justify-start pl-3 lg:pl-4">
         <div className={cn(
-          "max-w-[72%] rounded-[20px] px-5 py-4",
+          "max-w-[65%] md:max-w-[70%] rounded-[20px] px-5 py-4",
           "graphite-bubble-ai"
         )}>
           <BubbleHeader isUser={false} timestamp="" />
@@ -294,8 +294,8 @@ export function ChatMessageComponent({
   // Error message
   if (message.isError) {
     return (
-      <div className="flex justify-start px-6 md:px-8">
-        <div className="max-w-[72%] bg-red-900/40 border border-red-500/30 rounded-[20px] px-5 py-4 shadow-[0_14px_40px_rgba(0,0,0,0.55)]">
+      <div className="flex justify-start pl-3 lg:pl-4">
+        <div className="max-w-[65%] md:max-w-[70%] bg-red-900/40 border border-red-500/30 rounded-[20px] px-5 py-4 shadow-[0_14px_40px_rgba(0,0,0,0.55)]">
           <BubbleHeader isUser={false} timestamp={formattedTime} />
           <div className="flex items-start gap-2.5">
             <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
@@ -321,9 +321,9 @@ export function ChatMessageComponent({
 
   // Normal assistant message - left aligned with graphite bubble
   return (
-    <div className="flex justify-start px-6 md:px-8">
+    <div className="flex justify-start pl-3 lg:pl-4">
       <div className={cn(
-        "max-w-[72%] rounded-[20px] px-5 py-4",
+        "max-w-[65%] md:max-w-[70%] rounded-[20px] px-5 py-4",
         "graphite-bubble-ai"
       )}>
         <BubbleHeader isUser={false} timestamp={formattedTime} />

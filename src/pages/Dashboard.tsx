@@ -117,7 +117,7 @@ const Dashboard = () => {
         {/* Chat Area */}
         <main className={cn(
           "flex-1 flex flex-col min-h-0 relative",
-          sidebarOpen ? "lg:pl-64" : "lg:pl-14"
+          sidebarOpen ? "lg:pl-[304px]" : "lg:pl-[72px]"
         )}>
           {/* Grainy transition overlay for All Domains view */}
           {currentSector === "all" && (
