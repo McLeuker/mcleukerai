@@ -102,7 +102,7 @@ export function TopNavigation({ showSectorTabs = true, showCredits = true, showN
   return (
     <header className={cn(
       "fixed top-0 left-0 right-0 z-50",
-      "bg-gradient-to-b from-[hsl(0_0%_7%)] to-[hsl(0_0%_4%)]",
+      "bg-gradient-to-b from-[#0D0D0D] to-[#0A0A0A]",
       "border-b border-white/[0.08]",
       "backdrop-blur-sm"
     )}>
