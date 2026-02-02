@@ -75,14 +75,14 @@ export function ChatView({
     <div className="flex-1 flex flex-col min-h-0 bg-black">
       {/* Filter Bar */}
       {messages.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between px-6 py-2.5 border-b border-white/10 bg-black">
+          <div className="flex items-center gap-3">
             <Button
               variant={showFavoritesOnly ? "secondary" : "ghost"}
               size="sm"
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
               className={cn(
-                "h-8 gap-1.5",
+                "h-8 gap-2 px-4",
                 showFavoritesOnly 
                   ? "bg-white text-black hover:bg-white/90" 
                   : "text-white/70 hover:text-white hover:bg-white/10"
@@ -90,11 +90,11 @@ export function ChatView({
             >
               <Star
                 className={cn(
-                  "h-3.5 w-3.5",
+                  "h-3.5 w-3.5 flex-shrink-0",
                   showFavoritesOnly && "fill-black text-black"
                 )}
               />
-              Favorites
+              <span>Favorites</span>
               {favoriteCount > 0 && (
                 <span className="ml-1 text-xs bg-white/10 px-1.5 py-0.5 rounded">
                   {favoriteCount}
@@ -111,7 +111,7 @@ export function ChatView({
 
       {/* Messages */}
       <ScrollArea className="flex-1" ref={scrollRef}>
-        <div className="min-h-full">
+        <div className="min-h-full py-4 space-y-4">
           {filteredMessages.map((message, index) => {
             const isLastAssistant =
               message.role === "assistant" &&
@@ -128,6 +128,7 @@ export function ChatView({
                 streamingContent={isLastAssistant ? streamingContent : undefined}
                 onFollowUpClick={onFollowUpClick || onSelectPrompt}
                 onRetry={onRetry}
+                researchState={isLastAssistant ? researchState : undefined}
               />
             );
           })}
@@ -150,6 +151,7 @@ export function ChatView({
               onDelete={() => {}}
               isStreaming={true}
               streamingContent={streamingContent}
+              researchState={researchState}
             />
           )}
 
