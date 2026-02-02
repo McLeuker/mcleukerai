@@ -1,63 +1,21 @@
 
-# Premium Grayscale Chat UI Update
+# Layout Composition Improvements - Gutter, Centered Message Column & Subtle Left→Right Gradient
 
 ## Overview
 
-Update the dashboard UI to a cohesive premium grayscale system where chat bubbles use graphite card styling (matching the sidebar chat history cards) instead of white bubbles, ensuring clear visual separation from the vignette background.
+The current chat bubbles feel too close to the sidebar boundary. This plan introduces proper spacing, a centered message column with constrained width, reduced bubble widths, and a subtle left-to-right gradient to add depth.
 
 ---
 
-## Color System (Exact Values)
+## Current Issues
 
-### App Foundation
-| Element | Value |
-|---------|-------|
-| App background | `#070707` |
-| Vignette overlay | `rgba(0,0,0,0.45)` on edges |
-| Sidebar panel | `#0F0F0F` |
-| Top nav | `#0D0D0D` |
-| Borders | `1px solid rgba(255,255,255,0.08)` |
-| Panel radius | `16-20px` |
-| Panel shadow | `0 10px 28px rgba(0,0,0,0.50)` |
-
-### Graphite Bubbles
-| Element | Value |
-|---------|-------|
-| AI bubble gradient | `linear-gradient(180deg, #232323 0%, #191919 100%)` |
-| User bubble gradient | `linear-gradient(180deg, #2C2C2C 0%, #202020 100%)` |
-| Bubble border | `1px solid rgba(255,255,255,0.12)` |
-| Bubble shadow | `0 14px 40px rgba(0,0,0,0.55)` |
-| Bubble radius | `20px` |
-| Bubble padding | `20px` (px-5 py-4) |
-| Max width | `72%` of chat column |
-
-### Text Colors
-| Element | Value |
-|---------|-------|
-| Message text | `rgba(255,255,255,0.88)` |
-| Header/meta text | `rgba(255,255,255,0.58)` |
-| Header font size | `12-13px` |
-| Message font size | `15px` |
-| Line height | `1.6` |
-
-### Sidebar Items
-| State | Value |
-|-------|-------|
-| Default bg | `#141414` |
-| Hover bg | `#1A1A1A` |
-| Active border | `rgba(255,255,255,0.18)` |
-| Active shadow | stronger shadow |
-
-### Input Composer
-| Element | Value |
-|---------|-------|
-| Background | `linear-gradient(180deg, #1B1B1B 0%, #111111 100%)` |
-| Border | `1px solid rgba(255,255,255,0.10)` |
-| Focus border | `rgba(255,255,255,0.18)` |
-| Focus ring | `0 0 0 3px rgba(255,255,255,0.06)` |
-| Placeholder | `rgba(255,255,255,0.40)` |
-| Text | `rgba(255,255,255,0.88)` |
-| Radius | `20px` |
+| Problem | Current State |
+|---------|---------------|
+| No dedicated gutter | Sidebar and chat share edge, bubbles feel cramped |
+| Full-width message area | Messages stretch across entire content area |
+| Bubbles too wide | `max-width: 72%` is too large for chat feel |
+| Hard divider | `border-white/[0.08]` creates harsh separation |
+| Flat background | Radial vignette lacks directional depth |
 
 ---
 
@@ -65,220 +23,293 @@ Update the dashboard UI to a cohesive premium grayscale system where chat bubble
 
 | File | Changes |
 |------|---------|
-| `src/index.css` | Update premium tokens, bubble classes, vignette background |
-| `src/components/dashboard/ChatMessage.tsx` | Graphite bubbles with white text, updated header colors |
-| `src/components/dashboard/ChatView.tsx` | Updated background, loading indicator colors |
-| `src/components/dashboard/ChatSidebar.tsx` | Updated item colors to `#141414` / `#1A1A1A` |
-| `src/components/dashboard/ChatInput.tsx` | Updated gradient values |
-| `src/components/layout/TopNavigation.tsx` | Updated to `#0D0D0D` |
-| `src/components/layout/Footer.tsx` | Increase height by 15% with responsive reduction |
-| `src/pages/Dashboard.tsx` | Updated background to `#070707` |
+| `src/pages/Dashboard.tsx` | Add gutter spacing, update main layout |
+| `src/components/dashboard/ChatView.tsx` | Add centered message column container |
+| `src/components/dashboard/ChatMessage.tsx` | Reduce bubble widths, add AI left inset |
+| `src/index.css` | Add left→right gradient class, soften dividers |
 
 ---
 
-## Implementation Details
+## 1. Dashboard.tsx - Add Dedicated Gutter
 
-### 1. Global Styles (`src/index.css`)
+**Current:** Sidebar uses `fixed` positioning, main content has `lg:pl-64` or `lg:pl-14` padding.
 
-**Update CSS custom properties and utility classes:**
+**Updated:** Add explicit gutter spacing to create breathing room between sidebar and chat:
+
+```tsx
+// Current (line 118-121):
+<main className={cn(
+  "flex-1 flex flex-col min-h-0 relative",
+  sidebarOpen ? "lg:pl-64" : "lg:pl-14"
+)}>
+
+// Updated with gutter:
+<main className={cn(
+  "flex-1 flex flex-col min-h-0 relative",
+  sidebarOpen ? "lg:pl-[304px]" : "lg:pl-[72px]"  // sidebar + 32px gutter
+)}>
+```
+
+**Calculation:**
+- Sidebar open: 288px (w-72) + 32px gutter = 320px, using `pl-[304px]` for balance
+- Sidebar collapsed: 56px (w-14) + 16px gutter = 72px
+
+---
+
+## 2. ChatView.tsx - Centered Message Column
+
+**Add a wrapper container for all messages with max-width and centering:**
+
+```tsx
+// Inside ScrollArea, wrap messages in centered container:
+<div className="min-h-full py-6">
+  {/* Centered message column */}
+  <div className="max-w-[1040px] mx-auto px-6 lg:px-8 space-y-4">
+    {filteredMessages.map((message, index) => (
+      // ... messages
+    ))}
+  </div>
+</div>
+```
+
+**Benefits:**
+- `max-width: 1040px` prevents messages from stretching on wide screens
+- `mx-auto` centers the column
+- `px-6 lg:px-8` provides inner padding (24-32px)
+
+---
+
+## 3. ChatMessage.tsx - Reduce Bubble Widths & Add AI Inset
+
+### Updated Max-Widths
+
+| Bubble Type | Current | New |
+|-------------|---------|-----|
+| AI bubble | `max-w-[72%]` | `max-w-[65%]` |
+| User bubble | `max-w-[72%]` | `max-w-[55%]` |
+
+### Add Extra Left Inset for AI Messages
+
+```tsx
+// AI message container:
+<div className="flex justify-start pl-3 lg:pl-4">
+  <div className="max-w-[65%] rounded-[20px] px-5 py-4 graphite-bubble-ai">
+    {/* ... content */}
+  </div>
+</div>
+
+// User message container (right-aligned, no extra inset):
+<div className="flex justify-end">
+  <div className="max-w-[55%] rounded-[20px] px-5 py-4 graphite-bubble-user">
+    {/* ... content */}
+  </div>
+</div>
+```
+
+The `pl-3 lg:pl-4` (12-16px) on AI rows creates additional separation from the left boundary.
+
+---
+
+## 4. Soften the Sidebar Divider
+
+**Current graphite-glass class:**
+```css
+.graphite-glass {
+  background: linear-gradient(180deg, #0F0F0F 0%, #0A0A0A 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);  /* visible border */
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.50);
+}
+```
+
+**Updated - softer right border:**
+```css
+.graphite-glass {
+  background: linear-gradient(180deg, #0F0F0F 0%, #0A0A0A 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05);  /* softer */
+  border-right-color: rgba(255, 255, 255, 0.03);  /* even softer on dividing edge */
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.50);
+}
+```
+
+Alternatively, use a gradient fade instead of a hard border on the right edge.
+
+---
+
+## 5. Add Left→Right Gradient to Main Chat Panel
+
+**New CSS class in index.css:**
 
 ```css
-/* Update premium ombre background with proper vignette */
-.premium-ombre-bg {
+/* Subtle left→right gradient for chat panel depth */
+.chat-panel-gradient {
   background: 
+    linear-gradient(90deg, #060606 0%, #080808 35%, #0A0A0A 100%),
     radial-gradient(
       ellipse 80% 60% at 50% 40%,
       #0C0C0C 0%,
       #070707 50%,
       #050505 100%
-    ),
-    #070707;
-}
-
-/* New graphite bubble classes */
-.graphite-bubble-ai {
-  background: linear-gradient(180deg, #232323 0%, #191919 100%);
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: 0 14px 40px rgba(0,0,0,0.55);
-}
-
-.graphite-bubble-user {
-  background: linear-gradient(180deg, #2C2C2C 0%, #202020 100%);
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: 0 14px 40px rgba(0,0,0,0.55);
-}
-
-/* Update sidebar item defaults */
-.chat-sidebar-item {
-  background: #141414;
-  border: 1px solid rgba(255,255,255,0.08);
-}
-
-.chat-sidebar-item:hover {
-  background: #1A1A1A;
-  border-color: rgba(255,255,255,0.12);
-}
-
-.chat-sidebar-item-active {
-  border-color: rgba(255,255,255,0.18);
-  box-shadow: 0 14px 40px rgba(0,0,0,0.55);
+    );
 }
 ```
 
-### 2. ChatMessage.tsx Updates
-
-**Replace white bubbles with graphite styling:**
-
-Current bubble classes:
-- `premium-bubble-user` (white)
-- `premium-bubble-ai` (off-white)
-
-New bubble classes:
-- `graphite-bubble-user` (brighter graphite gradient)
-- `graphite-bubble-ai` (darker graphite gradient)
-
-**Update text colors throughout:**
-- Message text: `text-white/[0.88]` instead of `text-black`
-- Header text: `text-white/[0.58]` instead of `text-black/80`
-- Timestamps: `text-white/[0.45]` instead of `text-black/45`
-- Sources/actions: White-based colors instead of black-based
-
-**BubbleHeader component updates:**
+**Apply to ChatView:**
 ```tsx
-<span className="text-[12px] font-medium text-white/[0.58]">
-  {isUser ? 'You' : 'McLeuker AI'}
-</span>
-<span className="text-[12px] text-white/[0.45]">·</span>
-<span className="text-[12px] text-white/[0.45]">{timestamp}</span>
+// Current:
+<div className="flex-1 flex flex-col min-h-0 overflow-hidden premium-ombre-bg">
+
+// Updated:
+<div className="flex-1 flex flex-col min-h-0 overflow-hidden chat-panel-gradient">
 ```
 
-**Avatar styling updates:**
+This layers the left→right gradient on top of the existing radial vignette for subtle directional depth.
+
+---
+
+## Implementation Summary
+
+### Dashboard.tsx Changes (lines 118-121)
+
 ```tsx
-<AvatarFallback className="bg-white/10 text-white text-[10px]">
+<main className={cn(
+  "flex-1 flex flex-col min-h-0 relative",
+  sidebarOpen ? "lg:pl-[304px]" : "lg:pl-[72px]"
+)}>
 ```
 
-### 3. ChatView.tsx Updates
+### ChatView.tsx Changes (around line 128-129)
 
-**Update loading indicator to use graphite style:**
+Wrap the message list in a centered container:
+
 ```tsx
-<div className="max-w-[72%] graphite-bubble-ai rounded-[20px] px-5 py-4">
-  <div className="flex items-center gap-3">
-    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
-      <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+<ScrollArea className="flex-1 overflow-x-hidden" ref={scrollRef}>
+  <div className="min-h-full py-6">
+    <div className="max-w-[1040px] mx-auto px-6 lg:px-8 space-y-4">
+      {filteredMessages.map((message, index) => (
+        // ... existing message rendering
+      ))}
+      
+      {/* Loading indicator moved inside centered container */}
+      {/* Research progress moved inside centered container */}
+      {/* Empty state moved inside centered container */}
     </div>
-    <span className="text-[14px] text-white/55">McLeuker AI is thinking...</span>
   </div>
-</div>
+</ScrollArea>
 ```
 
-### 4. ChatSidebar.tsx Updates
-
-**Update item background colors:**
-- Default: Remove `rgba(255,255,255,0.05)` → Use `#141414`
-- Keep hover and active states matching the CSS class updates
-
-### 5. ChatInput.tsx Updates
-
-**Update gradient values:**
+Apply the new gradient class:
 ```tsx
-"bg-gradient-to-b from-[#1B1B1B] to-[#111111]"
-```
-(Currently using `from-[hsl(0_0%_10%)] to-[hsl(0_0%_7%)]` which is approximately correct but should use exact hex values)
-
-### 6. TopNavigation.tsx Updates
-
-**Update header background:**
-```tsx
-"bg-gradient-to-b from-[#0D0D0D] to-[#0A0A0A]"
-```
-(Currently using `from-[hsl(0_0%_7%)]` which needs to match `#0D0D0D`)
-
-### 7. Footer.tsx Updates
-
-**Increase height by 15%:**
-- Current: `py-16 lg:py-20`
-- New: `py-[72px] lg:py-[92px]` (approximately 15% larger)
-
-**Add responsive reduction for small screens:**
-```tsx
-<footer className="border-t border-border bg-background mt-auto">
-  <div className="container mx-auto px-6 lg:px-12 py-12 sm:py-[72px] lg:py-[92px]">
+<div className="flex-1 flex flex-col min-h-0 overflow-hidden chat-panel-gradient">
 ```
 
-### 8. Dashboard.tsx Updates
+### ChatMessage.tsx Changes
 
-**Update base background color:**
+**AI messages (around line 324):**
 ```tsx
-<div className="min-h-screen bg-[#070707] flex w-full overflow-x-hidden overflow-y-auto">
+<div className="flex justify-start pl-3 lg:pl-4">
+  <div className="max-w-[65%] rounded-[20px] px-5 py-4 graphite-bubble-ai">
+```
+
+**User messages (around line 258):**
+```tsx
+<div className="flex justify-end">
+  <div className="max-w-[55%] rounded-[20px] px-5 py-4 graphite-bubble-user">
+```
+
+**Placeholder messages (around line 275):**
+```tsx
+<div className="flex justify-start pl-3 lg:pl-4">
+  <div className="max-w-[65%] rounded-[20px] px-5 py-4 graphite-bubble-ai">
+```
+
+**Error messages (around line 297):**
+```tsx
+<div className="flex justify-start pl-3 lg:pl-4">
+  <div className="max-w-[65%] ...">
+```
+
+### index.css Changes
+
+**Add new gradient class (after line 479):**
+
+```css
+/* Subtle left→right gradient for chat panel depth */
+.chat-panel-gradient {
+  background: 
+    linear-gradient(90deg, #060606 0%, #080808 35%, #0A0A0A 100%),
+    radial-gradient(
+      ellipse 80% 60% at 50% 40%,
+      #0C0C0C 0%,
+      #070707 50%,
+      #050505 100%
+    );
+}
+```
+
+**Soften graphite-glass border (around line 482-486):**
+
+```css
+.graphite-glass {
+  background: linear-gradient(180deg, #0F0F0F 0%, #0A0A0A 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-right-color: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.50);
+}
 ```
 
 ---
 
 ## Visual Comparison
 
-### Before (White Bubbles)
-```
-┌─────────────────────────────────────────────────┐
-│ Dark vignette background                        │
-│                                                 │
-│   ┌─────────────────────────────┐               │
-│   │ WHITE BUBBLE ← blends in    │               │
-│   │ harsh contrast              │               │
-│   └─────────────────────────────┘               │
-│                                                 │
-│               ┌─────────────────────────────┐   │
-│               │ WHITE BUBBLE                │   │
-│               └─────────────────────────────┘   │
-└─────────────────────────────────────────────────┘
-```
+```text
+BEFORE:
+┌─────────────────────────────────────────────────────────────────────┐
+│ [Sidebar]│[Chat bubbles crammed against left edge]                  │
+│          │ ┌────────────────────────────────────────────────────┐   │
+│          │ │ Wide AI bubble (72%) no breathing room            │   │
+│          │ └────────────────────────────────────────────────────┘   │
+│          │                                                          │
+│          │               ┌──────────────────────────────────────┐   │
+│          │               │ Wide user bubble (72%)               │   │
+│          │               └──────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
 
-### After (Graphite Bubbles)
-```
-┌─────────────────────────────────────────────────┐
-│ Dark vignette background #070707                │
-│                                                 │
-│   ┌─────────────────────────────┐               │
-│   │ GRAPHITE BUBBLE #232323     │ ← lifts off   │
-│   │ white text, soft shadow     │               │
-│   └─────────────────────────────┘               │
-│                                                 │
-│               ┌─────────────────────────────┐   │
-│               │ BRIGHTER GRAPHITE #2C2C2C   │   │
-│               │ (user messages)             │   │
-│               └─────────────────────────────┘   │
-└─────────────────────────────────────────────────┘
+AFTER:
+┌─────────────────────────────────────────────────────────────────────┐
+│[Sidebar]░░░░│      [Centered column with max-width 1040px]          │
+│         soft│                                                        │
+│         fade│   ┌──────────────────────────────────┐                │
+│             │   │ AI bubble (65%) with left inset  │                │
+│             │   └──────────────────────────────────┘                │
+│      gutter │                                                        │
+│       32px  │              ┌────────────────────────┐               │
+│             │              │ User bubble (55%)      │               │
+│             │              └────────────────────────┘               │
+│             │              [Subtle L→R gradient adds depth]         │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Acceptance Criteria Checklist
+## Acceptance Criteria
 
 | Requirement | Implementation |
 |-------------|----------------|
-| Bubbles lift off background | Graphite gradients (`#232323`/`#2C2C2C`) against `#070707` bg |
-| User bubble visibly brighter | `#2C2C2C→#202020` vs AI `#232323→#191919` |
-| No horizontal scrolling | Keep existing `overflow-x-hidden` + `overflow-wrap: anywhere` |
-| Consistent font sizes | 15px message, 12-13px headers |
-| Gutters prevent edge touching | 24-32px padding (`px-6 md:px-8`) + 72% max-width |
-| Elegant graphite input | Updated gradient `#1B1B1B→#111111` with focus glow |
-| Footer/logo larger | 15% height increase with responsive reduction |
+| AI bubbles not glued to sidebar | 32px gutter + 12-16px AI inset |
+| Comfortable breathing room | Centered column with max-width 1040px |
+| No horizontal scrolling | Keep `overflow-x-hidden` + `overflow-wrap: anywhere` |
+| Readable bubble widths | AI: 65%, User: 55% |
+| Soft divider | Border reduced to 5% opacity, right edge 3% |
+| Subtle left→right gradient | Layered gradient adds directional depth |
 
 ---
 
-## Technical Notes
+## Responsive Behavior
 
-### Color Value Conversion
-| HSL Approximation | Exact Hex |
-|-------------------|-----------|
-| `hsl(0 0% 7%)` | `#121212` → `#0D0D0D` for nav |
-| `hsl(0 0% 10%)` | `#1A1A1A` → `#1B1B1B` for input |
-| `hsl(0 0% 4%)` | `#0A0A0A` (keep) |
+| Breakpoint | Gutter Size | Bubble Max-Width |
+|------------|-------------|------------------|
+| Desktop (lg+) | 32px | AI: 65%, User: 55% |
+| Tablet (md) | 24px | AI: 70%, User: 60% |
+| Mobile | 16px padding | AI: 85%, User: 80% |
 
-### Shadow Hierarchy
-- Panel shadow: `0 10px 28px rgba(0,0,0,0.50)`
-- Bubble shadow: `0 14px 40px rgba(0,0,0,0.55)` (stronger for lift effect)
-- Active item: Same as bubble shadow
-
-### Text Contrast Check
-- `rgba(255,255,255,0.88)` on `#232323` = 8.2:1 ratio (AAA)
-- `rgba(255,255,255,0.58)` on `#232323` = 5.1:1 ratio (AA)
+The centered message column naturally adapts as viewport shrinks. On mobile, the sidebar is hidden, so the full width is available for the chat column.
