@@ -1,13 +1,29 @@
 import { useState, useCallback } from "react";
 import { mcLeukerAPI } from "@/lib/mcLeukerAPI";
-import type { AISearchResponse, QuickAnswerResponse, SearchOptions } from "@/types/mcLeuker";
+
+interface SearchResult {
+  title: string;
+  url: string;
+  snippet?: string;
+}
+
+interface SearchResponse {
+  query: string;
+  summary: string;
+  results: SearchResult[];
+}
+
+interface QuickAnswerResponse {
+  answer: string;
+  sources?: SearchResult[];
+}
 
 interface UseMcLeukerSearchReturn {
   isSearching: boolean;
-  results: AISearchResponse | null;
+  results: SearchResponse | null;
   quickAnswerResult: QuickAnswerResponse | null;
   error: string | null;
-  search: (query: string, options?: SearchOptions) => Promise<AISearchResponse | null>;
+  search: (query: string) => Promise<SearchResponse | null>;
   quickAnswer: (question: string) => Promise<QuickAnswerResponse | null>;
   clearResults: () => void;
   clearError: () => void;
@@ -15,19 +31,24 @@ interface UseMcLeukerSearchReturn {
 
 export function useMcLeukerSearch(): UseMcLeukerSearchReturn {
   const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState<AISearchResponse | null>(null);
+  const [results, setResults] = useState<SearchResponse | null>(null);
   const [quickAnswerResult, setQuickAnswerResult] = useState<QuickAnswerResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const search = useCallback(async (query: string, options?: SearchOptions): Promise<AISearchResponse | null> => {
+  const search = useCallback(async (query: string): Promise<SearchResponse | null> => {
     setIsSearching(true);
     setError(null);
     setResults(null);
 
     try {
-      const searchResults = await mcLeukerAPI.search(query, options);
-      setResults(searchResults);
-      return searchResults;
+      const searchResults = await mcLeukerAPI.search(query);
+      const response: SearchResponse = {
+        query,
+        summary: "",
+        results: searchResults.results || [],
+      };
+      setResults(response);
+      return response;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Search failed";
       setError(errorMessage);
@@ -43,7 +64,11 @@ export function useMcLeukerSearch(): UseMcLeukerSearchReturn {
     setQuickAnswerResult(null);
 
     try {
-      const answer = await mcLeukerAPI.quickAnswer(question);
+      const chatResponse = await mcLeukerAPI.chat(question, "quick", []);
+      const answer: QuickAnswerResponse = {
+        answer: chatResponse.message || chatResponse.response || "",
+        sources: chatResponse.sources,
+      };
       setQuickAnswerResult(answer);
       return answer;
     } catch (err) {
