@@ -142,7 +142,12 @@ class McLeukerAPI {
   /**
    * Chat interaction V2.0.0 - Unified endpoint with mode parameter
    */
-  async chatV2(message: string, conversationId?: string, mode: ChatMode = 'quick'): Promise<ChatResponseV2> {
+  async chatV2(
+    message: string, 
+    conversationId?: string, 
+    mode: ChatMode = 'quick',
+    signal?: AbortSignal
+  ): Promise<ChatResponseV2> {
     const response = await fetch(`${this.baseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -151,6 +156,7 @@ class McLeukerAPI {
         conversation_id: conversationId,
         mode 
       }),
+      signal,
     });
 
     if (!response.ok) {

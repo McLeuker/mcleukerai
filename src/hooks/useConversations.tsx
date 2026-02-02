@@ -37,6 +37,15 @@ export interface ChatMessage {
   }>;
   // V2.0.0 follow-up questions
   followUpQuestions?: string[];
+  // Reliability hardening fields
+  isPlaceholder?: boolean;
+  isError?: boolean;
+  retryData?: {
+    prompt: string;
+    mode: ResearchMode;
+    model?: string;
+    domain?: string;
+  };
 }
 
 export interface Conversation {
@@ -270,6 +279,22 @@ export function useConversations() {
     };
     setMessages((prev) => [...prev, newUserMessage]);
 
+    // Add placeholder assistant message immediately for instant feedback
+    const placeholderId = `placeholder-${Date.now()}`;
+    const placeholderMessage: ChatMessage = {
+      id: placeholderId,
+      conversation_id: conversation.id,
+      user_id: user.id,
+      role: "assistant",
+      content: mode === "deep" ? "Researching..." : "Thinking...",
+      model_used: null,
+      credits_used: 0,
+      is_favorite: false,
+      created_at: new Date().toISOString(),
+      isPlaceholder: true,
+    };
+    setMessages((prev) => [...prev, placeholderMessage]);
+
     // Update conversation title if it's the first message
     if (messages.length === 0) {
       const title = prompt.slice(0, 50) + (prompt.length > 50 ? "..." : "");
@@ -285,6 +310,13 @@ export function useConversations() {
         prev.map((c) => (c.id === conversation.id ? { ...c, title } : c))
       );
     }
+
+    // Setup AbortController with timeout
+    abortControllerRef.current = new AbortController();
+    const timeoutMs = mode === "deep" ? 120000 : 45000; // 120s deep, 45s quick
+    const timeoutId = setTimeout(() => {
+      abortControllerRef.current?.abort();
+    }, timeoutMs);
 
     // Call Railway backend API V2.0.0 - Unified endpoint with mode parameter
     try {
@@ -306,8 +338,16 @@ export function useConversations() {
         }));
       }
 
-      // Use unified V2 chat endpoint with mode parameter
-      const chatResult = await mcLeukerAPI.chatV2(prompt, conversation.id, mode);
+      // Use unified V2 chat endpoint with mode parameter and signal
+      const chatResult = await mcLeukerAPI.chatV2(
+        prompt, 
+        conversation.id, 
+        mode,
+        abortControllerRef.current.signal
+      );
+      
+      // Clear timeout on successful response
+      clearTimeout(timeoutId);
       
       content = chatResult.message;
       creditsUsed = chatResult.credits_used || (mode === "deep" ? 25 : 1);
@@ -380,7 +420,17 @@ export function useConversations() {
             generatedFiles,
             followUpQuestions,
           };
-          setMessages((prev) => [...prev, newAssistantMessage]);
+          // Replace placeholder with real message
+          setMessages((prev) => prev.map(m => 
+            m.id === placeholderId ? newAssistantMessage : m
+          ));
+        } else {
+          // If DB save failed, still show the response (replace placeholder)
+          setMessages((prev) => prev.map(m => 
+            m.id === placeholderId 
+              ? { ...m, content, isPlaceholder: false, reasoning, followUpQuestions, generatedFiles } 
+              : m
+          ));
         }
 
         // Update conversation timestamp
@@ -399,10 +449,41 @@ export function useConversations() {
         message: "",
       });
     } catch (error) {
+      clearTimeout(timeoutId);
+      
       if ((error as Error).name === "AbortError") {
-        console.log("Request aborted");
+        console.log("Request aborted/timed out");
+        // Replace placeholder with timeout error + retry
+        setMessages((prev) => prev.map(m =>
+          m.id === placeholderId
+            ? {
+                ...m,
+                content: "Request timed out. Click retry to try again.",
+                isPlaceholder: false,
+                isError: true,
+                retryData: { prompt, mode, model, domain },
+              }
+            : m
+        ));
+        toast({
+          title: "Request Timed Out",
+          description: "The request took too long. You can retry from the chat.",
+          variant: "destructive",
+        });
       } else {
         console.error("Railway API processing error:", error);
+        // Replace placeholder with error + retry
+        setMessages((prev) => prev.map(m =>
+          m.id === placeholderId
+            ? {
+                ...m,
+                content: `Failed to get response: ${error instanceof Error ? error.message : "Unknown error"}`,
+                isPlaceholder: false,
+                isError: true,
+                retryData: { prompt, mode, model, domain },
+              }
+            : m
+        ));
         toast({
           title: "Message Failed",
           description: error instanceof Error ? error.message : "AI processing failed",
@@ -425,6 +506,8 @@ export function useConversations() {
     }
     setLoading(false);
     setStreamingContent("");
+    // Remove any placeholder messages when cancelled
+    setMessages((prev) => prev.filter(m => !m.isPlaceholder));
     setResearchState({
       isResearching: false,
       phase: null,
@@ -433,6 +516,22 @@ export function useConversations() {
       message: "",
     });
   }, []);
+
+  // Retry a failed message
+  const retryMessage = useCallback(async (messageId: string) => {
+    const msg = messages.find(m => m.id === messageId);
+    if (msg?.retryData) {
+      // Remove error message
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      // Resend with original parameters
+      await sendMessage(
+        msg.retryData.prompt,
+        msg.retryData.mode,
+        msg.retryData.model,
+        msg.retryData.domain
+      );
+    }
+  }, [messages]);
 
   // Create a new conversation (user explicitly clicks New Chat)
   const createNewConversation = async (): Promise<void> => {
@@ -542,6 +641,7 @@ export function useConversations() {
     deleteMessage,
     deleteConversation,
     cancelRequest,
+    retryMessage,
     fetchConversations,
   };
 }
