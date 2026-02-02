@@ -80,7 +80,7 @@ export function ChatView({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden premium-ombre-bg">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden chat-panel-gradient">
       {/* Filter Bar - Graphite glass style */}
       {messages.length > 0 && (
         <div className={cn(
@@ -126,75 +126,78 @@ export function ChatView({
 
       {/* Messages - Scroll container with proper overflow */}
       <ScrollArea className="flex-1 overflow-x-hidden" ref={scrollRef}>
-        <div className="min-h-full py-6 space-y-4">
-          {filteredMessages.map((message, index) => {
-            const isLastAssistant =
-              message.role === "assistant" &&
-              index === filteredMessages.length - 1 &&
-              isLoading;
+        <div className="min-h-full py-6">
+          {/* Centered message column */}
+          <div className="max-w-[1040px] mx-auto px-6 lg:px-8 space-y-4">
+            {filteredMessages.map((message, index) => {
+              const isLastAssistant =
+                message.role === "assistant" &&
+                index === filteredMessages.length - 1 &&
+                isLoading;
 
-            return (
-              <ChatMessageComponent
-                key={message.id}
-                message={message}
-                onToggleFavorite={onToggleFavorite}
-                onDelete={onDeleteMessage}
-                isStreaming={isLastAssistant}
-                streamingContent={isLastAssistant ? streamingContent || undefined : undefined}
-                onFollowUpClick={onFollowUpClick || onSelectPrompt}
-                onRetry={onRetry}
-                researchState={isLastAssistant ? researchState || undefined : undefined}
-              />
-            );
-          })}
-
-          {/* Research Progress Indicator */}
-          {researchState?.isResearching && researchState.phase && (
-            <div className="px-6 md:px-8 py-4">
-              <div className="max-w-3xl mx-auto">
-                <ResearchProgress
-                  phase={researchState.phase as ResearchPhase}
-                  currentStep={researchState.currentStep}
-                  totalSteps={researchState.totalSteps}
-                  message={researchState.message}
+              return (
+                <ChatMessageComponent
+                  key={message.id}
+                  message={message}
+                  onToggleFavorite={onToggleFavorite}
+                  onDelete={onDeleteMessage}
+                  isStreaming={isLastAssistant}
+                  streamingContent={isLastAssistant ? streamingContent || undefined : undefined}
+                  onFollowUpClick={onFollowUpClick || onSelectPrompt}
+                  onRetry={onRetry}
+                  researchState={isLastAssistant ? researchState || undefined : undefined}
                 />
-              </div>
-            </div>
-          )}
+              );
+            })}
 
-          {/* Loading indicator (for quick mode) - only show if no placeholder message exists */}
-          {isLoading && !streamingContent && !researchState?.isResearching && !hasPlaceholder && (
-            <div className="px-6 md:px-8 py-6">
-              <div className="max-w-[72%] graphite-bubble-ai rounded-[20px] px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
-                    <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  </div>
-                  <span className="text-[14px] text-white/55">McLeuker AI is thinking...</span>
+            {/* Research Progress Indicator */}
+            {researchState?.isResearching && researchState.phase && (
+              <div className="py-4">
+                <div className="max-w-3xl">
+                  <ResearchProgress
+                    phase={researchState.phase as ResearchPhase}
+                    currentStep={researchState.currentStep}
+                    totalSteps={researchState.totalSteps}
+                    message={researchState.message}
+                  />
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Show message if filtering and no results */}
-          {showFavoritesOnly && filteredMessages.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Star className="h-12 w-12 text-white/25 mb-4" />
-              <p className="text-white/55 text-[15px]">No favorite messages yet</p>
-              <p className="text-[13px] text-white/35 mt-1.5">
-                Star messages to find them quickly
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowFavoritesOnly(false)}
-                className="mt-4 text-white/60 hover:text-white hover:bg-white/[0.08] rounded-full"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Show all messages
-              </Button>
-            </div>
-          )}
+            {/* Loading indicator (for quick mode) - only show if no placeholder message exists */}
+            {isLoading && !streamingContent && !researchState?.isResearching && !hasPlaceholder && (
+              <div className="flex justify-start pl-3 lg:pl-4 py-2">
+                <div className="max-w-[65%] graphite-bubble-ai rounded-[20px] px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
+                      <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    </div>
+                    <span className="text-[14px] text-white/55">McLeuker AI is thinking...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Show message if filtering and no results */}
+            {showFavoritesOnly && filteredMessages.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Star className="h-12 w-12 text-white/25 mb-4" />
+                <p className="text-white/55 text-[15px]">No favorite messages yet</p>
+                <p className="text-[13px] text-white/35 mt-1.5">
+                  Star messages to find them quickly
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowFavoritesOnly(false)}
+                  className="mt-4 text-white/60 hover:text-white hover:bg-white/[0.08] rounded-full"
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  Show all messages
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </ScrollArea>
     </div>
