@@ -1,28 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ChevronRight, Leaf, Sparkles, TrendingUp, Search, BarChart3, ShieldCheck } from "lucide-react";
+import { ArrowRight, Leaf, Sparkles, TrendingUp, Search, BarChart3, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Footer } from "@/components/layout/Footer";
+import { TopNavigation } from "@/components/layout/TopNavigation";
 import { cn } from "@/lib/utils";
-import mcleukerLogo from "@/assets/mcleuker-logo.png";
 import heroRunwayImage from "@/assets/hero-runway.jpg";
 import atelierImage from "@/assets/fashion-atelier.jpg";
 import sustainableImage from "@/assets/sustainable-materials.jpg";
 
 const Landing = () => {
   const [prompt, setPrompt] = useState("");
-  const [isScrolled, setIsScrolled] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,60 +90,11 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-[#070707] overflow-x-hidden">
-      {/* Sticky Navigation - Dark Theme */}
-      <header 
-        className={cn(
-          "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
-          isScrolled 
-            ? "bg-gradient-to-b from-[#0D0D0D]/95 to-[#0A0A0A]/95 backdrop-blur-md border-b border-white/[0.08]" 
-            : "bg-transparent"
-        )}
-      >
-        <div className="container mx-auto px-6 lg:px-12 h-16 lg:h-20 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img
-              src={mcleukerLogo}
-              alt="McLeuker AI"
-              className="h-8 lg:h-10 w-auto"
-            />
-          </Link>
-          
-          <nav className="hidden lg:flex items-center gap-10">
-            <Link to="/about" className="text-sm text-white/60 hover:text-white/90 transition-colors">
-              About
-            </Link>
-            <Link to="/services" className="text-sm text-white/60 hover:text-white/90 transition-colors">
-              Solutions
-            </Link>
-            <Link to="/pricing" className="text-sm text-white/60 hover:text-white/90 transition-colors">
-              Pricing
-            </Link>
-            <Link to="/contact" className="text-sm text-white/60 hover:text-white/90 transition-colors">
-              Contact
-            </Link>
-          </nav>
-
-          <nav className="flex items-center gap-4">
-            {user ? (
-              <Button size="sm" className="px-6 bg-white text-black hover:bg-white/90" asChild>
-                <Link to="/dashboard">
-                  Enter Workspace
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Link>
-              </Button>
-            ) : (
-              <>
-                <Button variant="ghost" size="sm" className="hidden sm:inline-flex text-white/70 hover:text-white hover:bg-white/10" asChild>
-                  <Link to="/login">Sign In</Link>
-                </Button>
-                <Button size="sm" className="px-6 bg-white text-black hover:bg-white/90" asChild>
-                  <Link to="/signup">Get Started</Link>
-                </Button>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
+      {/* Unified Top Navigation */}
+      <TopNavigation variant="marketing" showSectorTabs={false} showCredits={false} />
+      
+      {/* Spacer for fixed nav */}
+      <div className="h-16 lg:h-[72px]" />
 
       {/* Experience the Platform - Premium Dark Section */}
       <section className="pt-24 lg:pt-28 pb-16 lg:pb-24 bg-[#0A0A0A]">
