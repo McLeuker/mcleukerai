@@ -1,132 +1,136 @@
+/**
+ * McLeuker AI V4 - useConversations.tsx
+ * 
+ * RELIABLE CHAT HANDLING
+ * 
+ * Design Principles:
+ * 1. TRANSPARENT responses - show exactly what backend returns
+ * 2. VISIBLE errors - show actual errors with retry capability
+ * 3. NO fake content - no fallback message generation
+ * 4. GUARANTEED state reset - loading always stops
+ * 5. CLEAN data - artifacts cleaned at display time only
+ */
+
 import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { mcLeukerAPI } from "@/lib/mcLeukerAPI";
 import { useToast } from "@/hooks/use-toast";
-import { postProcessAssistantText } from "@/lib/assistantPostprocess";
 
-// ═══════════════════════════════════════════════════════════════
-// CONTEXTUAL ERROR RESPONSES - Never show raw errors to users
-// ═══════════════════════════════════════════════════════════════
+// ============================================================================
+// TYPES
+// ============================================================================
 
-/**
- * Detect query intent for contextual fallbacks
- */
-function detectQueryIntent(query: string): "research" | "personal" | "technical" | "creative" | "general" {
-  const q = query.toLowerCase();
-  
-  if (/\b(find|search|research|look up|discover|list|compare|analyze|supplier|manufacturer)\b/i.test(q)) return "research";
-  if (/\b(feel|life|advice|help me|should i|worried|stressed|relationship|personal)\b/i.test(q)) return "personal";
-  if (/\b(code|api|implement|function|error|debug|programming|typescript|javascript)\b/i.test(q)) return "technical";
-  if (/\b(write|poem|story|creative|imagine|compose)\b/i.test(q)) return "creative";
-  
-  return "general";
-}
-
-/**
- * Generate a contextual error response based on query
- * Never shows raw errors - always provides helpful guidance
- */
-function getContextualErrorResponse(query: string): string {
-  const intent = detectQueryIntent(query);
-  const queryPreview = query.length > 50 ? query.slice(0, 50) + "..." : query;
-  
-  const responses: Record<string, string> = {
-    research: `I'm working through some technical challenges with your research query. While I gather more data, here's what I can offer:
-
-**For "${queryPreview}":**
-
-I wasn't able to complete the full research, but here are some approaches that might help:
-- Try breaking this into smaller, more specific questions
-- Specify a particular region, time frame, or category
-- Ask about one aspect at a time for more focused results
-
-I'm still working on improving my research capabilities. Feel free to try again or rephrase your question.`,
-    
-    personal: `I want to acknowledge your question and provide what insight I can.
-
-While I'm experiencing some technical challenges, I'm still here to help. What you're asking matters, and I want to give you a thoughtful response.
-
-Could you tell me a bit more about what's on your mind? Sometimes it helps to break things down into smaller pieces.`,
-    
-    technical: `I ran into some issues processing your technical query.
-
-**Here's what I suggest:**
-- Try rephrasing the specific error or issue you're facing
-- Share any error messages or code snippets for more targeted help
-- Break down complex problems into smaller parts
-
-I'm ready to help once you share more details.`,
-    
-    creative: `I'd love to help with your creative request.
-
-Could you tell me more about the tone, style, or specific elements you're looking for? The more context you share, the better I can craft something meaningful for you.`,
-    
-    general: `I'm working through some technical challenges right now. While I couldn't fully process your request, here's what I can offer:
-
-**What you can try:**
-- Rephrase your question with more specific details
-- Ask about one topic at a time
-- Let me know if there's a particular aspect to focus on
-
-I'm still here and ready to help once you try again.`,
-  };
-  
-  return responses[intent];
-}
-
-// Export ChatMessage type for other components
-export interface ChatMessage {
+export interface Message {
   id: string;
-  conversation_id: string;
-  user_id: string;
   role: "user" | "assistant";
   content: string;
-  model_used: string | null;
-  credits_used: number;
-  is_favorite: boolean;
-  created_at: string;
-  // Local-only properties
+  timestamp: Date;
+  sources?: Array<{
+    title: string;
+    url: string;
+    snippet?: string;
+    source?: string;
+  }>;
+  reasoning?: string[];
+  files?: Array<{
+    name: string;
+    url: string;
+    type: string;
+  }>;
+  images?: string[];
+  followUpQuestions?: string[];
+  isFavorite?: boolean;
   isPlaceholder?: boolean;
   isError?: boolean;
   canRetry?: boolean;
-  sources?: Array<{ title: string; url: string; snippet?: string }>;
-  reasoning?: string[];
-  followUpQuestions?: string[];
-  retryData?: { prompt: string; mode: "quick" | "deep"; model?: string };
-}
-
-// Export ResearchState type for other components
-export interface ResearchState {
-  isResearching: boolean;
-  phase?: string;
-  currentStep?: number;
-  totalSteps?: number;
-  message?: string;
+  creditsUsed?: number;
+  errorMessage?: string;
 }
 
 export interface Conversation {
   id: string;
-  user_id: string;
-  title: string | null;
-  created_at: string;
-  updated_at: string;
+  title: string;
+  messages: Message[];
+  createdAt: Date;
+  updatedAt: Date;
 }
+
+// ============================================================================
+// LOGGING
+// ============================================================================
+
+const DEBUG = true; // Enable for debugging
+
+function log(category: string, message: string, data?: any) {
+  if (DEBUG) {
+    console.log(`[useConversations] [${category}]`, message, data || '');
+  }
+}
+
+// ============================================================================
+// ARTIFACT CLEANUP (Display-time only)
+// ============================================================================
+
+/**
+ * Clean [object Object] artifacts from text
+ * This is called at DISPLAY TIME only, not when saving
+ */
+function cleanDisplayArtifacts(text: string): string {
+  if (!text || typeof text !== 'string') return text || '';
+  
+  return text
+    .replace(/\[object Object\]/g, '')
+    .replace(/,\s*,/g, ',')
+    .replace(/,\s*\./g, '.')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^\s*,\s*/g, '')
+    .replace(/\s*,\s*$/g, '')
+    .trim();
+}
+
+/**
+ * Clean message for display (not storage)
+ */
+function cleanMessageForDisplay(msg: any): Message {
+  return {
+    ...msg,
+    content: cleanDisplayArtifacts(msg.content),
+    timestamp: new Date(msg.timestamp),
+  };
+}
+
+// ============================================================================
+// HOOK
+// ============================================================================
 
 export function useConversations() {
   const { user } = useAuth();
   const { toast } = useToast();
+  
+  // State
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [streamingContent, setStreamingContent] = useState("");
-  const [researchState, setResearchState] = useState<ResearchState>({ isResearching: false });
+  const [isLoading, setIsLoading] = useState(false);
+  const [streamingContent, setStreamingContent] = useState<string | null>(null);
+  const [researchState, setResearchState] = useState<{
+    isResearching: boolean;
+    currentStep: string;
+    progress: number;
+  } | null>(null);
+  
+  // Abort controller for cancelling requests
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Load conversations
+  // ============================================================================
+  // LOAD CONVERSATIONS
+  // ============================================================================
+
   const loadConversations = useCallback(async () => {
     if (!user) return;
+
+    log('LOAD', 'Loading conversations for user', user.id);
+
     try {
       const { data, error } = await supabase
         .from("conversations")
@@ -135,29 +139,21 @@ export function useConversations() {
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
-      setConversations(data || []);
-    } catch (error) {
-      console.error("[Conversations] Error loading:", error);
-    }
-  }, [user]);
 
-  // Load messages for current conversation
-  const loadMessages = useCallback(async (conversationId: string) => {
-    if (!user) return;
-    try {
-      const { data, error } = await supabase
-        .from("chat_messages")
-        .select("*")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
+      const formattedConversations: Conversation[] = (data || []).map((conv) => ({
+        id: conv.id,
+        title: conv.title || "New Chat",
+        messages: Array.isArray(conv.messages) 
+          ? conv.messages.map(cleanMessageForDisplay)
+          : [],
+        createdAt: new Date(conv.created_at),
+        updatedAt: new Date(conv.updated_at),
+      }));
 
-      if (error) throw error;
-      setMessages((data || []).map(msg => ({
-        ...msg,
-        role: msg.role as "user" | "assistant",
-      })));
+      log('LOAD', `Loaded ${formattedConversations.length} conversations`);
+      setConversations(formattedConversations);
     } catch (error) {
-      console.error("[Messages] Error loading:", error);
+      log('LOAD', 'Error loading conversations', error);
     }
   }, [user]);
 
@@ -165,362 +161,425 @@ export function useConversations() {
     loadConversations();
   }, [loadConversations]);
 
-  useEffect(() => {
-    if (currentConversation) {
-      loadMessages(currentConversation.id);
-    } else {
-      setMessages([]);
-    }
-  }, [currentConversation, loadMessages]);
+  // ============================================================================
+  // CREATE CONVERSATION
+  // ============================================================================
 
-  // Select conversation
-  const selectConversation = useCallback((conversation: Conversation) => {
-    setCurrentConversation(conversation);
-  }, []);
+  const createConversation = useCallback(async () => {
+    if (!user) return null;
 
-  // Create new conversation
-  const createNewConversation = useCallback(async () => {
-    if (!user) return;
-    const newId = crypto.randomUUID();
-    const now = new Date().toISOString();
-    
+    log('CREATE', 'Creating new conversation');
+
+    const newConversation: Conversation = {
+      id: crypto.randomUUID(),
+      title: "New Chat",
+      messages: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
     try {
       const { error } = await supabase.from("conversations").insert({
-        id: newId,
+        id: newConversation.id,
         user_id: user.id,
-        title: "New Chat",
-        created_at: now,
-        updated_at: now,
+        title: newConversation.title,
+        messages: [],
       });
 
       if (error) throw error;
 
-      const newConv: Conversation = {
-        id: newId,
-        user_id: user.id,
-        title: "New Chat",
-        created_at: now,
-        updated_at: now,
-      };
-
-      setConversations(prev => [newConv, ...prev]);
-      setCurrentConversation(newConv);
-      setMessages([]);
+      setConversations((prev) => [newConversation, ...prev]);
+      setCurrentConversation(newConversation);
+      
+      log('CREATE', 'Created conversation', newConversation.id);
+      return newConversation;
     } catch (error) {
-      console.error("[Conversations] Error creating:", error);
+      log('CREATE', 'Error creating conversation', error);
+      return null;
     }
   }, [user]);
 
-  // Cancel request
+  // ============================================================================
+  // CANCEL REQUEST
+  // ============================================================================
+
   const cancelRequest = useCallback(() => {
+    log('CANCEL', 'Cancelling current request');
+    
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    setLoading(false);
-    setStreamingContent("");
-    setResearchState({ isResearching: false });
+    
+    setIsLoading(false);
+    setStreamingContent(null);
+    setResearchState(null);
   }, []);
 
-  // Send message
-  const sendMessage = useCallback(async (
-    content: string,
-    mode: "quick" | "deep" = "quick",
-    model?: string,
-    sector?: string
-  ) => {
-    if (!user || !content.trim()) return;
+  // ============================================================================
+  // SEND MESSAGE - CORE FUNCTION
+  // ============================================================================
 
-    let conversation = currentConversation;
-    let placeholderId: string | null = null;
+  const sendMessage = useCallback(
+    async (content: string, mode: "quick" | "deep" = "quick") => {
+      if (!user || !content.trim()) {
+        log('SEND', 'Aborted: no user or empty content');
+        return;
+      }
 
-    // OUTER try-finally ensures loading always resets
-    setLoading(true);
-    
-    try {
+      log('SEND', 'Starting message send', { contentLength: content.length, mode });
+
       // Create conversation if needed
+      let conversation = currentConversation;
       if (!conversation) {
-        const newId = crypto.randomUUID();
-        const now = new Date().toISOString();
-        
-        const { error } = await supabase.from("conversations").insert({
-          id: newId,
-          user_id: user.id,
-          title: content.slice(0, 50),
-          created_at: now,
-          updated_at: now,
-        });
-
-        if (error) throw error;
-
-        conversation = {
-          id: newId,
-          user_id: user.id,
-          title: content.slice(0, 50),
-          created_at: now,
-          updated_at: now,
-        };
-
-        setConversations(prev => [conversation!, ...prev]);
-        setCurrentConversation(conversation);
-      }
-
-      abortControllerRef.current = new AbortController();
-
-      // Save user message to DB
-      const userMsgId = crypto.randomUUID();
-      const { error: userMsgError } = await supabase.from("chat_messages").insert({
-        id: userMsgId,
-        conversation_id: conversation.id,
-        user_id: user.id,
-        role: "user",
-        content: content.trim(),
-        credits_used: 0,
-        is_favorite: false,
-      });
-
-      if (userMsgError) throw userMsgError;
-
-      const userMessage: ChatMessage = {
-        id: userMsgId,
-        conversation_id: conversation.id,
-        user_id: user.id,
-        role: "user",
-        content: content.trim(),
-        model_used: null,
-        credits_used: 0,
-        is_favorite: false,
-        created_at: new Date().toISOString(),
-      };
-
-      // Add placeholder
-      placeholderId = crypto.randomUUID();
-      const placeholder: ChatMessage = {
-        id: placeholderId,
-        conversation_id: conversation.id,
-        user_id: user.id,
-        role: "assistant",
-        content: "Thinking...",
-        model_used: null,
-        credits_used: 0,
-        is_favorite: false,
-        created_at: new Date().toISOString(),
-        isPlaceholder: true,
-      };
-
-      setMessages(prev => [...prev, userMessage, placeholder]);
-
-      // Set research state if deep mode
-      if (mode === "deep") {
-        setResearchState({
-          isResearching: true,
-          phase: "researching",
-          message: "Researching your query...",
-        });
-      }
-
-      // Update conversation title if first message
-      if (messages.length === 0) {
-        try {
-          await supabase
-            .from("conversations")
-            .update({ title: content.slice(0, 50), updated_at: new Date().toISOString() })
-            .eq("id", conversation.id);
-        } catch (e) {
-          console.warn("[Chat] Title update failed:", e);
+        conversation = await createConversation();
+        if (!conversation) {
+          log('SEND', 'Failed to create conversation');
+          return;
         }
       }
 
-      console.log("[Chat] Calling backend API...");
+      // Create abort controller
+      abortControllerRef.current = new AbortController();
 
-      // Call API
-      const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
-      const chatResult = await mcLeukerAPI.chat(
-        content,
-        mode,
-        history,
-        abortControllerRef.current.signal
-      );
-
-      console.log("[Chat] Backend response:", {
-        hasResponse: !!chatResult.response,
-        hasMessage: !!chatResult.message,
-        responseLength: chatResult.response?.length || chatResult.message?.length,
-      });
-
-      // Get response content - apply post-processing to ensure user-friendly output
-      let responseContent = chatResult.response || chatResult.message || "";
-      
-      // Post-process to clean artifacts and replace unhelpful content
-      responseContent = postProcessAssistantText({
-        query: content,
-        text: responseContent,
-      });
-
-      // Save assistant message to DB
-      const assistantMsgId = crypto.randomUUID();
-      const { error: assistantMsgError } = await supabase.from("chat_messages").insert({
-        id: assistantMsgId,
-        conversation_id: conversation.id,
-        user_id: user.id,
-        role: "assistant",
-        content: responseContent,
-        model_used: model || null,
-        credits_used: chatResult.credits_used || 1,
-        is_favorite: false,
-      });
-
-      if (assistantMsgError) {
-        console.error("[Chat] Error saving assistant message:", assistantMsgError);
-      }
-
-      // Replace placeholder with real message
-      const assistantMessage: ChatMessage = {
-        id: assistantMsgId,
-        conversation_id: conversation.id,
-        user_id: user.id,
-        role: "assistant",
-        content: responseContent,
-        model_used: model || null,
-        credits_used: chatResult.credits_used || 1,
-        is_favorite: false,
-        created_at: new Date().toISOString(),
-        isPlaceholder: false,
-        sources: chatResult.sources,
-        reasoning: chatResult.reasoning,
-        followUpQuestions: chatResult.follow_up_questions,
+      // Create user message
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: content.trim(),
+        timestamp: new Date(),
       };
 
-      setMessages(prev => prev.map(m => m.id === placeholderId ? assistantMessage : m));
+      // Create placeholder for assistant response
+      const placeholderId = crypto.randomUUID();
+      const placeholderMessage: Message = {
+        id: placeholderId,
+        role: "assistant",
+        content: "Thinking...",
+        timestamp: new Date(),
+        isPlaceholder: true,
+      };
 
-      // Update conversation timestamp
-      await supabase
-        .from("conversations")
-        .update({ updated_at: new Date().toISOString() })
-        .eq("id", conversation.id);
+      // Update UI immediately with user message and placeholder
+      const updatedMessages = [...conversation.messages, userMessage, placeholderMessage];
+      const updatedConversation = {
+        ...conversation,
+        messages: updatedMessages,
+        updatedAt: new Date(),
+      };
 
-    } catch (error: any) {
-      console.error("[Chat] Error:", error);
+      setCurrentConversation(updatedConversation);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversation!.id ? updatedConversation : c))
+      );
 
-      // ROBUST FALLBACK: Replace placeholder with helpful fallback instead of raw error
-      if (placeholderId) {
-        // Generate contextual fallback content instead of showing raw error
-        const fallbackContent = error.name === "AbortError" 
-          ? "Your request was stopped. Feel free to ask again whenever you're ready."
-          : getContextualErrorResponse(content);
-
-        const fallbackMessage: ChatMessage = {
-          id: placeholderId,
-          conversation_id: conversation?.id || "",
-          user_id: user.id,
-          role: "assistant",
-          content: fallbackContent,
-          model_used: null,
-          credits_used: 0,
-          is_favorite: false,
-          created_at: new Date().toISOString(),
-          isPlaceholder: false,
-          isError: false, // Don't mark as error - we provided helpful content
-          canRetry: error.name !== "AbortError",
-          retryData: { prompt: content, mode, model },
-        };
-
-        setMessages(prev => prev.map(m => m.id === placeholderId ? fallbackMessage : m));
-      }
-
-      // Show toast only for non-abort errors, with friendlier message
-      if (error.name !== "AbortError") {
-        toast({
-          title: "Working on it",
-          description: "I provided a partial response. You can try again for more details.",
-          variant: "default",
+      // Set loading state
+      setIsLoading(true);
+      if (mode === "deep") {
+        setResearchState({
+          isResearching: true,
+          currentStep: "Initializing research...",
+          progress: 0,
         });
       }
-    } finally {
-      // ALWAYS reset loading state
-      setLoading(false);
-      setStreamingContent("");
-      setResearchState({ isResearching: false });
-      abortControllerRef.current = null;
-    }
-  }, [user, currentConversation, messages, toast]);
 
-  // Toggle favorite
-  const toggleFavorite = useCallback(async (messageId: string) => {
-    const message = messages.find(m => m.id === messageId);
-    if (!message) return;
+      // OUTER TRY-FINALLY: Guarantees loading state ALWAYS resets
+      try {
+        // Prepare conversation history
+        const history = conversation.messages.slice(-10).map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
 
-    const newFavorite = !message.is_favorite;
-    
-    setMessages(prev => prev.map(m => 
-      m.id === messageId ? { ...m, is_favorite: newFavorite } : m
-    ));
+        log('SEND', 'Calling API...');
 
-    try {
-      await supabase
-        .from("chat_messages")
-        .update({ is_favorite: newFavorite })
-        .eq("id", messageId);
-    } catch (error) {
-      console.error("[Messages] Error toggling favorite:", error);
-    }
-  }, [messages]);
+        // Call the API
+        const chatResult = await mcLeukerAPI.chat(
+          content,
+          mode,
+          history,
+          abortControllerRef.current.signal
+        );
 
-  // Delete message
-  const deleteMessage = useCallback(async (messageId: string) => {
-    setMessages(prev => prev.filter(m => m.id !== messageId));
-    
-    try {
-      await supabase.from("chat_messages").delete().eq("id", messageId);
-    } catch (error) {
-      console.error("[Messages] Error deleting:", error);
-    }
-  }, []);
+        log('SEND', 'API response received', {
+          success: chatResult.success,
+          hasResponse: !!chatResult.response,
+          responseLength: chatResult.response?.length,
+          hasError: !!chatResult.error,
+        });
 
-  // Delete conversation
-  const deleteConversation = useCallback(async (conversationId: string) => {
-    try {
-      // Delete messages first (cascade would handle this but being explicit)
-      await supabase.from("chat_messages").delete().eq("conversation_id", conversationId);
-      await supabase.from("conversations").delete().eq("id", conversationId);
+        // Handle needs_user_input response
+        if (chatResult.needs_user_input && chatResult.user_input_prompt) {
+          log('SEND', 'Backend needs more input');
+          
+          const assistantMessage: Message = {
+            id: placeholderId,
+            role: "assistant",
+            content: chatResult.user_input_prompt,
+            timestamp: new Date(),
+            isPlaceholder: false,
+          };
 
-      setConversations(prev => prev.filter(c => c.id !== conversationId));
-      
-      if (currentConversation?.id === conversationId) {
-        setCurrentConversation(null);
-        setMessages([]);
+          const finalMessages = updatedMessages.map((msg) =>
+            msg.id === placeholderId ? assistantMessage : msg
+          );
+
+          await this.saveAndUpdateConversation(conversation, finalMessages, content);
+          return;
+        }
+
+        // Handle ERROR response - TRANSPARENT, show actual error
+        if (!chatResult.success || chatResult.error) {
+          log('SEND', 'API returned error', chatResult.error);
+          
+          const errorMessage: Message = {
+            id: placeholderId,
+            role: "assistant",
+            content: chatResult.error || "An error occurred. Please try again.",
+            timestamp: new Date(),
+            isPlaceholder: false,
+            isError: true,
+            canRetry: chatResult.canRetry !== false,
+            errorMessage: chatResult.error,
+          };
+
+          const errorMessages = updatedMessages.map((msg) =>
+            msg.id === placeholderId ? errorMessage : msg
+          );
+
+          const errorConversation = {
+            ...conversation,
+            messages: errorMessages,
+            updatedAt: new Date(),
+          };
+
+          setCurrentConversation(errorConversation);
+          setConversations((prev) =>
+            prev.map((c) => (c.id === conversation!.id ? errorConversation : c))
+          );
+
+          // Show toast for errors
+          toast({
+            title: "Request Failed",
+            description: chatResult.error || "An error occurred",
+            variant: "destructive",
+          });
+
+          return;
+        }
+
+        // Handle SUCCESS response - TRANSPARENT, show actual content
+        const responseContent = chatResult.response || chatResult.message || "";
+        
+        log('SEND', 'Processing successful response', {
+          contentLength: responseContent.length,
+          preview: responseContent.substring(0, 100),
+        });
+
+        // Create assistant message with ACTUAL backend response
+        const assistantMessage: Message = {
+          id: placeholderId,
+          role: "assistant",
+          content: responseContent, // ACTUAL response, no modification
+          timestamp: new Date(),
+          sources: chatResult.sources,
+          reasoning: chatResult.reasoning,
+          files: chatResult.files,
+          images: chatResult.images,
+          followUpQuestions: chatResult.follow_up_questions,
+          creditsUsed: chatResult.credits_used || 1,
+          isPlaceholder: false,
+          isError: false,
+        };
+
+        // Update conversation
+        const finalMessages = updatedMessages.map((msg) =>
+          msg.id === placeholderId ? assistantMessage : msg
+        );
+
+        const finalConversation = {
+          ...conversation,
+          messages: finalMessages,
+          title: conversation.title === "New Chat" 
+            ? content.slice(0, 50) + (content.length > 50 ? "..." : "")
+            : conversation.title,
+          updatedAt: new Date(),
+        };
+
+        setCurrentConversation(finalConversation);
+        setConversations((prev) =>
+          prev.map((c) => (c.id === conversation!.id ? finalConversation : c))
+        );
+
+        // Save to database
+        await supabase
+          .from("conversations")
+          .update({
+            messages: finalMessages,
+            title: finalConversation.title,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", conversation.id);
+
+        log('SEND', 'Message sent successfully');
+
+      } catch (error: any) {
+        log('SEND', 'Unexpected error', error);
+
+        // Handle unexpected errors - TRANSPARENT
+        const errorContent = error.name === "AbortError"
+          ? "Request was cancelled."
+          : `Unexpected error: ${error.message || "Unknown error"}`;
+
+        const errorMessage: Message = {
+          id: placeholderId,
+          role: "assistant",
+          content: errorContent,
+          timestamp: new Date(),
+          isPlaceholder: false,
+          isError: true,
+          canRetry: error.name !== "AbortError",
+          errorMessage: error.message,
+        };
+
+        const errorMessages = updatedMessages.map((msg) =>
+          msg.id === placeholderId ? errorMessage : msg
+        );
+
+        const errorConversation = {
+          ...conversation,
+          messages: errorMessages,
+          updatedAt: new Date(),
+        };
+
+        setCurrentConversation(errorConversation);
+        setConversations((prev) =>
+          prev.map((c) => (c.id === conversation!.id ? errorConversation : c))
+        );
+
+        if (error.name !== "AbortError") {
+          toast({
+            title: "Error",
+            description: errorContent,
+            variant: "destructive",
+          });
+        }
+
+      } finally {
+        // GUARANTEED: Always reset loading state
+        log('SEND', 'Resetting loading state');
+        setIsLoading(false);
+        setStreamingContent(null);
+        setResearchState(null);
+        abortControllerRef.current = null;
       }
-    } catch (error) {
-      console.error("[Conversations] Error deleting:", error);
-    }
-  }, [currentConversation]);
+    },
+    [user, currentConversation, createConversation, toast]
+  );
 
-  // Retry message
-  const retryMessage = useCallback(async (messageId: string) => {
-    const message = messages.find(m => m.id === messageId);
-    if (!message?.retryData) return;
+  // ============================================================================
+  // RETRY MESSAGE
+  // ============================================================================
 
-    // Remove the error message
-    setMessages(prev => prev.filter(m => m.id !== messageId));
-    
-    // Retry
-    await sendMessage(message.retryData.prompt, message.retryData.mode, message.retryData.model);
-  }, [messages, sendMessage]);
+  const retryMessage = useCallback(
+    async (messageId: string) => {
+      if (!currentConversation) return;
+
+      log('RETRY', 'Retrying message', messageId);
+
+      // Find the user message before the error
+      const messageIndex = currentConversation.messages.findIndex((m) => m.id === messageId);
+      if (messageIndex <= 0) return;
+
+      const userMessage = currentConversation.messages[messageIndex - 1];
+      if (userMessage.role !== "user") return;
+
+      // Remove the error message
+      const messagesWithoutError = currentConversation.messages.filter((m) => m.id !== messageId);
+      const updatedConversation = {
+        ...currentConversation,
+        messages: messagesWithoutError,
+      };
+
+      setCurrentConversation(updatedConversation);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === currentConversation.id ? updatedConversation : c))
+      );
+
+      // Retry the message
+      await sendMessage(userMessage.content);
+    },
+    [currentConversation, sendMessage]
+  );
+
+  // ============================================================================
+  // TOGGLE FAVORITE
+  // ============================================================================
+
+  const toggleFavorite = useCallback(
+    async (messageId: string) => {
+      if (!currentConversation) return;
+
+      const updatedMessages = currentConversation.messages.map((msg) =>
+        msg.id === messageId ? { ...msg, isFavorite: !msg.isFavorite } : msg
+      );
+
+      const updatedConversation = {
+        ...currentConversation,
+        messages: updatedMessages,
+      };
+
+      setCurrentConversation(updatedConversation);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === currentConversation.id ? updatedConversation : c))
+      );
+
+      await supabase
+        .from("conversations")
+        .update({ messages: updatedMessages })
+        .eq("id", currentConversation.id);
+    },
+    [currentConversation]
+  );
+
+  // ============================================================================
+  // DELETE CONVERSATION
+  // ============================================================================
+
+  const deleteConversation = useCallback(
+    async (conversationId: string) => {
+      log('DELETE', 'Deleting conversation', conversationId);
+
+      try {
+        await supabase.from("conversations").delete().eq("id", conversationId);
+
+        setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+
+        if (currentConversation?.id === conversationId) {
+          setCurrentConversation(null);
+        }
+      } catch (error) {
+        log('DELETE', 'Error deleting conversation', error);
+      }
+    },
+    [currentConversation]
+  );
+
+  // ============================================================================
+  // RETURN
+  // ============================================================================
 
   return {
     conversations,
     currentConversation,
     setCurrentConversation,
-    messages,
-    loading,
+    isLoading,
     streamingContent,
     researchState,
     sendMessage,
-    createNewConversation,
-    selectConversation,
-    toggleFavorite,
-    deleteMessage,
+    createConversation,
     deleteConversation,
+    toggleFavorite,
     cancelRequest,
     retryMessage,
     loadConversations,
