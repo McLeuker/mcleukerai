@@ -74,6 +74,17 @@
     --grey-500: 0 0% 42%;
     --grey-300: 0 0% 71%;
     --grey-100: 0 0% 90%;
+    /* Premium greyscale system */
+    --premium-bg-0: 0 0% 2%;
+    --premium-bg-1: 0 0% 4%;
+    --premium-bg-2: 0 0% 7%;
+    --premium-stroke: 0 0% 100% / 0.08;
+    --premium-stroke-strong: 0 0% 100% / 0.14;
+    --premium-text-0: 0 0% 100%;
+    --premium-text-1: 0 0% 100% / 0.78;
+    --premium-text-2: 0 0% 100% / 0.55;
+    --premium-bubble-offwhite: 0 0% 96%;
+    --premium-bubble-white: 0 0% 100%;
   }
 
   .dark {
@@ -126,6 +137,18 @@
     --grey-500: 0 0% 42%;
     --grey-300: 0 0% 71%;
     --grey-100: 0 0% 90%;
+
+    /* Premium tokens for dark mode */
+    --premium-bg-0: 0 0% 2%;
+    --premium-bg-1: 0 0% 4%;
+    --premium-bg-2: 0 0% 7%;
+    --premium-stroke: 0 0% 100% / 0.08;
+    --premium-stroke-strong: 0 0% 100% / 0.14;
+    --premium-text-0: 0 0% 100%;
+    --premium-text-1: 0 0% 100% / 0.78;
+    --premium-text-2: 0 0% 100% / 0.55;
+    --premium-bubble-offwhite: 0 0% 96%;
+    --premium-bubble-white: 0 0% 100%;
   }
 }
 
@@ -139,11 +162,13 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     scroll-behavior: smooth;
+    overflow-x: hidden;
   }
 
   body {
     @apply bg-background text-foreground;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    overflow-x: hidden;
   }
 
   /* Editorial serif for headings */
@@ -434,6 +459,82 @@
 
   .dashboard-dark-panel {
     @apply bg-black border border-white/10;
+  }
+
+  /* ========================================
+     PREMIUM CHAT UI SYSTEM
+     WhatsApp-style with graphite accents
+     ======================================== */
+
+  /* Premium ombre background - radial vignette */
+  .premium-ombre-bg {
+    background: radial-gradient(
+      1200px circle at 20% 0%,
+      hsl(0 0% 8%) 0%,
+      hsl(0 0% 3%) 45%,
+      hsl(0 0% 2%) 100%
+    );
+  }
+
+  /* Graphite glass panel effect */
+  .graphite-glass {
+    background: linear-gradient(180deg, hsl(0 0% 7%) 0%, hsl(0 0% 4%) 100%);
+    border: 1px solid hsl(var(--premium-stroke));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Premium bubble styles */
+  .premium-bubble-ai {
+    background: hsl(var(--premium-bubble-offwhite));
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+  }
+
+  .premium-bubble-user {
+    background: hsl(var(--premium-bubble-white));
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.30);
+  }
+
+  /* Premium micro-interactions */
+  .premium-hover {
+    transition: background 160ms ease, 
+                border-color 160ms ease, 
+                box-shadow 160ms ease;
+  }
+
+  .premium-hover:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  /* Premium input styling */
+  .premium-input {
+    background: linear-gradient(180deg, hsl(0 0% 10%) 0%, hsl(0 0% 7%) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .premium-input:focus {
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+  }
+
+  /* Chat sidebar item card */
+  .chat-sidebar-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid hsl(var(--premium-stroke));
+    transition: all 160ms ease;
+  }
+
+  .chat-sidebar-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .chat-sidebar-item-active {
+    border-color: rgba(255, 255, 255, 0.20);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
   }
 
   /* WhatsApp-style chat message content */
