@@ -435,4 +435,63 @@
   .dashboard-dark-panel {
     @apply bg-black border border-white/10;
   }
+
+  /* WhatsApp-style chat message content */
+  .chat-message-content {
+    font-size: 15px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+    text-align: left;
+  }
+
+  .chat-message-content p {
+    margin-bottom: 0.75rem;
+  }
+
+  .chat-message-content p:last-child {
+    margin-bottom: 0;
+  }
+
+  .chat-message-content ul,
+  .chat-message-content ol {
+    margin-bottom: 0.75rem;
+    padding-left: 1.25rem;
+  }
+
+  .chat-message-content li {
+    margin-bottom: 0.25rem;
+  }
+
+  .chat-message-content h1,
+  .chat-message-content h2,
+  .chat-message-content h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .chat-message-content h1:first-child,
+  .chat-message-content h2:first-child,
+  .chat-message-content h3:first-child {
+    margin-top: 0;
+  }
+
+  /* Code blocks scroll horizontally INSIDE the bubble only */
+  .chat-message-content pre {
+    overflow-x: auto;
+    max-width: 100%;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  /* Tables scroll horizontally inside bubble */
+  .chat-message-content table {
+    display: block;
+    overflow-x: auto;
+    max-width: 100%;
+  }
 }
