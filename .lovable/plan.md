@@ -1,265 +1,318 @@
 
-# Chat UI Redesign: Fix Clipping + White Bubbles + Background Activity Panel
+# Fix Chat UI Layout (WhatsApp-style, No Horizontal Scroll)
 
-## Problem Summary (from screenshot analysis)
+## Problem Analysis
 
-Based on the screenshot, I've identified these issues:
+Based on the screenshot and code analysis, I identified these critical issues:
 
-1. **Sidebar clipping**: The selected chat item bubble is cut off on the left edge
-2. **Favorites star**: The "★ Favorites" header row might be clipped
-3. **No chat bubbles**: Messages appear as flat rows, not as distinct white bubbles on black
-4. **No background activity panel**: The existing `ReasoningDisplay` only shows after completion; no real-time progress during generation
-
----
-
-## A) Fix Clipping Issues
-
-### A1. Sidebar Chat List Bubble Clipping
-
-**Root cause**: The `px-2` padding on the list container combined with `ring-2 ring-offset-2` on selected items causes the ring to extend outside the container bounds.
-
-**File**: `src/components/dashboard/ChatSidebar.tsx`
-
-**Changes**:
-- Increase inner padding from `px-2` to `px-4` on the list container (line 136)
-- Change from `ring-offset-2` to using a solid border approach that stays within bounds
-- Ensure `overflow-visible` on parent if needed
-
-```text
-Current:
-<div className="px-2 pb-4 space-y-1">
-  <div className="...ring-2 ring-primary ring-offset-2 ring-offset-sidebar">
-
-Fixed:
-<div className="px-4 pb-4 space-y-1.5">
-  <div className="...border-2 border-primary shadow-sm">
-```
-
-### A2. Favorites Star Clipping (in ChatView)
-
-**File**: `src/components/dashboard/ChatView.tsx`
-
-**Changes**:
-- Add left padding to the filter bar header
-- Ensure the Star icon has proper spacing
+| Issue | Root Cause | Impact |
+|-------|------------|--------|
+| **Scattered text/columns** | `prose` class + complex markdown renderers creating weird text flow | Text appears in multiple columns |
+| **Horizontal scroll** | No `overflow-wrap`, `word-break` on bubble content | Content overflows container |
+| **Inconsistent fonts** | Large h1/h2/h3 (2xl, xl) in chat bubbles | Jarring typography |
+| **No user header** | User bubble missing avatar/name header | Inconsistent with AI messages |
+| **Bubbles too close to edges** | Insufficient outer gutters | Layout feels cramped |
+| **Input box is dark** | Already black, needs gray background | Doesn't stand out from chat area |
 
 ---
 
-## B) Chat Bubbles (White on Black)
+## Solution Architecture
 
-### B1. Visual Theme Update
-
-Convert the current flat message rows to distinct white bubbles with black text.
-
-**File**: `src/components/dashboard/ChatMessage.tsx`
-
-**Current structure**:
 ```text
-┌────────────────────────────────────────────┐
-│ Avatar │ Header + Content (flat bg)        │
-└────────────────────────────────────────────┘
+BEFORE (broken):
+┌─────────────────────────────────────────────────────────┐
+│  prose prose-sm max-w-none                              │
+│  ┌──────┬──────┬──────┬──────┐                         │
+│  │ Col1 │ Col2 │ Col3 │ Col4 │  ← Text in columns      │
+│  └──────┴──────┴──────┴──────┘                         │
+│  No word-break → horizontal scroll                      │
+└─────────────────────────────────────────────────────────┘
+
+AFTER (WhatsApp-style):
+┌─────────────────────────────────────────────────────────┐
+│  px-6 md:px-8                    (gutters)              │
+│     ┌────────────────────────────┐                      │
+│     │ 👤 User • just now         │  (header inside)     │
+│     │ Normal flowing text that   │                      │
+│     │ wraps naturally...         │                      │
+│     └────────────────────────────┘  ← Right-aligned     │
+│  ┌───────────────────────────────────┐                  │
+│  │ 🤖 McLeuker AI • 2m ago           │  (header inside) │
+│  │ Normal flowing text with no       │                  │
+│  │ weird columns or scattered words. │                  │
+│  └───────────────────────────────────┘  ← Left-aligned  │
+└─────────────────────────────────────────────────────────┘
 ```
-
-**New structure**:
-```text
-                ┌──────────────────────────┐
-                │ White bubble, black text │  ← User (right-aligned)
-                └──────────────────────────┘
-
-┌──────────────────────────────────┐
-│ White bubble, black text         │  ← AI (left-aligned)
-│ with avatar header inside        │
-└──────────────────────────────────┘
-```
-
-**Key styling changes**:
-- Wrapper: `bg-black` (consistent dark background)
-- Message bubbles: `bg-white text-black rounded-2xl px-5 py-4`
-- User messages: `ml-auto max-w-[80%]` (right-aligned)
-- AI messages: `mr-auto max-w-[80%]` (left-aligned)
-- Outer gutters: `px-4 md:px-8` to ensure bubbles never touch edges
-- Spacing between bubbles: `space-y-4`
-
-### B2. ChatView Wrapper
-
-**File**: `src/components/dashboard/ChatView.tsx`
-
-**Changes**:
-- Ensure the message list area has consistent `bg-black`
-- Add proper vertical spacing between message bubbles
-- Keep filter bar styled for dark theme
 
 ---
 
-## C) Background Activity Panel (Manus-style)
+## Implementation Plan
 
-Create a new component that shows real-time progress during AI generation.
+### 1. ChatMessage.tsx - Complete Rewrite of Message Styling
 
-### C1. New Component: `BackgroundActivityPanel.tsx`
+**A) Add User Profile Header (like AI has)**
 
-**File**: `src/components/dashboard/BackgroundActivityPanel.tsx` (NEW)
-
-**Features**:
-- Collapsible panel with chevron toggle
-- Header: "Background activity" + status ("Running..." / "Complete")
-- Step list with status icons:
-  - `in_progress`: Loader2 spinner
-  - `done`: Check icon
-  - `error`: AlertCircle icon
-- Safe, user-facing step labels (no hidden chain-of-thought)
-- Smooth expand/collapse animation
-
-**Step taxonomy**:
 ```typescript
-const ACTIVITY_STEPS = [
-  { id: "understanding", label: "Understanding request" },
-  { id: "planning", label: "Planning approach" },
-  { id: "gathering", label: "Gathering information" },
-  { id: "generating", label: "Generating answer" },
-  { id: "finalizing", label: "Finalizing output" },
-];
+// Inside user message block, add header similar to AI:
+<div className="flex items-center gap-2 text-xs text-black/60 mb-2">
+  <div className="w-5 h-5 rounded-full bg-black/10 flex items-center justify-center">
+    <User className="h-3 w-3 text-black/50" />
+  </div>
+  <span className="font-medium text-black/70">You</span>
+  <span>·</span>
+  <span>{formatDistanceToNow(...)}</span>
+</div>
 ```
 
-### C2. Placement
+**B) Fix Markdown Rendering - Remove Prose, Normalize Typography**
 
-**Location**: Inside `ChatMessage.tsx`, displayed above the AI response bubble when:
-- Message is currently streaming (`isStreaming === true`)
-- OR message has activity history and panel is expanded
+Remove the problematic `prose prose-sm max-w-none` class and replace with explicit, consistent styling:
 
-### C3. Panel UI Design
+```typescript
+// BEFORE (broken):
+<div className="prose prose-sm max-w-none prose-headings:text-black...">
 
-```text
-┌────────────────────────────────────────────┐
-│ Background activity           Running... ▼ │
-├────────────────────────────────────────────┤
-│ ✓ Understanding request                    │
-│ ✓ Planning approach                        │
-│ ⟳ Generating answer                        │
-│ ○ Finalizing output                        │
-└────────────────────────────────────────────┘
+// AFTER (fixed):
+<div className="chat-message-content">
 ```
 
-**Styling**:
-- Container: `bg-zinc-900 border border-white/10 rounded-xl`
-- Header: `text-white/90` with toggle chevron
-- Step rows: `text-white/70` with status icons
-- Collapsed state: Single-line summary "Complete ✓"
+Add CSS class `.chat-message-content` with:
+- `font-size: 15px`
+- `line-height: 1.6`
+- `overflow-wrap: anywhere`
+- `word-break: break-word`
 
-### C4. Integration with useConversations
+**C) Simplify Markdown Component Renderers**
 
-**File**: `src/hooks/useConversations.tsx`
+| Element | Before | After |
+|---------|--------|-------|
+| h1 | `text-2xl font-editorial` | `text-base font-semibold` (same as regular text, just bold) |
+| h2 | `text-xl font-editorial` | `text-[15px] font-semibold` |
+| h3 | `text-base font-semibold` | `text-[15px] font-medium` |
+| p | Complex trend/citation logic | Simple `text-[15px] leading-relaxed mb-3` |
+| ul | `list-none pl-0` | `list-disc pl-5 mb-3` (normal bullets) |
+| li | Flex with custom bullet | Simple `text-[15px] mb-1` |
 
-**Changes**:
-- Add `activitySteps` to the `ResearchState` interface
-- Update `setResearchState` during message flow to track progress phases
-- Pass activity state to `ChatMessage` component
+**D) Ensure Bubble Content Doesn't Overflow**
 
-### C5. Streaming Behavior
+Add to bubble wrapper:
+```css
+max-width: 75%;
+overflow-wrap: anywhere;
+word-break: break-word;
+```
 
-During AI response generation:
-1. Show panel expanded with steps updating
-2. Mark steps as done progressively
-3. When complete, collapse to summary line
-4. Keep panel expandable for review
+**E) Increase Outer Gutters**
 
----
+Change message row from:
+```css
+px-4 md:px-8
+```
+To:
+```css
+px-6 md:px-10
+```
 
-## D) Layout Rules
+### 2. ChatInput.tsx - Gray Background, More Elegant
 
-### D1. Main Chat Scroll
+**Current:**
+```css
+bg-black border border-white/15
+```
 
-**File**: `src/components/dashboard/ChatView.tsx`
+**New:**
+```css
+bg-zinc-800 border border-white/10 rounded-2xl shadow-lg
+```
 
-- Main chat area scrolls vertically (already working via ScrollArea)
-- Ensure no horizontal overflow from bubbles
+Also update:
+- Placeholder: `text-white/50`
+- Input text: `text-white`
+- Add subtle shadow for depth
+- Increase border-radius to `rounded-2xl`
 
-### D2. Input Pinning
+### 3. ChatView.tsx - Stable Width Container
 
-**File**: `src/pages/Dashboard.tsx`
+Ensure chat messages have a stable, centered container:
 
-- Input stays pinned at bottom (already implemented with `sticky bottom-0`)
-- Ensure no clipping of input elements
+```typescript
+<div className="min-h-full py-4 space-y-4 max-w-4xl mx-auto">
+```
 
-### D3. Overflow Handling
+This prevents messages from jumping in width.
 
-- Remove any `overflow-hidden` that clips the sidebar selected state
-- Ensure `overflow-visible` where ring effects are used
+### 4. index.css - Add Chat Message Utilities
+
+Add new utility classes:
+
+```css
+/* WhatsApp-style chat message content */
+.chat-message-content {
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  text-align: left;
+}
+
+.chat-message-content p {
+  margin-bottom: 0.75rem;
+}
+
+.chat-message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-message-content ul,
+.chat-message-content ol {
+  margin-bottom: 0.75rem;
+  padding-left: 1.25rem;
+}
+
+.chat-message-content li {
+  margin-bottom: 0.25rem;
+}
+
+.chat-message-content h1,
+.chat-message-content h2,
+.chat-message-content h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.chat-message-content h1:first-child,
+.chat-message-content h2:first-child,
+.chat-message-content h3:first-child {
+  margin-top: 0;
+}
+
+/* Code blocks scroll horizontally INSIDE the bubble only */
+.chat-message-content pre {
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Tables scroll horizontally inside bubble */
+.chat-message-content table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+```
+
+### 5. Dashboard.tsx - Global Overflow Prevention
+
+Add to the main container:
+
+```css
+overflow-x: hidden
+```
 
 ---
 
 ## File Changes Summary
 
-| File | Action | Changes |
-|------|--------|---------|
-| `src/components/dashboard/ChatSidebar.tsx` | Modify | Fix padding, change ring to border, prevent clipping |
-| `src/components/dashboard/ChatMessage.tsx` | Modify | Convert to white bubble UI, add BackgroundActivityPanel |
-| `src/components/dashboard/ChatView.tsx` | Modify | Update spacing, fix favorites star padding |
-| `src/components/dashboard/BackgroundActivityPanel.tsx` | Create | New Manus-style progress panel |
-| `src/hooks/useConversations.tsx` | Modify | Add activity steps tracking |
-| `src/index.css` | Modify | Add bubble utility classes |
+| File | Changes |
+|------|---------|
+| `src/components/dashboard/ChatMessage.tsx` | Add user header, remove prose classes, simplify markdown, add word-break |
+| `src/components/dashboard/ChatInput.tsx` | Gray background, rounded corners, shadow |
+| `src/components/dashboard/ChatView.tsx` | Stable max-width container, increased gutters |
+| `src/index.css` | Add `.chat-message-content` utility class |
+| `src/pages/Dashboard.tsx` | Add `overflow-x-hidden` to prevent any horizontal scroll |
 
 ---
 
-## Technical Implementation Details
+## Technical Details
 
-### ChatMessage Bubble Structure
+### Markdown Renderer Simplification
 
-```tsx
-// User message
-<div className="flex justify-end px-4 md:px-8 py-2">
-  <div className="bg-white text-black rounded-2xl px-5 py-4 max-w-[80%]">
-    {/* Content */}
-  </div>
-</div>
+The current markdown renderers have complex logic for trends (↑/↓) and citations ([1]) that requires checking `typeof children === "string"`. This breaks when children are React nodes.
 
-// AI message  
-<div className="flex justify-start px-4 md:px-8 py-2">
-  <div className="bg-white text-black rounded-2xl px-5 py-4 max-w-[80%]">
-    {/* Activity panel (collapsible) */}
-    {/* Header with avatar, time, model */}
-    {/* Markdown content */}
-  </div>
-</div>
-```
-
-### BackgroundActivityPanel Props
+**Fix**: Simplify to basic renderers that just style content, without complex text parsing inside the renderer:
 
 ```typescript
-interface BackgroundActivityPanelProps {
-  steps: Array<{
-    id: string;
-    label: string;
-    status: "pending" | "in_progress" | "done" | "error";
-    detail?: string;
-  }>;
-  isActive: boolean;
-  defaultExpanded?: boolean;
+components={{
+  h1: ({ children }) => (
+    <p className="font-semibold text-black mt-4 mb-2 first:mt-0">{children}</p>
+  ),
+  h2: ({ children }) => (
+    <p className="font-semibold text-black mt-4 mb-2">{children}</p>
+  ),
+  h3: ({ children }) => (
+    <p className="font-medium text-black mt-3 mb-2">{children}</p>
+  ),
+  p: ({ children }) => (
+    <p className="text-black leading-relaxed mb-3 last:mb-0">{children}</p>
+  ),
+  ul: ({ children }) => (
+    <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>
+  ),
+  li: ({ children }) => (
+    <li className="text-black">{children}</li>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-semibold">{children}</strong>
+  ),
+  code: ({ children }) => (
+    <code className="bg-black/5 px-1.5 py-0.5 rounded text-sm font-mono">{children}</code>
+  ),
+  a: ({ href, children }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" 
+       className="underline underline-offset-2">
+      {children}
+    </a>
+  ),
+}}
+```
+
+### Bubble Styling Summary
+
+```css
+/* User bubble */
+.user-bubble {
+  background: white;
+  color: black;
+  border-radius: 20px;
+  padding: 16px 20px;
+  max-width: 75%;
+  margin-left: auto;  /* right-align */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* AI bubble */
+.ai-bubble {
+  background: white;
+  color: black;
+  border-radius: 20px;
+  padding: 16px 20px;
+  max-width: 75%;
+  margin-right: auto;  /* left-align */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 ```
 
-### Activity Steps Mapping
-
-Map the existing `ResearchState.phase` to activity steps:
-- `"planning"` → Step 1-2 in progress
-- `"searching"` → Step 3 in progress
-- `"generating"` → Step 4 in progress
-- `"completed"` → All steps done
-
 ---
 
-## Acceptance Criteria
+## Acceptance Criteria Checklist
 
 | Requirement | Implementation |
 |-------------|----------------|
-| Selected chat bubble not clipped | Increased padding + border instead of ring |
-| Favorites star fully visible | Added left padding to filter bar |
-| White bubbles with black text | New bubble wrapper styling |
-| User messages right-aligned | `justify-end` + `ml-auto` |
-| AI messages left-aligned | `justify-start` + `mr-auto` |
-| Bubbles have 70-80% max width | `max-w-[80%]` |
-| Outer gutters prevent edge touching | `px-4 md:px-8` |
-| Background activity panel visible during generation | New component + streaming integration |
-| Panel collapses after completion | Collapsible with summary state |
-| No hidden reasoning exposed | Only safe step labels shown |
-| Smooth animations | Height transition on collapse |
-| Keyboard accessible | Focus states on toggle buttons |
+| No horizontal scrolling | `overflow-x: hidden` on main + `overflow-wrap: anywhere` on bubbles |
+| Consistent font size | 15px base for all message content |
+| Normal text flow | Remove `prose` class, use simple paragraph styling |
+| Bubbles with gutters | `px-6 md:px-10` outer padding, `max-w-75%` on bubbles |
+| User profile header | Add avatar + "You" + timestamp inside user bubble |
+| Gray input box | `bg-zinc-800` with subtle shadow |
+| WhatsApp-like layout | Right-align user, left-align AI, clean readable bubbles |
+| Code blocks contained | `overflow-x: auto` only on pre/code, not whole page |
