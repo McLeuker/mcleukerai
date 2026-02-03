@@ -183,23 +183,17 @@ export function useTasks() {
         .eq("id", data.id);
 
       // Use chat API for task processing
-      const chatResponse = await mcLeukerAPI.chat(prompt, "deep", []);
+      const chatResponse = await mcLeukerAPI.chat(prompt, "deep", "general");
 
-      const generatedFiles: GeneratedFile[] = (chatResponse.files || []).map((file) => ({
-        name: file.name,
-        type: mapFileFormat(file.type || "pdf"),
-        url: file.url,
-        size: 0,
-        created_at: new Date().toISOString(),
-      }));
+      const generatedFiles: GeneratedFile[] = [];
 
-      if (chatResponse.message || chatResponse.response) {
-        setStreamingContent(chatResponse.message || chatResponse.response || "");
+      if (chatResponse.response) {
+        setStreamingContent(chatResponse.response);
       }
 
       const taskStatus = chatResponse.error ? "failed" : "completed";
-      const taskResultContent = chatResponse.message || chatResponse.response 
-        ? { content: chatResponse.message || chatResponse.response || "" } 
+      const taskResultContent = chatResponse.response 
+        ? { content: chatResponse.response } 
         : null;
 
       await supabase

@@ -373,7 +373,7 @@ export function useConversations() {
 
     try {
       const { data, error } = await supabase
-        .from("messages")
+        .from("chat_messages")
         .select("*")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true });
@@ -530,7 +530,7 @@ export function useConversations() {
     try {
       // Save user message to database
       const { data: savedUserMsg, error: userMsgError } = await supabase
-        .from("messages")
+        .from("chat_messages")
         .insert({
           conversation_id: conversationId,
           user_id: user.id,
@@ -572,18 +572,12 @@ export function useConversations() {
       // Call the API
       log('API', 'Calling mcLeukerAPI.chat', { mode, domain });
       
-      const response = await mcLeukerAPI.chat({
-        message: content,
-        conversationId: conversationId,
-        userId: user.id,
-        mode: mode,
-        domain: domain,
-      });
+      const response = await mcLeukerAPI.chat(content, mode, domain, conversationId);
 
 
       log('API', 'Received response', { 
-        hasContent: !!response.content,
-        contentLength: response.content?.length,
+        hasResponse: !!response.response,
+        responseLength: response.response?.length,
         sourcesCount: response.sources?.length 
       });
 
@@ -597,20 +591,34 @@ export function useConversations() {
       });
 
 
-      // Prepare the AI message content
-      let aiContent = response.content || response.message || "";
-      let aiSources = response.sources || [];
-      let aiFollowUp = response.followUpQuestions || [];
+      // Prepare the AI message content - response is already parsed by mcLeukerAPI
+      let aiContent = response.response || "";
+      let aiSources: Source[] = (response.sources || []).map(s => ({
+        title: s.title,
+        url: s.url,
+        snippet: s.snippet,
+        publisher: s.publisher,
+        date: s.date,
+        type: s.type
+      }));
+      let aiFollowUp = response.follow_up_questions || [];
       
-      // Check if the response is a V5.1 Response Contract
-      if (isV51Response(aiContent) || isV51Response(response)) {
-        log('API', 'Detected V5.1 Response Contract in API response');
-        const parsed = parseV51Response(aiContent) || parseV51Response(response);
+      // Check if the response content is still a V5.1 Response Contract (double-wrapped)
+      if (isV51Response(aiContent)) {
+        log('API', 'Detected V5.1 Response Contract in response content');
+        const parsed = parseV51Response(aiContent);
         
         if (parsed) {
           aiContent = parsed.main_content || parsed.summary || aiContent;
           if (parsed.sources && parsed.sources.length > 0) {
-            aiSources = parsed.sources;
+            aiSources = parsed.sources.map(s => ({
+              title: s.title,
+              url: s.url,
+              snippet: s.snippet,
+              publisher: s.publisher,
+              date: s.date,
+              type: s.type
+            }));
           }
           if (parsed.follow_up_questions && parsed.follow_up_questions.length > 0) {
             aiFollowUp = parsed.follow_up_questions;
@@ -621,14 +629,14 @@ export function useConversations() {
 
       // Save AI message to database
       const { data: savedAiMsg, error: aiMsgError } = await supabase
-        .from("messages")
+        .from("chat_messages")
         .insert({
           conversation_id: conversationId,
           user_id: user.id,
           role: "assistant",
           content: aiContent,
-          model_used: response.model || "grok-3",
-          credits_used: response.creditsUsed || (mode === "deep" ? 10 : 5),
+          model_used: "grok-3",
+          credits_used: response.credits_used || (mode === "deep" ? 10 : 5),
         })
         .select()
         .single();
@@ -744,7 +752,7 @@ export function useConversations() {
 
     try {
       const { error } = await supabase
-        .from("messages")
+        .from("chat_messages")
         .update({ is_favorite: !message.is_favorite })
         .eq("id", messageId);
 
