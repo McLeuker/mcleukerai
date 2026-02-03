@@ -248,8 +248,16 @@ class McLeukerAPI {
    * - Mask errors
    */
   private normalizeResponse(data: any): ChatResponse {
-    // Get the actual response text
-    let responseText = data.response || data.message || '';
+    // Get the actual response text - check multiple possible fields
+    // Backend may return content in different fields depending on response type
+    let responseText = data.response 
+      || data.message 
+      || data.user_input_prompt    // Backend puts content here when needs_user_input=true
+      || data.output 
+      || data.content
+      || data.text
+      || data.answer
+      || '';
     
     // If response is an object, extract content from common keys
     if (typeof responseText === 'object' && responseText !== null) {
