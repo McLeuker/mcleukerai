@@ -23,7 +23,7 @@ interface SectorConfig {
 export const SECTORS: SectorConfig[] = [
   {
     id: "all",
-    label: "All Domains",
+    label: "Global",
     placeholder: "Describe your research task in natural language...",
     tagline: "Cross-domain intelligence for fashion professionals",
     imageDirection: "Editorial fashion overview",

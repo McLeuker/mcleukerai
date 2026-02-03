@@ -80,8 +80,11 @@ const Dashboard = () => {
   // Hide it when on "All Domains" with no messages (DomainStarterPanel has its own input)
   const showBottomInput = !(currentSector === "all" && messages.length === 0);
 
+  // Calculate sidebar width for fixed composer positioning
+  const sidebarWidth = sidebarOpen ? 288 : 56; // 72 = 18rem, 56px = collapsed
+
   return (
-    <div className="min-h-screen bg-[#070707] flex w-full overflow-x-hidden overflow-y-auto">
+    <div className="min-h-screen bg-[#070707] flex w-full overflow-x-hidden">
       {/* Desktop Sidebar */}
       <ChatSidebar
         conversations={conversations}
@@ -90,6 +93,7 @@ const Dashboard = () => {
         onToggle={() => setSidebarOpen(!sidebarOpen)}
         onSelectConversation={handleSelectConversation}
         onDeleteConversation={deleteConversation}
+        onNewConversation={createNewConversation}
       />
 
       {/* Main Content */}
@@ -98,8 +102,6 @@ const Dashboard = () => {
         <TopNavigation 
           showSectorTabs={true} 
           showCredits={true} 
-          showNewChat={true} 
-          onNewChat={createNewConversation} 
         />
 
         {/* Header Spacer - matches graphite glass nav */}
@@ -122,12 +124,13 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Chat Area */}
+        {/* Chat Area - with padding for fixed composer */}
         <main className={cn(
           "flex-1 flex flex-col min-h-0 relative",
-          sidebarOpen ? "lg:pl-[304px]" : "lg:pl-[72px]"
+          sidebarOpen ? "lg:pl-72" : "lg:pl-14",
+          showBottomInput && "pb-[120px]" // Space for fixed composer
         )}>
-          {/* Grainy transition overlay for All Domains view */}
+          {/* Grainy transition overlay for Global view */}
           {currentSector === "all" && (
             <div className="gradient-grain-transition absolute inset-0 pointer-events-none" />
           )}
@@ -145,23 +148,50 @@ const Dashboard = () => {
             domainSnapshot={domainSnapshot}
             domainSnapshotLoading={snapshotLoading}
           />
-
-          {/* Input Area - Premium graphite styling */}
-          {showBottomInput && (
-            <div className={cn(
-              "border-t border-white/[0.08] p-4 sticky bottom-0",
-              "bg-gradient-to-b from-[#0A0A0A] to-[#070707]"
-            )}>
-              <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 animate-fade-in">
-                <ChatInput
-                  onSubmit={handleSendMessage}
-                  isLoading={loading}
-                  placeholder={sectorConfig.placeholder}
-                />
-              </div>
-            </div>
-          )}
         </main>
+
+        {/* Fixed Composer at bottom */}
+        {showBottomInput && (
+          <div 
+            className={cn(
+              "fixed bottom-0 right-0 z-40",
+              "border-t border-white/[0.08] p-4",
+              "bg-gradient-to-b from-[#0A0A0A] to-[#070707]"
+            )}
+            style={{
+              left: `${sidebarWidth}px`,
+              transition: 'left 200ms ease'
+            }}
+          >
+            <div className="hidden lg:block" /> {/* Desktop spacer handled by style */}
+            <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 animate-fade-in">
+              <ChatInput
+                onSubmit={handleSendMessage}
+                isLoading={loading}
+                placeholder={sectorConfig.placeholder}
+              />
+            </div>
+          </div>
+        )}
+        
+        {/* Mobile fixed composer */}
+        {showBottomInput && (
+          <div 
+            className={cn(
+              "lg:hidden fixed bottom-0 left-0 right-0 z-40",
+              "border-t border-white/[0.08] p-4",
+              "bg-gradient-to-b from-[#0A0A0A] to-[#070707]"
+            )}
+          >
+            <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 animate-fade-in">
+              <ChatInput
+                onSubmit={handleSendMessage}
+                isLoading={loading}
+                placeholder={sectorConfig.placeholder}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

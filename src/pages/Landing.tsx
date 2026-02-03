@@ -488,25 +488,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Secondary CTA Section - Dark */}
-      <section className="py-20 lg:py-28 bg-[#0B0B0B]">
-        <div className="container mx-auto px-6 lg:px-12">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="font-luxury text-3xl md:text-4xl text-white/[0.92] mb-6">
-              Ready to transform your research?
-            </h2>
-            <p className="text-white/60 text-lg mb-8">
-              Join leading fashion brands leveraging AI-powered insights.
-            </p>
-            <Button size="lg" className="px-8 bg-white text-black hover:bg-white/90" asChild>
-              <Link to="/signup">
-                Start Free Trial
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+      {/* Secondary CTA Section removed as per plan */}
 
       {/* Final CTA - Dark */}
       <section className="py-32 lg:py-40 bg-[#070707]">
