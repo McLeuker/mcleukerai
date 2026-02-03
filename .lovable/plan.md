@@ -1,54 +1,61 @@
 
-# Fix Empty Response Issue
+# Fix Empty Response Issue - Complete Solution
 
-## Problem
+## Root Cause Identified
 
-When the backend returns a response as an object/dict instead of a string, the current code just does `JSON.stringify()` which can result in empty or malformed responses.
+The Railway backend is returning responses with this structure:
+```json
+{
+  "success": true,
+  "response": "",                    // ALWAYS EMPTY!
+  "user_input_prompt": "Actual content here...",
+  "needs_user_input": true
+}
+```
+
+The frontend only looks at `response` and `message` fields, missing the actual content in `user_input_prompt`.
 
 ## Solution
 
-Update the object-to-string conversion in `normalizeResponse()` to extract actual content from common response keys.
+Update `normalizeResponse()` in `src/lib/mcLeukerAPI.ts` to check additional fields where the backend might put the actual content.
 
 ## File Change
 
 **File:** `src/lib/mcLeukerAPI.ts`
 
-**Lines:** 254-258
+**Lines:** 251-252
 
 **Current code:**
 ```typescript
-// If response is somehow an object, stringify it (shouldn't happen with fixed backend)
-if (typeof responseText !== 'string') {
-  log('NORMALIZE', 'Response was not a string, converting', { type: typeof responseText });
-  responseText = JSON.stringify(responseText);
-}
+// Get the actual response text
+let responseText = data.response || data.message || '';
 ```
 
 **New code:**
 ```typescript
-// If response is an object, extract content from common keys
-if (typeof responseText === 'object' && responseText !== null) {
-  log('NORMALIZE', 'Response was an object, extracting content', { type: typeof responseText, keys: Object.keys(responseText) });
-  responseText = responseText.content 
-    || responseText.text 
-    || responseText.message 
-    || responseText.answer
-    || responseText.result
-    || responseText.response
-    || JSON.stringify(responseText);
-} else if (typeof responseText !== 'string') {
-  responseText = String(responseText);
-}
+// Get the actual response text - check multiple possible fields
+// Backend may return content in different fields depending on response type
+let responseText = data.response 
+  || data.message 
+  || data.user_input_prompt    // Backend puts content here when needs_user_input=true
+  || data.output 
+  || data.content
+  || data.text
+  || data.answer
+  || '';
 ```
 
-## What This Fixes
+## Why This Works
 
-| Backend Returns | Before | After |
-|-----------------|--------|-------|
-| `{ content: "Fashion info..." }` | `{"content":"Fashion info..."}` | `Fashion info...` |
-| `{ text: "Result here" }` | `{"text":"Result here"}` | `Result here` |
-| `{ message: "Answer" }` | `{"message":"Answer"}` | `Answer` |
-| `""` (empty string) | `""` | `""` (no change) |
-| `"Normal response"` | `Normal response` | `Normal response` (no change) |
+| Backend Response | Before | After |
+|------------------|--------|-------|
+| `{ response: "", user_input_prompt: "Content..." }` | Empty message | Shows "Content..." |
+| `{ response: "Normal response" }` | Shows "Normal response" | No change |
+| `{ message: "Alt field" }` | Shows "Alt field" | No change |
+| `{ output: "Result..." }` | Empty | Shows "Result..." |
 
-No new UI elements, no retry buttons, no error messages added - just better extraction of response content.
+## Technical Details
+
+The fix is minimal - just one line change to add more fallback fields. This maintains all existing behavior while catching cases where the backend uses alternative field names.
+
+No UI changes, no new error handling, no retry buttons - just proper extraction of response content from wherever the backend puts it.
