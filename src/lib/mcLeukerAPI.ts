@@ -1,419 +1,435 @@
 /**
- * McLeuker AI V4 - mcLeukerAPI.ts
+ * McLeuker AI V5.1 - mcLeukerAPI.ts
  * 
- * CLEAN TRANSPARENT API LAYER
- * 
- * Design Principles:
- * 1. NO fake content generation - return exactly what backend sends
- * 2. TRANSPARENT error handling - return actual errors, not masked content
- * 3. PROPER CORS handling - route through Supabase proxy
- * 4. DETAILED logging - for debugging
- * 5. RETRY capability - with exponential backoff
+ * DESIGN PRINCIPLES:
+ * 1. PARSE V5.1 Response Contract - Extract main_content, sources, key_insights
+ * 2. CLEAN DISPLAY - No raw JSON shown to users
+ * 3. PROPER ERROR HANDLING - Transparent error messages
+ * 4. BACKWARD COMPATIBLE - Works with both V5.0 and V5.1 responses
  */
 
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
+// Environment configuration
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://cvnpoarfgkzswwjkhoes.supabase.co";
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+const RAILWAY_URL = import.meta.env.VITE_RAILWAY_API_URL || "https://web-production-29f3c.up.railway.app";
 
-// Use Supabase proxy to avoid CORS issues
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://pvyruwqjcnmyylsgvjkr.supabase.co";
+// Endpoints
 const PROXY_ENDPOINT = `${SUPABASE_URL}/functions/v1/proxy-railway`;
+const DIRECT_ENDPOINT = `${RAILWAY_URL}/api/chat`;
+const HEALTH_ENDPOINT = `${RAILWAY_URL}/health`;
 
-// Direct Railway URL (for reference/debugging only)
-const RAILWAY_DIRECT_URL = import.meta.env.VITE_BACKEND_URL || "https://web-production-29f3c.up.railway.app";
+// Logging utility
+const DEBUG = true;
+function log(category: string, message: string, data?: any) {
+  if (DEBUG) {
+    console.log(`[McLeukerAPI:${category}] ${message}`, data || '');
+  }
+}
 
-// Debug mode
-const DEBUG = import.meta.env.DEV || true; // Enable for now to diagnose issues
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
+// Types
 export interface ChatResponse {
   success: boolean;
-  response?: string;
-  message?: string; // Alias for response (backwards compatibility)
-  session_id?: string;
-  reasoning?: string[];
-  sources?: Array<{
-    title: string;
-    url: string;
-    snippet?: string;
-    source?: string;
-  }>;
-  files?: Array<{
-    name: string;
-    url: string;
-    type: string;
-  }>;
-  images?: string[];
+  response: string;
+  sources?: Source[];
   follow_up_questions?: string[];
+  key_insights?: KeyInsight[];
+  sections?: Section[];
+  action_items?: ActionItem[];
   credits_used?: number;
-  needs_user_input?: boolean;
-  user_input_prompt?: string;
+  session_id?: string;
   error?: string;
-  canRetry?: boolean;
+}
+
+export interface Source {
+  id: string;
+  title: string;
+  url: string;
+  publisher?: string;
+  snippet?: string;
+  date?: string;
+  type?: string;
+}
+
+export interface KeyInsight {
+  title: string;
+  description: string;
+  importance?: string;
+  icon?: string;
+}
+
+export interface Section {
+  id: string;
+  title: string;
+  content: string;
+  subsections?: Section[];
+}
+
+export interface ActionItem {
+  action: string;
+  details: string;
+  link?: string;
+  priority?: string;
 }
 
 export interface HealthResponse {
   status: string;
   version: string;
-  timestamp?: string;
   services: {
     grok: boolean;
-    perplexity: boolean;
-    exa: boolean;
-    browserless: boolean;
-    e2b: boolean;
-    nano_banana: boolean;
+    search: boolean;
+    supabase: boolean;
+  };
+  features?: {
+    response_contract: boolean;
+    file_generation: boolean;
+    intent_routing: boolean;
   };
 }
 
-// ============================================================================
-// LOGGING UTILITIES
-// ============================================================================
-
-function log(category: string, message: string, data?: any) {
-  if (DEBUG) {
-    const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-    console.log(`[${timestamp}] [McLeukerAPI] [${category}]`, message, data || '');
+/**
+ * Parse V5.1 Response Contract format
+ * Extracts main_content and structured data from the response
+ */
+function parseV51Response(data: any): ChatResponse {
+  log('PARSE', 'Parsing V5.1 Response Contract', { keys: Object.keys(data) });
+  
+  // Check if this is a V5.1 Response Contract format
+  const isV51Format = data.main_content !== undefined || 
+                      data.summary !== undefined ||
+                      data.key_insights !== undefined ||
+                      data.sections !== undefined;
+  
+  if (isV51Format) {
+    log('PARSE', 'Detected V5.1 Response Contract format');
+    
+    // Extract main content - prioritize main_content, then summary
+    let responseText = '';
+    
+    if (data.main_content && typeof data.main_content === 'string') {
+      responseText = data.main_content;
+      log('PARSE', 'Using main_content', { length: responseText.length });
+    } else if (data.summary && typeof data.summary === 'string') {
+      responseText = data.summary;
+      log('PARSE', 'Using summary', { length: responseText.length });
+    }
+    
+    // If main_content is empty but we have sections, build content from sections
+    if (!responseText && data.sections && Array.isArray(data.sections)) {
+      responseText = data.sections.map((section: any) => {
+        let sectionText = `## ${section.title}\n\n${section.content || ''}`;
+        if (section.subsections && Array.isArray(section.subsections)) {
+          section.subsections.forEach((sub: any) => {
+            sectionText += `\n\n### ${sub.title}\n\n${sub.content || ''}`;
+          });
+        }
+        return sectionText;
+      }).join('\n\n');
+      log('PARSE', 'Built content from sections', { length: responseText.length });
+    }
+    
+    // Extract sources
+    let sources: Source[] = [];
+    if (data.sources && Array.isArray(data.sources)) {
+      sources = data.sources.map((source: any) => ({
+        id: source.id || String(Math.random()),
+        title: source.title || 'Source',
+        url: source.url || '',
+        publisher: source.publisher || '',
+        snippet: source.snippet || '',
+        date: source.date || '',
+        type: source.type || 'web'
+      }));
+      log('PARSE', 'Extracted sources', { count: sources.length });
+    }
+    
+    // Extract key insights
+    let keyInsights: KeyInsight[] = [];
+    if (data.key_insights && Array.isArray(data.key_insights)) {
+      keyInsights = data.key_insights.map((insight: any) => ({
+        title: insight.title || 'Insight',
+        description: insight.description || '',
+        importance: insight.importance || 'medium',
+        icon: insight.icon || '💡'
+      }));
+      log('PARSE', 'Extracted key insights', { count: keyInsights.length });
+    }
+    
+    // Extract follow-up questions
+    let followUpQuestions: string[] = [];
+    if (data.follow_up_questions && Array.isArray(data.follow_up_questions)) {
+      followUpQuestions = data.follow_up_questions;
+      log('PARSE', 'Extracted follow-up questions', { count: followUpQuestions.length });
+    }
+    
+    // Extract action items
+    let actionItems: ActionItem[] = [];
+    if (data.action_items && Array.isArray(data.action_items)) {
+      actionItems = data.action_items.map((item: any) => ({
+        action: item.action || '',
+        details: item.details || '',
+        link: item.link || '',
+        priority: item.priority || 'medium'
+      }));
+      log('PARSE', 'Extracted action items', { count: actionItems.length });
+    }
+    
+    // Build the final response text with proper formatting
+    let finalResponse = responseText;
+    
+    // Add key insights section if available
+    if (keyInsights.length > 0) {
+      finalResponse += '\n\n## Key Insights\n\n';
+      keyInsights.forEach((insight, index) => {
+        finalResponse += `${insight.icon || '💡'} **${insight.title}**: ${insight.description}\n\n`;
+      });
+    }
+    
+    // Add action items section if available
+    if (actionItems.length > 0) {
+      finalResponse += '\n\n## Actionable Insights\n\n';
+      actionItems.forEach((item, index) => {
+        finalResponse += `- **${item.action}**: ${item.details}`;
+        if (item.link) {
+          finalResponse += ` [Learn more](${item.link})`;
+        }
+        finalResponse += '\n';
+      });
+    }
+    
+    // Add sources section if available
+    if (sources.length > 0) {
+      finalResponse += '\n\n## Sources\n\n';
+      sources.forEach((source, index) => {
+        finalResponse += `${index + 1}. [${source.title}](${source.url})`;
+        if (source.publisher) {
+          finalResponse += ` - ${source.publisher}`;
+        }
+        finalResponse += '\n';
+      });
+    }
+    
+    return {
+      success: true,
+      response: finalResponse,
+      sources: sources,
+      follow_up_questions: followUpQuestions,
+      key_insights: keyInsights,
+      action_items: actionItems,
+      credits_used: data.credits_used || 0,
+      session_id: data.session_id || ''
+    };
   }
+  
+  // Fallback to V5.0 format parsing
+  log('PARSE', 'Using V5.0 format parsing');
+  return parseV50Response(data);
 }
 
-function logError(category: string, message: string, error?: any) {
-  console.error(`[McLeukerAPI] [${category}] ERROR:`, message, error || '');
+/**
+ * Parse V5.0 response format (backward compatibility)
+ */
+function parseV50Response(data: any): ChatResponse {
+  log('PARSE', 'Parsing V5.0 response format');
+  
+  // Try to extract response from various fields
+  let responseText = '';
+  
+  const fields = ['response', 'message', 'content', 'text', 'answer', 'output', 'result'];
+  for (const field of fields) {
+    if (data[field] && typeof data[field] === 'string' && data[field].length > responseText.length) {
+      responseText = data[field];
+      log('PARSE', `Found content in field: ${field}`, { length: responseText.length });
+    }
+  }
+  
+  // Extract sources if available
+  let sources: Source[] = [];
+  if (data.sources && Array.isArray(data.sources)) {
+    sources = data.sources;
+  }
+  
+  // Extract follow-up questions if available
+  let followUpQuestions: string[] = [];
+  if (data.follow_up_questions && Array.isArray(data.follow_up_questions)) {
+    followUpQuestions = data.follow_up_questions;
+  }
+  
+  return {
+    success: true,
+    response: responseText,
+    sources: sources,
+    follow_up_questions: followUpQuestions,
+    credits_used: data.credits_used || 0,
+    session_id: data.session_id || ''
+  };
 }
 
-// ============================================================================
-// API CLASS
-// ============================================================================
+/**
+ * Normalize API response to ChatResponse format
+ */
+function normalizeResponse(data: any): ChatResponse {
+  log('NORMALIZE', 'Raw response data', { 
+    keys: Object.keys(data),
+    hasMainContent: !!data.main_content,
+    hasSummary: !!data.summary,
+    hasSections: !!data.sections,
+    hasResponse: !!data.response
+  });
+  
+  // Check for error responses
+  if (data.error) {
+    return {
+      success: false,
+      response: '',
+      error: typeof data.error === 'string' ? data.error : JSON.stringify(data.error)
+    };
+  }
+  
+  // Check for V5.1 Response Contract format
+  if (data.main_content !== undefined || 
+      data.summary !== undefined || 
+      data.key_insights !== undefined ||
+      data.sections !== undefined) {
+    return parseV51Response(data);
+  }
+  
+  // Fallback to V5.0 parsing
+  return parseV50Response(data);
+}
 
+/**
+ * McLeuker API class
+ */
 class McLeukerAPI {
   private proxyUrl: string;
   private directUrl: string;
-
+  private healthUrl: string;
+  
   constructor() {
     this.proxyUrl = PROXY_ENDPOINT;
-    this.directUrl = RAILWAY_DIRECT_URL;
-    log('INIT', `Initialized with proxy: ${this.proxyUrl}`);
-    log('INIT', `Direct URL (reference): ${this.directUrl}`);
+    this.directUrl = DIRECT_ENDPOINT;
+    this.healthUrl = HEALTH_ENDPOINT;
+    log('INIT', 'McLeukerAPI initialized', {
+      proxy: this.proxyUrl,
+      direct: this.directUrl,
+      health: this.healthUrl
+    });
   }
-
+  
   /**
    * Check backend health
-   * Uses direct Railway URL since health check doesn't need auth
    */
   async checkHealth(): Promise<HealthResponse> {
-    log('HEALTH', 'Checking backend health...');
-    
     try {
-      const response = await fetch(`${this.directUrl}/health`, {
+      const response = await fetch(this.healthUrl, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Accept': 'application/json'
+        }
       });
-
+      
       if (!response.ok) {
-        throw new Error(`Health check failed: HTTP ${response.status}`);
+        throw new Error(`Health check failed: ${response.status}`);
       }
-
+      
       const data = await response.json();
-      log('HEALTH', 'Backend healthy', data);
+      log('HEALTH', 'Health check response', data);
       return data;
-    } catch (error: any) {
-      logError('HEALTH', 'Health check failed', error);
-      throw error;
+    } catch (error) {
+      log('HEALTH', 'Health check error', error);
+      return {
+        status: 'unhealthy',
+        version: 'unknown',
+        services: {
+          grok: false,
+          search: false,
+          supabase: false
+        }
+      };
     }
   }
-
+  
   /**
-   * Send chat message to backend
-   * 
-   * TRANSPARENT DESIGN:
-   * - Returns exactly what backend sends (success or error)
-   * - NO fake content generation
-   * - NO response masking
+   * Send a chat message
    */
   async chat(
-    message: string,
-    mode: "quick" | "deep" = "quick",
-    conversationHistory: Array<{ role: string; content: string }> = [],
-    signal?: AbortSignal
+    query: string,
+    mode: 'quick' | 'deep' | 'auto' = 'quick',
+    domain?: string,
+    sessionId?: string
   ): Promise<ChatResponse> {
-    const requestId = Math.random().toString(36).substring(7);
+    log('CHAT', 'Sending chat request', { query, mode, domain, sessionId });
     
-    log('CHAT', `[${requestId}] Starting request`, {
-      messageLength: message.length,
-      messagePreview: message.substring(0, 50),
+    const payload = {
+      query,
       mode,
-      historyLength: conversationHistory.length,
-    });
-
-    // Build request body
-    const body = {
-      message: message,
-      mode: mode,
-      conversation_history: conversationHistory,
-      session_id: crypto.randomUUID(),
+      domain: domain || 'general',
+      session_id: sessionId || undefined
     };
-
+    
     try {
-      // Set timeout based on mode
-      const timeoutMs = mode === "deep" ? 180000 : 60000; // 3 min for deep, 1 min for quick
+      // Try proxy first
+      log('CHAT', 'Trying proxy endpoint', { url: this.proxyUrl });
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      
-      // Combine with external signal if provided
-      const combinedSignal = signal 
-        ? new AbortController().signal // TODO: Combine signals properly
-        : controller.signal;
-
-      log('CHAT', `[${requestId}] Sending to proxy: ${this.proxyUrl}`);
-
       const response = await fetch(this.proxyUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Accept': 'application/json'
         },
-        body: JSON.stringify(body),
-        signal: controller.signal,
+        body: JSON.stringify(payload)
       });
-
-      clearTimeout(timeoutId);
-
-      log('CHAT', `[${requestId}] Response status: ${response.status}`);
-
-      // Handle HTTP errors TRANSPARENTLY
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        logError('CHAT', `[${requestId}] HTTP error`, { status: response.status, errorText });
-        
-        // Return ACTUAL error - no fake content
-        return {
-          success: false,
-          error: `Server error (${response.status}): ${errorText}`,
-          canRetry: response.status >= 500,
-          credits_used: 0,
-        };
-      }
-
-      // Parse response
-      const data = await response.json();
       
-      log('CHAT', `[${requestId}] Response received`, {
-        success: data.success,
-        hasResponse: !!data.response,
-        responseLength: data.response?.length,
-        hasError: !!data.error,
-        keys: Object.keys(data),
-      });
-
-      // Return EXACTLY what backend sent - no modifications except normalization
-      return this.normalizeResponse(data);
-
-    } catch (error: any) {
-      logError('CHAT', `[${requestId}] Request failed`, error);
-
-      // Handle abort
-      if (error.name === 'AbortError') {
+      if (!response.ok) {
+        const errorText = await response.text();
+        log('CHAT', 'Proxy request failed', { status: response.status, error: errorText });
+        throw new Error(`Proxy request failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      log('CHAT', 'Proxy response received', { keys: Object.keys(data) });
+      
+      return normalizeResponse(data);
+      
+    } catch (proxyError) {
+      log('CHAT', 'Proxy failed, trying direct endpoint', { error: proxyError });
+      
+      try {
+        // Fallback to direct endpoint
+        const response = await fetch(this.directUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          log('CHAT', 'Direct request failed', { status: response.status, error: errorText });
+          throw new Error(`Direct request failed: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        log('CHAT', 'Direct response received', { keys: Object.keys(data) });
+        
+        return normalizeResponse(data);
+        
+      } catch (directError) {
+        log('CHAT', 'Both proxy and direct failed', { error: directError });
+        
         return {
           success: false,
-          error: 'Request was cancelled or timed out',
-          canRetry: true,
-          credits_used: 0,
+          response: '',
+          error: 'Unable to connect to McLeuker AI backend. Please try again later.'
         };
       }
-
-      // Handle network errors TRANSPARENTLY
-      return {
-        success: false,
-        error: `Network error: ${error.message || 'Connection failed'}`,
-        canRetry: true,
-        credits_used: 0,
-      };
-    }
-  }
-
-  /**
-   * Normalize backend response
-   * 
-   * ONLY does:
-   * - Ensure response/message field exists
-   * - Clean [object Object] artifacts (display issue, not content masking)
-   * 
-   * DOES NOT:
-   * - Generate fake content
-   * - Replace "unhelpful" responses
-   * - Mask errors
-   */
-  private normalizeResponse(data: any): ChatResponse {
-    // Get the actual response text - check multiple possible fields
-    // Backend may return content in different fields depending on response type
-    let responseText = data.response 
-      || data.message 
-      || data.user_input_prompt    // Backend puts content here when needs_user_input=true
-      || data.output 
-      || data.content
-      || data.text
-      || data.answer
-      || '';
-    
-    // If response is an object, extract content from common keys
-    if (typeof responseText === 'object' && responseText !== null) {
-      log('NORMALIZE', 'Response was an object, extracting content', { type: typeof responseText, keys: Object.keys(responseText) });
-      responseText = responseText.content 
-        || responseText.text 
-        || responseText.message 
-        || responseText.answer
-        || responseText.result
-        || responseText.response
-        || JSON.stringify(responseText);
-    } else if (typeof responseText !== 'string') {
-      responseText = String(responseText);
-    }
-
-    // Clean [object Object] artifacts (display bug fix, not content masking)
-    responseText = this.cleanArtifacts(responseText);
-
-    // Normalize sources array
-    let sources = data.sources;
-    if (Array.isArray(sources)) {
-      sources = sources.map((s: any) => ({
-        title: String(s?.title || 'Source'),
-        url: String(s?.url || '#'),
-        snippet: s?.snippet ? String(s.snippet) : undefined,
-        source: s?.source ? String(s.source) : undefined,
-      }));
-    }
-
-    // Normalize reasoning array
-    let reasoning = data.reasoning;
-    if (reasoning && !Array.isArray(reasoning)) {
-      reasoning = [String(reasoning)];
-    } else if (Array.isArray(reasoning)) {
-      reasoning = reasoning.map((r: any) => String(r));
-    }
-
-    return {
-      success: data.success !== false && !data.error,
-      response: responseText,
-      message: responseText, // Alias for backwards compatibility
-      session_id: data.session_id,
-      reasoning: reasoning,
-      sources: sources,
-      files: data.files,
-      images: data.images,
-      follow_up_questions: data.follow_up_questions,
-      credits_used: data.credits_used || 1,
-      needs_user_input: data.needs_user_input,
-      user_input_prompt: data.user_input_prompt,
-      error: data.error,
-      canRetry: !!data.error,
-    };
-  }
-
-  /**
-   * Clean [object Object] artifacts from text
-   * This is a DISPLAY BUG FIX, not content masking
-   */
-  private cleanArtifacts(text: string): string {
-    if (!text || typeof text !== 'string') return text;
-    
-    return text
-      // Remove [object Object] patterns
-      .replace(/\[object Object\]/g, '')
-      // Clean up resulting comma artifacts
-      .replace(/,\s*,/g, ',')
-      .replace(/,\s*\./g, '.')
-      .replace(/\s{2,}/g, ' ')
-      .replace(/^\s*,\s*/g, '')
-      .replace(/\s*,\s*$/g, '')
-      .trim();
-  }
-
-  /**
-   * Generate image using backend
-   */
-  async generateImage(prompt: string, signal?: AbortSignal): Promise<{ url?: string; error?: string }> {
-    log('IMAGE', 'Generating image', { promptLength: prompt.length });
-    
-    try {
-      const response = await fetch(`${this.directUrl}/api/generate-image`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
-        signal,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        return { error: `Image generation failed: ${errorText}` };
-      }
-
-      const data = await response.json();
-      return { url: data.url || data.image_url };
-    } catch (error: any) {
-      return { error: `Image generation error: ${error.message}` };
-    }
-  }
-
-  /**
-   * Execute code using backend
-   */
-  async executeCode(
-    code: string,
-    language: string = "python",
-    signal?: AbortSignal
-  ): Promise<{ output?: string; error?: string }> {
-    log('CODE', 'Executing code', { language, codeLength: code.length });
-    
-    try {
-      const response = await fetch(`${this.directUrl}/api/execute-code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, language }),
-        signal,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        return { error: `Code execution failed: ${errorText}` };
-      }
-
-      const data = await response.json();
-      return { output: data.output || data.result };
-    } catch (error: any) {
-      return { error: `Code execution error: ${error.message}` };
-    }
-  }
-
-  /**
-   * Search using backend
-   */
-  async search(query: string, signal?: AbortSignal): Promise<{ results?: any[]; error?: string }> {
-    log('SEARCH', 'Searching', { query });
-    
-    try {
-      const response = await fetch(`${this.directUrl}/api/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
-        signal,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        return { error: `Search failed: ${errorText}` };
-      }
-
-      const data = await response.json();
-      return { results: data.results || data.sources };
-    } catch (error: any) {
-      return { error: `Search error: ${error.message}` };
     }
   }
 }
 
 // Export singleton instance
 export const mcLeukerAPI = new McLeukerAPI();
+export default mcLeukerAPI;
