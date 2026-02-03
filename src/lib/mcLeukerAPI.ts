@@ -251,10 +251,18 @@ class McLeukerAPI {
     // Get the actual response text
     let responseText = data.response || data.message || '';
     
-    // If response is somehow an object, stringify it (shouldn't happen with fixed backend)
-    if (typeof responseText !== 'string') {
-      log('NORMALIZE', 'Response was not a string, converting', { type: typeof responseText });
-      responseText = JSON.stringify(responseText);
+    // If response is an object, extract content from common keys
+    if (typeof responseText === 'object' && responseText !== null) {
+      log('NORMALIZE', 'Response was an object, extracting content', { type: typeof responseText, keys: Object.keys(responseText) });
+      responseText = responseText.content 
+        || responseText.text 
+        || responseText.message 
+        || responseText.answer
+        || responseText.result
+        || responseText.response
+        || JSON.stringify(responseText);
+    } else if (typeof responseText !== 'string') {
+      responseText = String(responseText);
     }
 
     // Clean [object Object] artifacts (display bug fix, not content masking)
