@@ -21,17 +21,13 @@ import {
   LogOut, 
   Settings, 
   HelpCircle,
-  Plus,
   Menu,
   X
 } from "lucide-react";
-import mcleukerLogo from "@/assets/mcleuker-logo.png";
 
 interface TopNavigationProps {
   showSectorTabs?: boolean;
   showCredits?: boolean;
-  showNewChat?: boolean;
-  onNewChat?: () => void;
   variant?: "app" | "marketing";
 }
 
@@ -50,8 +46,6 @@ const marketingLinks = [
 export function TopNavigation({ 
   showSectorTabs = true, 
   showCredits = true, 
-  showNewChat = false, 
-  onNewChat,
   variant = "app"
 }: TopNavigationProps) {
   const location = useLocation();
@@ -127,25 +121,13 @@ export function TopNavigation({
       "shadow-[0_10px_28px_rgba(0,0,0,0.45)]"
     )}>
       <div className="h-16 lg:h-[72px] flex items-center justify-between px-6 lg:px-8">
-        {/* Logo + optional New Chat */}
+        {/* Logo - Text Wordmark */}
         <div className="flex items-center gap-4 shrink-0">
-          <Link to="/" className="flex items-center gap-2.5">
-            <img
-              src={mcleukerLogo}
-              alt="McLeuker AI"
-              className="h-8 lg:h-9 w-auto"
-            />
+          <Link to="/" className="flex items-center">
+            <span className="font-luxury text-xl lg:text-2xl text-white tracking-[0.02em]">
+              McLeuker
+            </span>
           </Link>
-          
-          {showNewChat && onNewChat && (
-            <Button
-              onClick={onNewChat}
-              className="hidden lg:flex px-3.5 py-2 h-auto rounded-full gap-1.5 bg-white text-black hover:bg-white/90 text-[13px] font-medium"
-            >
-              <Plus className="h-4 w-4" />
-              New Chat
-            </Button>
-          )}
         </div>
 
         {/* Marketing Links - Center (for marketing variant) */}
@@ -177,6 +159,7 @@ export function TopNavigation({
                 onClick={() => handleSectorClick(sector.id as Sector)}
                 className={cn(
                   "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                  "focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-2 focus:ring-offset-[#0A0A0A]",
                   currentSector === sector.id
                     ? "bg-white/10 text-white"
                     : "text-white/50 hover:text-white/80 hover:bg-white/5"
@@ -194,7 +177,7 @@ export function TopNavigation({
           {isMarketing && (
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 text-white/70 hover:text-white"
+              className="lg:hidden p-2 text-white/70 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/20"
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -206,7 +189,7 @@ export function TopNavigation({
               {showCredits && (
                 <Link
                   to="/billing"
-                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/[0.08] transition-colors"
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/[0.08] transition-colors focus:outline-none focus:ring-2 focus:ring-white/20"
                 >
                   <Coins className="h-3.5 w-3.5 text-white/50" />
                   <span className="text-xs font-medium text-white/80">{creditBalance} credits</span>
@@ -216,7 +199,7 @@ export function TopNavigation({
               {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-white/10">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-white/10 focus:ring-2 focus:ring-white/20">
                     <Avatar className="h-7 w-7">
                       <AvatarImage src={userProfile?.profile_image || user.user_metadata?.avatar_url || user.user_metadata?.picture} />
                       <AvatarFallback className="text-xs bg-white/10 text-white">
@@ -338,6 +321,7 @@ export function TopNavigation({
                 onClick={() => handleSectorClick(sector.id as Sector)}
                 className={cn(
                   "px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap",
+                  "focus:outline-none focus:ring-2 focus:ring-white/20",
                   currentSector === sector.id
                     ? "bg-white/10 text-white"
                     : "text-white/50 hover:text-white/80"

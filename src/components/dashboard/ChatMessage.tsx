@@ -1,39 +1,33 @@
 /**
- * McLeuker AI V5 - ChatMessage.tsx
+ * McLeuker AI - ChatMessage.tsx
  * 
- * Premium graphite bubbles on dark ombre background
- * 
- * Design Specs:
- * - AI bubbles: Graphite gradient (#232323 → #191919)
- * - User bubbles: Brighter graphite (#2C2C2C → #202020)
- * - 20px rounded corners with soft shadows
- * - White text (rgba(255,255,255,0.88))
- * - Headers (avatar, name, timestamp) in rgba(255,255,255,0.58)
- * - Max-width 72% to keep content focused
- * - Stable gutters (24-32px) so bubbles never touch edges
+ * ChatGPT-like message display:
+ * - No bubbles for AI messages
+ * - User messages: text only, right-aligned, subtle styling
+ * - AI messages: direct on black background, reading column width
+ * - Copy button on hover for AI messages
+ * - Table of Contents for long responses
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Copy, 
   Check, 
-  Star, 
-  StarOff, 
   RefreshCw, 
   AlertCircle,
   ExternalLink,
   ChevronDown,
   ChevronUp,
   Sparkles,
-  User,
+  List,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChatMessage as ChatMessageType, ResearchState } from "@/hooks/useConversations";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -67,16 +61,25 @@ function cleanArtifacts(text: string): string {
     .trim();
 }
 
-function formatTime(dateString: string): string {
-  try {
-    return new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    }).format(new Date(dateString));
-  } catch {
-    return '';
+// Extract headings for TOC
+function extractHeadings(content: string): { level: number; text: string; id: string }[] {
+  const headingRegex = /^(#{2,3})\s+(.+)$/gm;
+  const headings: { level: number; text: string; id: string }[] = [];
+  let match;
+  
+  while ((match = headingRegex.exec(content)) !== null) {
+    const level = match[1].length;
+    const text = match[2].trim();
+    const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    headings.push({ level, text, id });
   }
+  
+  return headings;
+}
+
+// Check if content is "long" enough for TOC
+function shouldShowTOC(content: string, headings: { level: number; text: string; id: string }[]): boolean {
+  return content.length > 1500 || headings.length >= 3;
 }
 
 // ============================================================================
@@ -95,15 +98,15 @@ function SourcesSection({ sources }: SourcesSectionProps) {
   const displaySources = expanded ? sources : sources.slice(0, 3);
 
   return (
-    <div className="mt-4 pt-4 border-t border-white/[0.10]">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-[12px] font-medium text-white/[0.55]">Sources</h4>
+    <div className="mt-6 pt-6 border-t border-white/[0.08]">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-[13px] font-medium text-white/[0.55]">Sources</h4>
         {sources.length > 3 && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setExpanded(!expanded)}
-            className="text-[11px] text-white/[0.45] hover:text-white/70 h-auto py-1 px-2"
+            className="text-[12px] text-white/[0.45] hover:text-white/70 h-auto py-1 px-2"
           >
             {expanded ? (
               <>Show less <ChevronUp className="ml-1 h-3 w-3" /></>
@@ -120,13 +123,13 @@ function SourcesSection({ sources }: SourcesSectionProps) {
             href={source.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block p-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.10] transition-colors"
+            className="block p-3 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] transition-colors border border-white/[0.06]"
           >
-            <div className="flex items-start gap-2">
+            <div className="flex items-start gap-2.5">
               <span className="text-[11px] text-white/[0.40] font-mono">[{index + 1}]</span>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <span className="text-[13px] text-[#60A5FA] truncate">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[13px] text-[#60A5FA] hover:underline truncate">
                     {safeToString(source.title)}
                   </span>
                   <ExternalLink className="h-3 w-3 text-white/[0.35] flex-shrink-0" />
@@ -154,8 +157,8 @@ function FollowUpSection({ questions, onFollowUp }: FollowUpSectionProps) {
   if (!questions || questions.length === 0 || !onFollowUp) return null;
 
   return (
-    <div className="mt-4 pt-4 border-t border-white/[0.10]">
-      <h4 className="text-[12px] font-medium text-white/[0.55] mb-2">Follow-up questions</h4>
+    <div className="mt-6 pt-6 border-t border-white/[0.08]">
+      <h4 className="text-[13px] font-medium text-white/[0.55] mb-3">Follow-up questions</h4>
       <div className="flex flex-wrap gap-2">
         {questions.map((question, index) => (
           <Button
@@ -163,7 +166,7 @@ function FollowUpSection({ questions, onFollowUp }: FollowUpSectionProps) {
             variant="outline"
             size="sm"
             onClick={() => onFollowUp(question)}
-            className="text-[12px] text-white/[0.65] border-white/[0.15] hover:bg-white/[0.08] hover:text-white/80 gap-1.5 h-auto py-1.5 px-3"
+            className="text-[12px] text-white/[0.65] border-white/[0.12] hover:bg-white/[0.06] hover:text-white/80 gap-1.5 h-auto py-1.5 px-3 rounded-full"
           >
             <Sparkles className="h-3 w-3" />
             {safeToString(question)}
@@ -174,36 +177,46 @@ function FollowUpSection({ questions, onFollowUp }: FollowUpSectionProps) {
   );
 }
 
-// ============================================================================
-// BUBBLE HEADER COMPONENT
-// ============================================================================
-
-interface BubbleHeaderProps {
-  isUser: boolean;
-  timestamp: string;
+interface TableOfContentsProps {
+  headings: { level: number; text: string; id: string }[];
+  onScrollTo: (id: string) => void;
 }
 
-function BubbleHeader({ isUser, timestamp }: BubbleHeaderProps) {
+function TableOfContents({ headings, onScrollTo }: TableOfContentsProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  if (headings.length === 0) return null;
+
   return (
-    <div className="flex items-center gap-2 mb-2.5">
-      <Avatar className="h-6 w-6">
-        {isUser ? (
-          <AvatarFallback className="bg-white/10 text-white text-[10px]">
-            <User className="h-3 w-3" />
-          </AvatarFallback>
-        ) : (
-          <>
-            <AvatarImage src="/mcleuker-avatar.png" />
-            <AvatarFallback className="bg-white/10 text-white text-[10px] font-medium">ML</AvatarFallback>
-          </>
-        )}
-      </Avatar>
-      <span className="text-[12px] font-medium text-white/[0.58]">
-        {isUser ? 'You' : 'McLeuker AI'}
-      </span>
-      <span className="text-[12px] text-white/[0.45]">·</span>
-      <span className="text-[12px] text-white/[0.45]">{timestamp}</span>
-    </div>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mb-4">
+      <CollapsibleTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-[12px] text-white/50 hover:text-white/70 h-auto py-1.5 px-2.5 gap-1.5"
+        >
+          <List className="h-3.5 w-3.5" />
+          Table of Contents
+          <ChevronDown className={cn("h-3 w-3 transition-transform", isOpen && "rotate-180")} />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-2">
+        <nav className="pl-3 border-l border-white/[0.08] space-y-1">
+          {headings.map((heading, index) => (
+            <button
+              key={index}
+              onClick={() => onScrollTo(heading.id)}
+              className={cn(
+                "block text-left text-[12px] text-white/50 hover:text-white/80 transition-colors py-0.5",
+                heading.level === 3 && "pl-3"
+              )}
+            >
+              {heading.text}
+            </button>
+          ))}
+        </nav>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -234,12 +247,15 @@ export function ChatMessageComponent({
 }: ChatMessageComponentProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const messageRef = useRef<HTMLDivElement>(null);
 
   const displayContent = isStreaming && streamingContent 
     ? streamingContent 
     : cleanArtifacts(safeToString(message.content));
 
-  const formattedTime = formatTime(message.created_at);
+  const headings = useMemo(() => extractHeadings(displayContent), [displayContent]);
+  const showTOC = useMemo(() => shouldShowTOC(displayContent, headings), [displayContent, headings]);
 
   const handleCopy = async () => {
     try {
@@ -252,18 +268,21 @@ export function ChatMessageComponent({
     }
   };
 
-  // User message - right aligned with brighter graphite bubble
+  const handleScrollToHeading = (id: string) => {
+    const element = messageRef.current?.querySelector(`[data-heading-id="${id}"]`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // User message - text only, right aligned, minimal styling
   if (message.role === "user") {
     return (
-      <div className="flex justify-end">
-        <div className={cn(
-          "max-w-[55%] md:max-w-[60%] rounded-[20px] px-5 py-4",
-          "graphite-bubble-user"
-        )}>
-          <BubbleHeader isUser={true} timestamp={formattedTime} />
-          <div className="chat-message-content">
+      <div className="flex justify-end py-3">
+        <div className="max-w-[75%] lg:max-w-[65%]">
+          <p className="text-[15px] text-white/[0.88] leading-[1.7] text-right">
             {displayContent}
-          </div>
+          </p>
         </div>
       </div>
     );
@@ -272,12 +291,8 @@ export function ChatMessageComponent({
   // Placeholder message (thinking/researching)
   if (message.isPlaceholder) {
     return (
-      <div className="flex justify-start pl-3 lg:pl-4">
-        <div className={cn(
-          "max-w-[65%] md:max-w-[70%] rounded-[20px] px-5 py-4",
-          "graphite-bubble-ai"
-        )}>
-          <BubbleHeader isUser={false} timestamp="" />
+      <div className="py-4">
+        <div className="max-w-[800px]">
           <div className="flex items-center gap-2.5">
             <div className="flex gap-1">
               <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -294,19 +309,18 @@ export function ChatMessageComponent({
   // Error message
   if (message.isError) {
     return (
-      <div className="flex justify-start pl-3 lg:pl-4">
-        <div className="max-w-[65%] md:max-w-[70%] bg-red-900/40 border border-red-500/30 rounded-[20px] px-5 py-4 shadow-[0_14px_40px_rgba(0,0,0,0.55)]">
-          <BubbleHeader isUser={false} timestamp={formattedTime} />
-          <div className="flex items-start gap-2.5">
+      <div className="py-4">
+        <div className="max-w-[800px] bg-red-900/20 border border-red-500/20 rounded-xl px-5 py-4">
+          <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-red-200 text-[14px]">{displayContent}</p>
+              <p className="text-red-200 text-[14px] leading-relaxed">{displayContent}</p>
               {message.canRetry && onRetry && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => onRetry(message.id)}
-                  className="mt-3 text-red-300 border-red-500/40 hover:bg-red-900/40 text-[12px]"
+                  className="mt-3 text-red-300 border-red-500/30 hover:bg-red-900/30 text-[12px]"
                 >
                   <RefreshCw className="h-3 w-3 mr-1.5" />
                   Retry
@@ -319,56 +333,96 @@ export function ChatMessageComponent({
     );
   }
 
-  // Normal assistant message - left aligned with graphite bubble
+  // Normal assistant message - ChatGPT-like, no bubble
   return (
-    <div className="flex justify-start pl-3 lg:pl-4">
+    <div 
+      className="py-4 relative group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      ref={messageRef}
+    >
+      {/* Copy button - top right, visible on hover */}
       <div className={cn(
-        "max-w-[65%] md:max-w-[70%] rounded-[20px] px-5 py-4",
-        "graphite-bubble-ai"
+        "absolute top-4 right-0 transition-opacity duration-150",
+        isHovered ? "opacity-100" : "opacity-0"
       )}>
-        <BubbleHeader isUser={false} timestamp={formattedTime} />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleCopy}
+          className="h-8 w-8 p-0 text-white/[0.40] hover:text-white/70 hover:bg-white/[0.06]"
+        >
+          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+        </Button>
+      </div>
+
+      {/* Reading column container */}
+      <div className="max-w-[800px] pr-12">
+        {/* Table of Contents for long messages */}
+        {showTOC && !isStreaming && (
+          <TableOfContents headings={headings} onScrollTo={handleScrollToHeading} />
+        )}
 
         {/* Main content with markdown */}
-        <div className="chat-message-content">
+        <div className="ai-message-content">
           <ReactMarkdown 
             remarkPlugins={[remarkGfm]}
             components={{
-              p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-              ul: ({ children }) => <ul className="list-disc pl-5 mb-3">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal pl-5 mb-3">{children}</ol>,
-              li: ({ children }) => <li className="mb-1">{children}</li>,
-              h1: ({ children }) => <h1 className="text-[15px] font-semibold mt-4 mb-2 first:mt-0">{children}</h1>,
-              h2: ({ children }) => <h2 className="text-[15px] font-semibold mt-4 mb-2 first:mt-0">{children}</h2>,
-              h3: ({ children }) => <h3 className="text-[15px] font-semibold mt-3 mb-2 first:mt-0">{children}</h3>,
-              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
+              ul: ({ children }) => <ul className="list-disc pl-5 mb-4 space-y-1">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal pl-5 mb-4 space-y-1">{children}</ol>,
+              li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+              h1: ({ children }) => {
+                const text = String(children);
+                const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                return <h1 data-heading-id={id} className="text-[17px] font-semibold mt-6 mb-3 first:mt-0 text-white/[0.92]">{children}</h1>;
+              },
+              h2: ({ children }) => {
+                const text = String(children);
+                const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                return <h2 data-heading-id={id} className="text-[16px] font-semibold mt-6 mb-3 first:mt-0 text-white/[0.92]">{children}</h2>;
+              },
+              h3: ({ children }) => {
+                const text = String(children);
+                const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                return <h3 data-heading-id={id} className="text-[15px] font-semibold mt-5 mb-2 first:mt-0 text-white/[0.92]">{children}</h3>;
+              },
+              strong: ({ children }) => <strong className="font-semibold text-white/[0.92]">{children}</strong>,
+              em: ({ children }) => <em className="italic">{children}</em>,
               code: ({ children, className }) => {
                 const isInline = !className;
                 if (isInline) {
-                  return <code className="bg-white/[0.10] px-1.5 py-0.5 rounded text-[13px]">{children}</code>;
+                  return <code className="bg-white/[0.08] px-1.5 py-0.5 rounded text-[13px] text-white/[0.85]">{children}</code>;
                 }
                 return (
-                  <code className="block bg-white/[0.08] p-3 rounded-lg text-[13px] overflow-x-auto">
+                  <code className="block bg-white/[0.06] p-4 rounded-lg text-[13px] overflow-x-auto text-white/[0.85]">
                     {children}
                   </code>
                 );
               },
-              pre: ({ children }) => <pre className="overflow-x-auto max-w-full my-3">{children}</pre>,
+              pre: ({ children }) => <pre className="overflow-x-auto max-w-full my-4">{children}</pre>,
               a: ({ href, children }) => (
-                <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#60A5FA] hover:text-[#93C5FD] hover:underline">
+                <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#60A5FA] hover:text-[#93C5FD] underline underline-offset-2">
                   {children}
                 </a>
               ),
+              blockquote: ({ children }) => (
+                <blockquote className="border-l-2 border-white/[0.15] pl-4 my-4 text-white/[0.70] italic">
+                  {children}
+                </blockquote>
+              ),
               table: ({ children }) => (
-                <div className="overflow-x-auto my-3">
-                  <table className="min-w-full border-collapse border border-white/[0.12]">{children}</table>
+                <div className="overflow-x-auto my-4">
+                  <table className="min-w-full border-collapse border border-white/[0.10]">{children}</table>
                 </div>
               ),
               th: ({ children }) => (
-                <th className="border border-white/[0.12] bg-white/[0.06] px-3 py-2 text-left text-[13px] font-medium">{children}</th>
+                <th className="border border-white/[0.10] bg-white/[0.04] px-3 py-2 text-left text-[13px] font-medium text-white/[0.85]">{children}</th>
               ),
               td: ({ children }) => (
-                <td className="border border-white/[0.12] px-3 py-2 text-[13px]">{children}</td>
+                <td className="border border-white/[0.10] px-3 py-2 text-[13px] text-white/[0.75]">{children}</td>
               ),
+              hr: () => <hr className="my-6 border-white/[0.08]" />,
             }}
           >
             {displayContent}
@@ -384,39 +438,6 @@ export function ChatMessageComponent({
         {message.followUpQuestions && message.followUpQuestions.length > 0 && (
           <FollowUpSection questions={message.followUpQuestions} onFollowUp={onFollowUpClick} />
         )}
-
-        {/* Footer with actions */}
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/[0.10]">
-          <div className="flex items-center gap-2">
-            {message.credits_used > 0 && (
-              <span className="text-[11px] text-white/[0.45]">
-                {message.credits_used} credit{message.credits_used !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCopy}
-              className="h-7 w-7 p-0 text-white/[0.35] hover:text-white/65 hover:bg-white/[0.08]"
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onToggleFavorite(message.id)}
-              className="h-7 w-7 p-0 text-white/[0.35] hover:text-white/65 hover:bg-white/[0.08]"
-            >
-              {message.is_favorite ? (
-                <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-              ) : (
-                <StarOff className="h-3.5 w-3.5" />
-              )}
-            </Button>
-          </div>
-        </div>
       </div>
     </div>
   );
