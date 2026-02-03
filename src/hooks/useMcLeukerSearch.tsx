@@ -41,11 +41,16 @@ export function useMcLeukerSearch(): UseMcLeukerSearchReturn {
     setResults(null);
 
     try {
-      const searchResults = await mcLeukerAPI.search(query);
+      // Use chat API for search functionality
+      const chatResponse = await mcLeukerAPI.chat(query, "quick", "general");
       const response: SearchResponse = {
         query,
-        summary: "",
-        results: searchResults.results || [],
+        summary: chatResponse.response || "",
+        results: (chatResponse.sources || []).map(s => ({
+          title: s.title,
+          url: s.url,
+          snippet: s.snippet
+        })),
       };
       setResults(response);
       return response;
@@ -64,10 +69,14 @@ export function useMcLeukerSearch(): UseMcLeukerSearchReturn {
     setQuickAnswerResult(null);
 
     try {
-      const chatResponse = await mcLeukerAPI.chat(question, "quick", []);
+      const chatResponse = await mcLeukerAPI.chat(question, "quick", "general");
       const answer: QuickAnswerResponse = {
-        answer: chatResponse.message || chatResponse.response || "",
-        sources: chatResponse.sources,
+        answer: chatResponse.response || "",
+        sources: (chatResponse.sources || []).map(s => ({
+          title: s.title,
+          url: s.url,
+          snippet: s.snippet
+        })),
       };
       setQuickAnswerResult(answer);
       return answer;

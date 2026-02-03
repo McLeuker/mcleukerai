@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useConversations } from "@/hooks/useConversations";
+import { useConversations, Conversation } from "@/hooks/useConversations";
 import { useSector, Sector } from "@/contexts/SectorContext";
 import { useDomainSnapshot } from "@/hooks/useDomainSnapshot";
 import { ChatSidebar } from "@/components/dashboard/ChatSidebar";
@@ -25,10 +25,8 @@ const Dashboard = () => {
     createNewConversation,
     selectConversation,
     toggleFavorite,
-    deleteMessage,
-    deleteConversation,
-    cancelRequest,
     retryMessage,
+    deleteConversation,
   } = useConversations();
   const { currentSector, setSector, getSectorConfig } = useSector();
   const { content: domainSnapshot, loading: snapshotLoading, fetchSnapshot, clearSnapshot } = useDomainSnapshot();
@@ -64,8 +62,18 @@ const Dashboard = () => {
     }
   }, [clearSnapshot, fetchSnapshot]);
 
-  const handleSendMessage = async (message: string, mode: "quick" | "deep" = "quick", model?: string) => {
-    await sendMessage(message, mode, model, currentSector);
+  const handleSendMessage = async (message: string, mode: "quick" | "deep" = "quick", _model?: string) => {
+    await sendMessage(message, mode, currentSector);
+  };
+
+  // Adapter for ChatSidebar which expects (conversation: Conversation) => void
+  const handleSelectConversation = (conversation: Conversation) => {
+    selectConversation(conversation.id);
+  };
+
+  // No-op for delete message since we don't have that feature yet
+  const handleDeleteMessage = (_messageId: string) => {
+    // Not implemented - messages are kept for history
   };
 
   // Determine if we should show the bottom input
@@ -80,7 +88,7 @@ const Dashboard = () => {
         currentConversation={currentConversation}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
-        onSelectConversation={selectConversation}
+        onSelectConversation={handleSelectConversation}
         onDeleteConversation={deleteConversation}
       />
 
@@ -103,7 +111,7 @@ const Dashboard = () => {
             <MobileChatSidebar
               conversations={conversations}
               currentConversation={currentConversation}
-              onSelectConversation={selectConversation}
+              onSelectConversation={handleSelectConversation}
               onNewConversation={createNewConversation}
               onDeleteConversation={deleteConversation}
             />
@@ -129,7 +137,7 @@ const Dashboard = () => {
             isLoading={loading}
             researchState={researchState}
             onToggleFavorite={toggleFavorite}
-            onDeleteMessage={deleteMessage}
+            onDeleteMessage={handleDeleteMessage}
             onNewChat={createNewConversation}
             onSelectPrompt={(prompt, mode, model) => handleSendMessage(prompt, mode || "quick", model)}
             onFollowUpClick={(question) => handleSendMessage(question, "quick")}
@@ -149,7 +157,6 @@ const Dashboard = () => {
                   onSubmit={handleSendMessage}
                   isLoading={loading}
                   placeholder={sectorConfig.placeholder}
-                  onCancel={cancelRequest}
                 />
               </div>
             </div>

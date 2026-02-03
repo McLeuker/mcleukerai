@@ -36,14 +36,13 @@ export function useMcLeukerChat(): UseMcLeukerChatReturn {
     setMessages((prev) => [...prev, userMessage]);
 
     try {
-      const response = await mcLeukerAPI.chat(content, "quick", []);
+      const response = await mcLeukerAPI.chat(content, "quick", "general");
 
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: response.message || response.response || "No response",
+        content: response.response || "No response",
         timestamp: new Date().toISOString(),
-        files: response.files,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
