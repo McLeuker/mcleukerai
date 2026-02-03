@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Footer } from "@/components/layout/Footer";
 import { TopNavigation } from "@/components/layout/TopNavigation";
 import { Mail, MessageSquare, Send, CheckCircle2, ArrowRight } from "lucide-react";
@@ -18,6 +19,7 @@ const Contact = () => {
     name: "",
     email: "",
     company: "",
+    inquiryType: "",
     message: ""
   });
 
@@ -25,6 +27,13 @@ const Contact = () => {
     setFormData(prev => ({
       ...prev,
       [e.target.name]: e.target.value
+    }));
+  };
+
+  const handleSelectChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      inquiryType: value
     }));
   };
 
@@ -64,15 +73,15 @@ const Contact = () => {
       icon: Mail,
       title: "General Inquiries",
       description: "For questions about our platform and services",
-      action: "contact@mcleuker.com",
-      href: "mailto:contact@mcleuker.com"
+      action: "info@mcleuker.com",
+      href: "mailto:info@mcleuker.com"
     },
     {
       icon: MessageSquare,
       title: "Enterprise Solutions",
       description: "For custom solutions and dedicated support",
-      action: "contact@mcleuker.com",
-      href: "mailto:contact@mcleuker.com"
+      action: "info@mcleuker.com",
+      href: "mailto:info@mcleuker.com"
     }
   ];
 
@@ -133,7 +142,7 @@ const Contact = () => {
                           className="bg-white/10 border-white/20 text-white hover:bg-white/20"
                           onClick={() => {
                             setIsSubmitted(false);
-                            setFormData({ name: "", email: "", company: "", message: "" });
+                            setFormData({ name: "", email: "", company: "", inquiryType: "", message: "" });
                           }}
                         >
                           Send Another Message
@@ -185,24 +194,51 @@ const Contact = () => {
                           </div>
                         </div>
                         
-                        <div className="space-y-3">
-                          <Label htmlFor="company" className="text-sm text-white/50 uppercase tracking-wide">
-                            Company
-                          </Label>
-                          <Input
-                            id="company"
-                            name="company"
-                            placeholder="Your company name"
-                            value={formData.company}
-                            onChange={handleChange}
-                            className={cn(
-                              "h-12 rounded-xl",
-                              "bg-gradient-to-b from-[#1B1B1B] to-[#111111]",
-                              "border border-white/[0.10]",
-                              "text-white/[0.88] placeholder:text-white/40",
-                              "focus:border-white/[0.18] focus:ring-white/[0.06]"
-                            )}
-                          />
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div className="space-y-3">
+                            <Label htmlFor="company" className="text-sm text-white/50 uppercase tracking-wide">
+                              Company
+                            </Label>
+                            <Input
+                              id="company"
+                              name="company"
+                              placeholder="Your company name"
+                              value={formData.company}
+                              onChange={handleChange}
+                              className={cn(
+                                "h-12 rounded-xl",
+                                "bg-gradient-to-b from-[#1B1B1B] to-[#111111]",
+                                "border border-white/[0.10]",
+                                "text-white/[0.88] placeholder:text-white/40",
+                                "focus:border-white/[0.18] focus:ring-white/[0.06]"
+                              )}
+                            />
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <Label htmlFor="inquiryType" className="text-sm text-white/50 uppercase tracking-wide">
+                              Inquiry Type
+                            </Label>
+                            <Select value={formData.inquiryType} onValueChange={handleSelectChange}>
+                              <SelectTrigger
+                                className={cn(
+                                  "h-12 rounded-xl",
+                                  "bg-gradient-to-b from-[#1B1B1B] to-[#111111]",
+                                  "border border-white/[0.10]",
+                                  "text-white/[0.88]",
+                                  "focus:border-white/[0.18] focus:ring-white/[0.06]",
+                                  !formData.inquiryType && "text-white/40"
+                                )}
+                              >
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#1A1A1A] border-white/10">
+                                <SelectItem value="general" className="text-white/80 focus:bg-white/10 focus:text-white">General</SelectItem>
+                                <SelectItem value="partnerships" className="text-white/80 focus:bg-white/10 focus:text-white">Partnerships</SelectItem>
+                                <SelectItem value="support" className="text-white/80 focus:bg-white/10 focus:text-white">Support</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                         
                         <div className="space-y-3">

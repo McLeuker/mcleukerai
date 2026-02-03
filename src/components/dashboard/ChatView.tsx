@@ -126,7 +126,7 @@ export function ChatView({
 
       {/* Messages - Scroll container with proper overflow */}
       <ScrollArea className="flex-1 overflow-x-hidden" ref={scrollRef}>
-        <div className="min-h-full py-6">
+        <div className="min-h-full py-6 pb-[140px]">
           {/* Centered message column */}
           <div className="max-w-[1040px] mx-auto px-6 lg:px-8 space-y-4">
             {filteredMessages.map((message, index) => {

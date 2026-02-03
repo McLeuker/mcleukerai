@@ -119,32 +119,36 @@ const About = () => {
             <div className="max-w-6xl mx-auto">
               <div className="text-center mb-20">
                 <p className="text-sm text-white/50 uppercase tracking-[0.2em] mb-4">
-                  What Drives Us
+                  Our Capabilities
                 </p>
                 <h2 className="font-luxury text-4xl md:text-5xl text-white/[0.92]">
-                  Our Values
+                  Areas of Expertise
                 </h2>
               </div>
               
-              <div className="grid md:grid-cols-2 gap-8">
-                {values.map((value, i) => (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[
+                  { title: "Strategy & Planning", desc: "Strategic intelligence for collection planning, market entry, and brand positioning." },
+                  { title: "Sustainability", desc: "Environmental impact analysis, certification mapping, and ESG reporting support." },
+                  { title: "Circularity", desc: "Circular business model research, resale market analysis, and waste reduction strategies." },
+                  { title: "Traceability", desc: "Supply chain transparency, due diligence research, and compliance verification." },
+                  { title: "Sourcing", desc: "Supplier discovery, capability assessment, and partnership evaluation." },
+                  { title: "Market Intelligence", desc: "Competitive analysis, pricing benchmarks, and consumer trend insights." }
+                ].map((capability, i) => (
                   <div 
                     key={i} 
                     className={cn(
-                      "p-8 lg:p-10 rounded-[20px]",
+                      "p-6 lg:p-8 rounded-[20px]",
                       "bg-gradient-to-b from-[#1A1A1A] to-[#141414]",
                       "border border-white/[0.10]",
                       "hover:border-white/[0.18] transition-all"
                     )}
                   >
-                    <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center mb-6">
-                      <value.icon className="w-6 h-6 text-white/70" />
-                    </div>
-                    <h3 className="text-xl lg:text-2xl font-medium text-white/[0.92] mb-4">
-                      {value.title}
+                    <h3 className="text-lg font-medium text-white/[0.92] mb-3">
+                      {capability.title}
                     </h3>
-                    <p className="text-white/60 leading-relaxed">
-                      {value.description}
+                    <p className="text-white/60 text-sm leading-relaxed">
+                      {capability.desc}
                     </p>
                   </div>
                 ))}

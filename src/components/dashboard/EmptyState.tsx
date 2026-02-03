@@ -1,217 +1,105 @@
-import { Sparkles, FileText, TrendingUp, Globe, Leaf, Cpu, ChevronRight } from "lucide-react";
+import { Sparkles, ArrowRight, Lightbulb } from "lucide-react";
 import { useSector } from "@/contexts/SectorContext";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
   onSelectPrompt: (prompt: string) => void;
+  onNewChat?: () => void;
 }
 
-const sectorSuggestions = {
-  all: [
-    {
-      icon: FileText,
-      title: "Supplier Research",
-      prompt: "Find sustainable denim suppliers in Europe with MOQ under 500 units",
-    },
-    {
-      icon: TrendingUp,
-      title: "Trend Analysis",
-      prompt: "Analyze emerging streetwear trends for Spring/Summer 2026",
-    },
-    {
-      icon: Globe,
-      title: "Market Intelligence",
-      prompt: "Compare luxury handbag pricing across US, EU, and Asian markets",
-    },
-  ],
-  fashion: [
-    {
-      icon: TrendingUp,
-      title: "Catwalk Analysis",
-      prompt: "Analyze SS26 womenswear trends from Milan and Paris Fashion Week",
-    },
-    {
-      icon: FileText,
-      title: "Collection Planning",
-      prompt: "Research color palettes for Resort 2026 women's ready-to-wear",
-    },
-    {
-      icon: Globe,
-      title: "Brand Positioning",
-      prompt: "Map luxury brand positioning strategies in emerging markets",
-    },
-  ],
-  beauty: [
-    {
-      icon: FileText,
-      title: "Ingredient Analysis",
-      prompt: "Research trending skincare ingredients for 2025 product development",
-    },
-    {
-      icon: Globe,
-      title: "Market Mapping",
-      prompt: "Map clean beauty brands gaining market share in North America",
-    },
-    {
-      icon: TrendingUp,
-      title: "Consumer Trends",
-      prompt: "Analyze Gen Z beauty purchasing patterns and preferences",
-    },
-  ],
-  skincare: [
-    {
-      icon: FileText,
-      title: "Regulatory Research",
-      prompt: "Map skincare ingredient regulations across EU, US, and Asia",
-    },
-    {
-      icon: Leaf,
-      title: "Clean Beauty",
-      prompt: "Research clean skincare certification requirements",
-    },
-    {
-      icon: TrendingUp,
-      title: "Trend Forecasting",
-      prompt: "Analyze emerging skincare technology trends for 2026",
-    },
-  ],
-  sustainability: [
-    {
-      icon: Leaf,
-      title: "Certification Audit",
-      prompt: "Map sustainability certifications for European fashion brands",
-    },
-    {
-      icon: Globe,
-      title: "Supply Chain",
-      prompt: "Research supply chain transparency practices in luxury fashion",
-    },
-    {
-      icon: FileText,
-      title: "Impact Assessment",
-      prompt: "Analyze environmental impact metrics for denim production",
-    },
-  ],
-  "fashion-tech": [
-    {
-      icon: Cpu,
-      title: "AI Adoption",
-      prompt: "Research AI adoption in fashion supply chains",
-    },
-    {
-      icon: TrendingUp,
-      title: "Technology Trends",
-      prompt: "Analyze emerging fashion tech startups and their solutions",
-    },
-    {
-      icon: Globe,
-      title: "Digital Innovation",
-      prompt: "Map digital fashion and virtual try-on technologies",
-    },
-  ],
-  catwalks: [
-    {
-      icon: TrendingUp,
-      title: "Runway Analysis",
-      prompt: "Analyze color and silhouette trends from Paris Fashion Week FW25",
-    },
-    {
-      icon: FileText,
-      title: "Designer Report",
-      prompt: "Create a comprehensive report on emerging designers at Milan Fashion Week",
-    },
-    {
-      icon: Globe,
-      title: "Global Shows",
-      prompt: "Compare styling trends across major fashion weeks",
-    },
-  ],
-  culture: [
-    {
-      icon: Globe,
-      title: "Cultural Influence",
-      prompt: "Research cultural influences on luxury brand positioning in Asia",
-    },
-    {
-      icon: TrendingUp,
-      title: "Consumer Behavior",
-      prompt: "Analyze cultural shifts in fashion consumption patterns",
-    },
-    {
-      icon: FileText,
-      title: "Heritage Brands",
-      prompt: "Map heritage brand strategies and cultural storytelling",
-    },
-  ],
-};
+const EXAMPLE_PROMPTS = [
+  "Analyze SS26 womenswear trends from Milan Fashion Week",
+  "Find sustainable denim suppliers in Europe with low MOQ",
+  "Compare luxury handbag pricing across global markets",
+  "Map sustainability certifications for European brands",
+  "Research AI adoption in fashion supply chains",
+  "Create a trend forecast report for Resort 2026"
+];
 
-export function EmptyState({ onSelectPrompt }: EmptyStateProps) {
-  const { currentSector, getSectorConfig } = useSector();
+const TIPS = [
+  "Be specific about timeframes, regions, and market segments for better results",
+  "You can request outputs in different formats: reports, spreadsheets, presentations",
+  "Use domain tabs to focus the AI on specific industry knowledge"
+];
+
+export function EmptyState({ onSelectPrompt, onNewChat }: EmptyStateProps) {
+  const { getSectorConfig } = useSector();
   const sectorConfig = getSectorConfig();
-  const suggestions = sectorSuggestions[currentSector] || sectorSuggestions.all;
 
   return (
-    <div className="flex flex-col items-center justify-center px-4 animate-fade-in">
-      <div className="text-center max-w-2xl">
-        {/* Icon with minimal treatment */}
-        <div className="relative w-16 h-16 mx-auto mb-8">
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-foreground/5 to-transparent" />
-          <div className="absolute inset-1 rounded-full bg-card border border-border flex items-center justify-center shadow-subtle">
-            <Sparkles className="h-6 w-6 text-foreground" />
+    <div className="flex flex-col items-center justify-center px-6 py-12 animate-fade-in max-w-[800px] mx-auto">
+      <div className="text-center w-full">
+        {/* Icon */}
+        <div className="w-14 h-14 rounded-2xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center mx-auto mb-8">
+          <Sparkles className="h-6 w-6 text-white/70" />
+        </div>
+
+        {/* Heading */}
+        <h2 className="font-luxury text-3xl sm:text-4xl text-white mb-4">
+          Start a new conversation
+        </h2>
+        <p className="text-white/60 mb-2 text-base max-w-lg mx-auto leading-relaxed">
+          Ask McLeuker AI anything about fashion, beauty, sustainability, or market intelligence. 
+          Get structured insights in seconds.
+        </p>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs text-white/50 mb-10">
+          Currently in: <span className="text-white/70">{sectorConfig.label}</span>
+        </div>
+
+        {/* Example Prompts */}
+        <div className="mb-12">
+          <p className="text-white/40 text-xs uppercase tracking-wider mb-4">Try an example</p>
+          <div className="grid gap-2 max-w-xl mx-auto">
+            {EXAMPLE_PROMPTS.map((prompt, index) => (
+              <button
+                key={index}
+                onClick={() => onSelectPrompt(prompt)}
+                className={cn(
+                  "group p-4 rounded-xl text-left transition-all duration-200",
+                  "bg-[#0D0D0D] border border-white/[0.06]",
+                  "hover:border-white/[0.12] hover:bg-[#101010]",
+                  "focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-2 focus:ring-offset-[#070707]"
+                )}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm text-white/70 group-hover:text-white/90 transition-colors">
+                    {prompt}
+                  </p>
+                  <ArrowRight className="h-4 w-4 text-white/30 group-hover:text-white/60 flex-shrink-0 group-hover:translate-x-0.5 transition-all" />
+                </div>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Heading with editorial typography */}
-        <h2 className="font-editorial text-3xl sm:text-4xl text-foreground mb-3 tracking-tight">
-          What would you like to research?
-        </h2>
-        <p className="text-muted-foreground mb-2 text-sm sm:text-base max-w-md mx-auto">
-          Describe your task in natural language. McLeuker AI will research,
-          analyze, and generate professional deliverables.
-        </p>
-        <div className="flex items-center justify-center gap-2 mb-10">
-          <span className="px-3 py-1 rounded-full bg-accent text-xs font-medium text-foreground border border-border">
-            {sectorConfig.label}
-          </span>
+        {/* Quick Tips */}
+        <div className="bg-[#0A0A0A] rounded-xl border border-white/[0.05] p-6 max-w-xl mx-auto">
+          <div className="flex items-center gap-2 mb-4">
+            <Lightbulb className="h-4 w-4 text-white/40" />
+            <p className="text-white/50 text-xs uppercase tracking-wider">Quick tips</p>
+          </div>
+          <div className="space-y-3">
+            {TIPS.map((tip, index) => (
+              <p key={index} className="text-sm text-white/50 leading-relaxed">
+                {tip}
+              </p>
+            ))}
+          </div>
         </div>
 
-        {/* Luxury Suggestion Cards */}
-        <div className="grid gap-3 text-left max-w-xl mx-auto">
-          {suggestions.map((suggestion, index) => (
-            <button
-              key={index}
-              onClick={() => onSelectPrompt(suggestion.prompt)}
-              className={cn(
-                "group p-4 rounded-xl transition-all duration-300",
-                "bg-card border border-border",
-                "hover:border-foreground/15 hover:shadow-subtle",
-                "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              )}
+        {/* CTA */}
+        {onNewChat && (
+          <div className="mt-10">
+            <Button
+              onClick={onNewChat}
+              className="bg-white text-black hover:bg-white/90 px-6 py-5"
             >
-              <div className="flex items-start gap-4">
-                <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                  "bg-secondary group-hover:bg-accent transition-colors duration-300"
-                )}>
-                  <suggestion.icon className="h-5 w-5 text-foreground" />
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-medium text-foreground mb-1">
-                    {suggestion.title}
-                  </p>
-                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-                    {suggestion.prompt}
-                  </p>
-                </div>
-                <ChevronRight className={cn(
-                  "h-5 w-5 text-muted-foreground shrink-0 mt-2.5",
-                  "group-hover:text-foreground group-hover:translate-x-0.5",
-                  "transition-all duration-200"
-                )} />
-              </div>
-            </button>
-          ))}
-        </div>
+              Start a new chat
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

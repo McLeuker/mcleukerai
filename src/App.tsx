@@ -22,6 +22,18 @@ import Contact from "./pages/Contact";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
+// New pages
+import Domains from "./pages/Domains";
+import HowItWorks from "./pages/HowItWorks";
+import TrendForecasting from "./pages/solutions/TrendForecasting";
+import SupplierResearch from "./pages/solutions/SupplierResearch";
+import MarketAnalysis from "./pages/solutions/MarketAnalysis";
+import SustainabilityInsights from "./pages/solutions/SustainabilityInsights";
+import Insights from "./pages/Insights";
+import Help from "./pages/Help";
+import Careers from "./pages/Careers";
+import Press from "./pages/Press";
+import Cookies from "./pages/Cookies";
 
 const queryClient = new QueryClient();
 
@@ -85,6 +97,18 @@ const App = () => {
                   <Route path="/contact" element={<Contact />} />
                   <Route path="/terms" element={<Terms />} />
                   <Route path="/privacy" element={<Privacy />} />
+                  {/* New pages */}
+                  <Route path="/domains" element={<Domains />} />
+                  <Route path="/how-it-works" element={<HowItWorks />} />
+                  <Route path="/solutions/trend-forecasting" element={<TrendForecasting />} />
+                  <Route path="/solutions/supplier-research" element={<SupplierResearch />} />
+                  <Route path="/solutions/market-analysis" element={<MarketAnalysis />} />
+                  <Route path="/solutions/sustainability-insights" element={<SustainabilityInsights />} />
+                  <Route path="/insights" element={<Insights />} />
+                  <Route path="/help" element={<Help />} />
+                  <Route path="/careers" element={<Careers />} />
+                  <Route path="/press" element={<Press />} />
+                  <Route path="/cookies" element={<Cookies />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
